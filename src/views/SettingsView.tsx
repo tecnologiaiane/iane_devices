@@ -72,11 +72,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     reader.readAsText(file);
   };
 
-  const handleResetDefaults = () => {
-    if (window.confirm('Atenção: Isso restaurará todos os dados fictícios originais de demonstração (aparelhos, linhas, colaboradores e movimentações). Deseja continuar?')) {
+  const handleClearDatabase = () => {
+    if (window.confirm('Atenção: Isso removerá todos os dados locais (aparelhos, linhas, colaboradores e movimentações), deixando o sistema 100% limpo para produção. Deseja continuar?')) {
       dataService.resetToDefaults();
       setAuditLogs(dataService.getAuditLogs());
-      setSuccessMessage('Base de demonstração restaurada para os padrões originais com sucesso.');
+      setSuccessMessage('Base de dados zerada com sucesso. O sistema está limpo para inserção de dados reais.');
       onDataReset();
     }
   };
@@ -224,22 +224,22 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
       </div>
 
-      {/* Reset Demo Data & Audit Log */}
+      {/* Limpeza Total da Base de Dados */}
       <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
           <div className="flex items-center gap-2">
-            <RotateCcw className="w-4 h-4 text-slate-500" />
-            <h3 className="text-sm font-bold text-slate-900">Restaurar Dados Fictícios Originais</h3>
+            <RotateCcw className="w-4 h-4 text-rose-600" />
+            <h3 className="text-sm font-bold text-slate-900">Limpar Base de Dados (Zerar para Produção)</h3>
           </div>
           <button
-            onClick={handleResetDefaults}
-            className="px-3.5 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors"
+            onClick={handleClearDatabase}
+            className="px-3.5 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors cursor-pointer self-start sm:self-auto"
           >
-            Restaurar Base de Demonstração
+            Zerar Todos os Dados
           </button>
         </div>
-        <p className="text-xs text-slate-500">
-          Utilize caso deseje resetar testes realizados e recarregar os exemplos fictícios de aparelhos (Apple, Samsung, Motorola), linhas (Vivo, Claro, TIM) e colaboradores.
+        <p className="text-xs text-slate-500 leading-relaxed">
+          Remove todos os registros locais e deixa os módulos de Aparelhos, Linhas, Colaboradores e Movimentações 100% vazios, prontos para receber o inventário real da IANE.
         </p>
       </div>
 

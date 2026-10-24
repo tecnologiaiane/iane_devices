@@ -230,3 +230,17 @@ export interface DashboardMetrics {
   pendingTermsCount: number;
   inconsistenciesCount: number;
 }
+
+export interface User {
+  id: string;
+  username: string;
+  fullName: string;
+  email?: string;
+  role: 'admin' | 'gestor' | 'visualizador';
+}
+
+export interface LoginCredentials {
+  username: string;
+  password: string;
+}
+

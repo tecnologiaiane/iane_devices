@@ -24,6 +24,9 @@ export type NavTab =
   | 'relatorios' 
   | 'configuracoes';
 
+import { User as UserType } from '../types';
+import { LogOut } from 'lucide-react';
+
 interface SidebarProps {
   activeTab: NavTab;
   onSelectTab: (tab: NavTab) => void;
@@ -31,6 +34,8 @@ interface SidebarProps {
   onToggleMobile: () => void;
   pendingTermsCount: number;
   maintenanceCount: number;
+  currentUser?: UserType | null;
+  onLogout?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -40,6 +45,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onToggleMobile,
   pendingTermsCount,
   maintenanceCount,
+  currentUser,
+  onLogout,
 }) => {
   const menuItems = [
     {
@@ -111,23 +118,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
         }`}
       >
         {/* Brand / Logo Area */}
-        <div className="h-16 px-5 flex items-center justify-between border-b border-slate-800/80 bg-slate-950/40">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold shadow-xs">
-              <ShieldCheck className="w-5 h-5 text-white" />
-            </div>
-            <div className="flex flex-col">
-              <span className="font-bold text-sm tracking-tight text-white leading-tight">
+        <div className="h-16 px-4 flex items-center justify-between border-b border-slate-800/80 bg-slate-950/40">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <img
+              src="/assets/aistudio/image_7420eaef.png"
+              alt="IANE"
+              className="h-7 w-auto object-contain shrink-0 drop-shadow-md"
+            />
+            <div className="flex flex-col min-w-0">
+              <span className="font-bold text-sm tracking-tight text-white leading-tight truncate">
                 IANE
               </span>
-              <span className="text-[10px] text-blue-400 font-semibold uppercase tracking-wider">
+              <span className="text-[10px] text-blue-400 font-semibold uppercase tracking-wider truncate">
                 Gestão de Dispositivos
               </span>
             </div>
           </div>
           <button
             onClick={onToggleMobile}
-            className="lg:hidden text-slate-400 hover:text-white p-1 rounded-md"
+            className="lg:hidden text-slate-400 hover:text-white p-1 rounded-md cursor-pointer"
             aria-label="Fechar menu"
           >
             <X className="w-5 h-5" />
@@ -198,18 +207,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* User / Org Footer */}
-        <div className="p-3.5 border-t border-slate-800/80 bg-slate-950/30 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center text-xs font-semibold text-slate-200 shrink-0">
-            TI
+        <div className="p-3.5 border-t border-slate-800/80 bg-slate-950/40 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-full bg-blue-900/60 border border-blue-600/50 flex items-center justify-center text-xs font-bold text-blue-200 shrink-0">
+              {currentUser?.username?.slice(0, 2).toUpperCase() || 'TI'}
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className="text-xs font-semibold text-slate-200 truncate">
+                {currentUser?.fullName || 'Gestor de Ativos'}
+              </span>
+              <span className="text-[10px] text-slate-400 truncate">
+                {currentUser?.email || 'tecnologia@iane.ind.br'}
+              </span>
+            </div>
           </div>
-          <div className="flex flex-col min-w-0">
-            <span className="text-xs font-medium text-slate-200 truncate">
-              Gestão de Ativos & TI
-            </span>
-            <span className="text-[11px] text-slate-400 truncate">
-              tecnologia@iane.ind.br
-            </span>
-          </div>
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              title="Sair do sistema"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-slate-800 transition-colors cursor-pointer"
+              aria-label="Sair"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </aside>
     </>

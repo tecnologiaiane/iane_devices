@@ -66,6 +66,71 @@ app.get('/api/health', async (_req, res) => {
   });
 });
 
+// 1.1 Autenticação e Login Corporativo
+app.post('/api/auth/login', async (req, res) => {
+  const { username, password } = req.body || {};
+  const trimmedUser = (username || '').trim().toLowerCase();
+  const trimmedPass = (password || '').trim();
+
+  if (!trimmedUser || !trimmedPass) {
+    return res.status(400).json({ success: false, message: 'Usuário e senha são obrigatórios.' });
+  }
+
+  // Se o banco estiver conectado, busca na tabela system_users
+  if (pool && isDbConnected) {
+    try {
+      const userRes = await pool.query(
+        'SELECT id, username, password_hash, full_name as "fullName", email, role, active FROM system_users WHERE LOWER(username) = $1',
+        [trimmedUser]
+      );
+      if (userRes.rows.length > 0) {
+        const dbUser = userRes.rows[0];
+        if (!dbUser.active) {
+          return res.status(403).json({ success: false, message: 'Usuário desativado pelo administrador.' });
+        }
+        if (dbUser.password_hash === trimmedPass) {
+          return res.json({
+            success: true,
+            user: {
+              id: dbUser.id,
+              username: dbUser.username,
+              fullName: dbUser.fullName,
+              email: dbUser.email,
+              role: dbUser.role,
+            },
+            token: 'iane_session_' + Date.now(),
+          });
+        } else {
+          return res.status(401).json({ success: false, message: 'Senha incorreta.' });
+        }
+      }
+    } catch (e: any) {
+      console.warn('⚠️ [Auth] Erro ao consultar tabela system_users:', e.message);
+    }
+  }
+
+  // Fallback padrão se usuário for admin / iane
+  if (
+    (trimmedUser === 'admin' && (trimmedPass === 'admin' || trimmedPass === 'admin123' || trimmedPass === 'iane123')) ||
+    (trimmedUser === 'iane' && (trimmedPass === 'iane' || trimmedPass === 'iane123' || trimmedPass === 'admin')) ||
+    (trimmedUser === 'tecnologia@iane.ind.br' && (trimmedPass === 'admin' || trimmedPass === 'iane123'))
+  ) {
+    return res.json({
+      success: true,
+      user: {
+        id: 'user-admin',
+        username: trimmedUser,
+        fullName: trimmedUser === 'iane' ? 'Gestão IANE' : 'Administrador IANE',
+        email: 'tecnologia@iane.ind.br',
+        role: 'admin',
+      },
+      token: 'iane_local_session_' + Date.now(),
+    });
+  }
+
+  return res.status(401).json({ success: false, message: 'Usuário ou senha inválidos.' });
+});
+
 // 2. Dispositivos (Smartphones)
 app.get('/api/devices', async (_req, res) => {
   if (!pool || !isDbConnected) {

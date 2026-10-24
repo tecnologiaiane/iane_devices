@@ -17,10 +17,13 @@ import { CollaboratorModal } from './components/modals/CollaboratorModal';
 import { TermViewerModal } from './components/modals/TermViewerModal';
 import { SpreadsheetImportModal } from './components/modals/SpreadsheetImportModal';
 
-import { Device, PhoneLine, Collaborator, DocumentTerm, MovementType } from './types';
+import { Device, PhoneLine, Collaborator, DocumentTerm, MovementType, User } from './types';
 import { dataService } from './services/dataStorage';
+import { authService } from './services/authService';
+import { LoginView } from './views/LoginView';
 
 export default function App() {
+  const [currentUser, setCurrentUser] = useState<User | null>(() => authService.getCurrentUser());
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -81,6 +84,23 @@ export default function App() {
     setIsTermViewerOpen(true);
   };
 
+  const handleLogout = () => {
+    authService.logout();
+    setCurrentUser(null);
+  };
+
+  // Se não estiver logado, exibe a tela de login no modelo IANE
+  if (!currentUser) {
+    return (
+      <LoginView
+        onLoginSuccess={(user) => {
+          setCurrentUser(user);
+          triggerRefresh();
+        }}
+      />
+    );
+  }
+
   // Metrics for badges
   const metrics = dataService.getDashboardMetrics();
 
@@ -94,6 +114,8 @@ export default function App() {
         onToggleMobile={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         pendingTermsCount={metrics.pendingTermsCount}
         maintenanceCount={metrics.stockMaintenance}
+        currentUser={currentUser}
+        onLogout={handleLogout}
       />
 
       {/* Main Content Area */}
@@ -103,6 +125,8 @@ export default function App() {
           onToggleMobile={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           onOpenMovementModal={() => handleOpenMovementModal()}
           onOpenDeviceModal={() => handleOpenDeviceModal()}
+          currentUser={currentUser}
+          onLogout={handleLogout}
         />
 
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">

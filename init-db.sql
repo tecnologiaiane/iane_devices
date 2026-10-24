@@ -109,3 +109,23 @@ CREATE INDEX IF NOT EXISTS idx_movements_batch ON movements(batch_operation_id);
 CREATE INDEX IF NOT EXISTS idx_movements_device ON movements(device_id);
 CREATE INDEX IF NOT EXISTS idx_lines_phone ON phone_lines(phone_number);
 
+-- 6. TABELA DE USUÁRIOS DO SISTEMA (LOGIN & ACESSO)
+CREATE TABLE IF NOT EXISTS system_users (
+    id VARCHAR(50) PRIMARY KEY,
+    username VARCHAR(100) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(150) NOT NULL,
+    email VARCHAR(150),
+    role VARCHAR(50) DEFAULT 'admin', -- admin, gestor, visualizador
+    active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_users_username ON system_users(username);
+
+-- Usuário administrador inicial padrão (apenas acesso ao sistema, sem dados de negócio)
+INSERT INTO system_users (id, username, password_hash, full_name, email, role)
+VALUES ('user-admin-1', 'admin', 'admin', 'Administrador IANE', 'tecnologia@iane.ind.br', 'admin')
+ON CONFLICT (username) DO NOTHING;
+
+

@@ -2,11 +2,16 @@ import React from 'react';
 import { Menu, Plus, ArrowLeftRight, Smartphone } from 'lucide-react';
 import { NavTab } from './Sidebar';
 
+import { User as UserType } from '../types';
+import { LogOut, User } from 'lucide-react';
+
 interface HeaderProps {
   activeTab: NavTab;
   onToggleMobile: () => void;
   onOpenMovementModal: () => void;
   onOpenDeviceModal: () => void;
+  currentUser?: UserType | null;
+  onLogout?: () => void;
 }
 
 const TAB_TITLES: Record<NavTab, { title: string; category: string }> = {
@@ -25,6 +30,8 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleMobile,
   onOpenMovementModal,
   onOpenDeviceModal,
+  currentUser,
+  onLogout,
 }) => {
   const info = TAB_TITLES[activeTab] || { title: 'IANE - Gestão de Dispositivos', category: 'Gestão' };
 
@@ -52,11 +59,11 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Right: Quick Corporate Actions */}
+      {/* Right: Quick Corporate Actions & User Status */}
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
         <button
           onClick={onOpenDeviceModal}
-          className="hidden md:inline-flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors whitespace-nowrap"
+          className="hidden md:inline-flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors whitespace-nowrap cursor-pointer"
         >
           <Smartphone className="w-3.5 h-3.5 text-slate-600" />
           <span>Cadastrar Aparelho</span>
@@ -64,11 +71,32 @@ export const Header: React.FC<HeaderProps> = ({
 
         <button
           onClick={onOpenMovementModal}
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-xs transition-colors whitespace-nowrap"
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-xs transition-colors whitespace-nowrap cursor-pointer"
         >
           <ArrowLeftRight className="w-3.5 h-3.5" />
           <span>Nova Movimentação</span>
         </button>
+
+        {currentUser && onLogout && (
+          <div className="flex items-center pl-2 ml-1 border-l border-slate-200 gap-2">
+            <div className="hidden xl:flex flex-col text-right">
+              <span className="text-xs font-bold text-slate-800 leading-tight">
+                {currentUser.fullName}
+              </span>
+              <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">
+                {currentUser.role}
+              </span>
+            </div>
+            <button
+              onClick={onLogout}
+              title="Sair do sistema"
+              className="p-2 rounded-lg text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+              aria-label="Sair da conta"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );
