@@ -66,10 +66,10 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
       />
 
       {/* 2. Camada de gradiente corporativo para contraste ideal */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#072448]/90 via-[#0b3c7b]/80 to-[#03152b]/95" />
+      <div className="absolute inset-0 bg-gradient-to-br from-[#061b36]/90 via-[#0a3875]/85 to-[#0b4d9c]/80" />
 
-      {/* 3. Card de Login Limpo (Clean Corporate Card) */}
-      <div className="relative z-10 w-full max-w-[390px] bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl p-7 sm:p-8 border border-white/50 transition-all">
+      {/* 3. Card de Login Limpo nas cores da empresa */}
+      <div className="relative z-10 w-full max-w-[390px] bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl p-7 sm:p-8 border border-blue-100/60 transition-all">
         {/* Ícone Superior Central: icone.png */}
         <div className="flex flex-col items-center mb-6">
           <img
@@ -77,7 +77,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
             alt="IANE - Gestão de Dispositivos"
             className="w-32 h-auto max-h-20 object-contain drop-shadow-sm mb-2"
           />
-          <h1 className="text-xs font-semibold tracking-wider uppercase text-slate-500 text-center">
+          <h1 className="text-xs font-bold tracking-wider uppercase text-[#0b4d9c] text-center">
             Gestão de Dispositivos
           </h1>
         </div>
@@ -113,10 +113,10 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                   }
                 }}
                 placeholder="Digite seu Login"
-                className={`w-full px-3.5 py-2.5 bg-slate-50 hover:bg-white focus:bg-white border rounded-lg text-sm text-slate-800 placeholder-slate-400 outline-none transition-colors ${
+                className={`w-full px-3.5 py-2.5 bg-slate-50 hover:bg-white focus:bg-white border rounded-lg text-sm text-slate-800 placeholder-slate-400 outline-none transition-all ${
                   usernameError
-                    ? 'border-red-400 focus:border-red-500 focus:ring-1 focus:ring-red-400'
-                    : 'border-slate-300 focus:border-slate-500 focus:ring-1 focus:ring-slate-400'
+                    ? 'border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-200'
+                    : 'border-slate-300 focus:border-[#0b4d9c] focus:ring-2 focus:ring-[#0b4d9c]/20'
                 }`}
               />
             </div>
@@ -148,16 +148,16 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                   }
                 }}
                 placeholder="Digite sua Senha"
-                className={`w-full pl-3.5 pr-10 py-2.5 bg-slate-50 hover:bg-white focus:bg-white border rounded-lg text-sm text-slate-800 placeholder-slate-400 outline-none transition-colors ${
+                className={`w-full pl-3.5 pr-10 py-2.5 bg-slate-50 hover:bg-white focus:bg-white border rounded-lg text-sm text-slate-800 placeholder-slate-400 outline-none transition-all ${
                   passwordError
-                    ? 'border-red-400 focus:border-red-500 focus:ring-1 focus:ring-red-400'
-                    : 'border-slate-300 focus:border-slate-500 focus:ring-1 focus:ring-slate-400'
+                    ? 'border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-200'
+                    : 'border-slate-300 focus:border-[#0b4d9c] focus:ring-2 focus:ring-[#0b4d9c]/20'
                 }`}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-[#0b4d9c] transition-colors cursor-pointer"
                 tabIndex={-1}
                 aria-label={showPassword ? 'Ocultar senha' : 'Exibir senha'}
               >
@@ -175,11 +175,11 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
             )}
           </div>
 
-          {/* Botão de Login (Deep Teal/Dark Blue com cantos arredondados conforme referência) */}
+          {/* Botão de Login nas cores corporativas azuis da IANE */}
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full mt-2 py-3 px-4 bg-[#093c44] hover:bg-[#062c33] active:scale-[0.99] text-white font-semibold text-sm tracking-wide rounded-lg shadow-md hover:shadow-lg transition-all duration-150 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
+            className="w-full mt-2 py-3 px-4 bg-[#0b4d9c] hover:bg-[#083e7f] active:bg-[#063166] active:scale-[0.99] text-white font-semibold text-sm tracking-wide rounded-lg shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-[#0b4d9c] focus:ring-offset-2 transition-all duration-150 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
           >
             {isLoading ? (
               <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
