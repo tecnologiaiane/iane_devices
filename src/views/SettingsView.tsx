@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { dataService } from '../services/dataStorage';
 import { formatDate } from '../utils/formatters';
 import {
@@ -12,7 +12,9 @@ import {
   History,
   CheckCircle2,
   AlertTriangle,
-  Server
+  Server,
+  Activity,
+  Terminal
 } from 'lucide-react';
 
 interface SettingsViewProps {
@@ -27,6 +29,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [auditLogs, setAuditLogs] = useState(dataService.getAuditLogs());
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [serverHealth, setServerHealth] = useState<{
+    database: string;
+    environment: string;
+  } | null>(null);
+
+  useEffect(() => {
+    fetch('/api/health')
+      .then(res => res.json())
+      .then(data => setServerHealth(data))
+      .catch(() => setServerHealth({ database: 'local_storage_mode', environment: 'client' }));
+  }, []);
 
   const handleDownloadBackup = () => {
     const json = dataService.exportFullBackup();
@@ -85,18 +98,65 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
       )}
 
-      {/* Production Architecture Notice */}
+      {/* Production Architecture & PostgreSQL On-Premise Status */}
       <div className="bg-slate-900 text-slate-100 p-6 rounded-xl border border-slate-800 shadow-md">
-        <div className="flex items-start gap-4">
-          <div className="w-10 h-10 rounded-lg bg-blue-600/30 border border-blue-500/40 flex items-center justify-center text-blue-400 shrink-0">
-            <Server className="w-5 h-5" />
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-blue-600/30 border border-blue-500/40 flex items-center justify-center text-blue-400 shrink-0">
+              <Server className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                <span>Servidor On-Premise & Conexão PostgreSQL</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                  Pronto para Deploy
+                </span>
+              </h2>
+              <p className="text-xs text-slate-400">
+                Backend Express (`server.ts`), Docker Compose e Script SQL (`init-db.sql`) configurados
+              </p>
+            </div>
           </div>
-          <div className="space-y-1.5 text-xs">
-            <h2 className="text-sm font-bold text-white">
-              Arquitetura Operacional do Protótipo & Roadmap de Produção
-            </h2>
-            <p className="text-slate-300 leading-relaxed">
-              Nesta primeira fase, a aplicação armazena e simula todas as operações de maneira íntegra e atômica diretamente no navegador (armazenamento local). A arquitetura foi estruturada em camadas desacopladas (Serviço de Repositório de Dados, Regras de Negócio e Validações Patrimoniais), permitindo conectá-la a uma base de dados centralizada corporativa (ex.: PostgreSQL / Cloud SQL ou Firestore) e autenticação SSO (Google Workspace) com perfis de acesso (Administrador TI, Auditor e Consulta) nas etapas seguintes.
+
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700 text-xs">
+            <div className={`w-2.5 h-2.5 rounded-full ${serverHealth?.database === 'connected' ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'}`} />
+            <span className="text-slate-300 font-medium">
+              Status do Banco:
+            </span>
+            <span className={`font-semibold ${serverHealth?.database === 'connected' ? 'text-emerald-400' : 'text-amber-300'}`}>
+              {serverHealth?.database === 'connected' ? 'PostgreSQL Conectado' : 'Modo Híbrido (Armazenamento Local)'}
+            </span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4 text-xs">
+          <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/60">
+            <div className="flex items-center gap-2 font-semibold text-white mb-1">
+              <Terminal className="w-3.5 h-3.5 text-blue-400" />
+              <span>1. Docker Compose</span>
+            </div>
+            <p className="text-slate-400 text-[11px] leading-relaxed">
+              Suba o PostgreSQL 16 e o backend com <code className="bg-slate-900 px-1 py-0.5 rounded text-blue-300">docker compose up -d</code>.
+            </p>
+          </div>
+
+          <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/60">
+            <div className="flex items-center gap-2 font-semibold text-white mb-1">
+              <Database className="w-3.5 h-3.5 text-emerald-400" />
+              <span>2. Schema & Seeds</span>
+            </div>
+            <p className="text-slate-400 text-[11px] leading-relaxed">
+              O arquivo <code className="bg-slate-900 px-1 py-0.5 rounded text-emerald-300">init-db.sql</code> cria tabelas, índices e dados da IANE.
+            </p>
+          </div>
+
+          <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/60">
+            <div className="flex items-center gap-2 font-semibold text-white mb-1">
+              <Activity className="w-3.5 h-3.5 text-indigo-400" />
+              <span>3. Nginx Reverse Proxy</span>
+            </div>
+            <p className="text-slate-400 text-[11px] leading-relaxed">
+              O <code className="bg-slate-900 px-1 py-0.5 rounded text-indigo-300">nginx.conf</code> já está configurado para <code className="text-slate-300">telefonia.iane.ind.br</code>.
             </p>
           </div>
         </div>

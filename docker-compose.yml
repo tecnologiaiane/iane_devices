@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  # ----------------------------------------------------------------------------
+  # 1. Banco de Dados Relacional PostgreSQL
+  # ----------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: telecom_postgres
+    restart: always
+    environment:
+      POSTGRES_DB: telecom_assets
+      POSTGRES_USER: iane_admin
+      POSTGRES_PASSWORD: SuaSenhaForteAqui123!
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    ports:
+      # Acesso local para administração (pgAdmin, DBeaver)
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U iane_admin -d telecom_assets"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - telecom_net
+
+  # ----------------------------------------------------------------------------
+  # 2. Aplicação Web TelecomAsset Pro (Backend Express + Frontend React)
+  # ----------------------------------------------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: telecom_app
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgres://iane_admin:SuaSenhaForteAqui123!@postgres:5432/telecom_assets
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - telecom_net
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  telecom_net:
+    driver: bridge
