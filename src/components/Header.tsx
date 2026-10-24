@@ -26,7 +26,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenMovementModal,
   onOpenDeviceModal,
 }) => {
-  const info = TAB_TITLES[activeTab] || { title: 'TelecomAsset Pro', category: 'Gestão' };
+  const info = TAB_TITLES[activeTab] || { title: 'IANE - Gestão de Dispositivos', category: 'Gestão' };
 
   return (
     <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-xs border-b border-slate-200 h-16 px-4 sm:px-6 flex items-center justify-between gap-4">
@@ -42,7 +42,7 @@ export const Header: React.FC<HeaderProps> = ({
 
         <div className="flex flex-col min-w-0">
           <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-            <span className="hidden sm:inline">TelecomAsset</span>
+            <span className="hidden sm:inline font-bold text-slate-700">IANE</span>
             <span className="hidden sm:inline text-slate-300">/</span>
             <span className="truncate">{info.category}</span>
           </div>

@@ -90,10 +90,10 @@ export const TermViewerModal: React.FC<TermViewerModalProps> = ({
               </div>
               <div>
                 <h2 className="text-base font-bold uppercase tracking-tight text-slate-900">
-                  Sistema de Gestão Patrimonial Corporativa
+                  IANE — Gestão de Dispositivos
                 </h2>
                 <p className="text-xs text-slate-600">
-                  Departamento de Tecnologia da Informação & Telecomunicações
+                  IANE Indústria e Comércio — Departamento de TI
                 </p>
               </div>
             </div>
@@ -114,7 +114,7 @@ export const TermViewerModal: React.FC<TermViewerModalProps> = ({
               {term.title}
             </h1>
             <p className="text-xs text-slate-500 italic mt-0.5">
-              Ref.: Atribuição e Custódia de Ativo de Telecomunicação Móvel Corporativo
+              Ref.: Atribuição e Custódia de Dispositivo Móvel Corporativo — IANE
             </p>
           </div>
 

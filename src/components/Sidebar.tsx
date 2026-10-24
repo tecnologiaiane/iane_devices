@@ -117,11 +117,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <ShieldCheck className="w-5 h-5 text-white" />
             </div>
             <div className="flex flex-col">
-              <span className="font-semibold text-sm tracking-tight text-white leading-tight">
-                TelecomAsset Pro
+              <span className="font-bold text-sm tracking-tight text-white leading-tight">
+                IANE
               </span>
-              <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">
-                Gestão Patrimonial
+              <span className="text-[10px] text-blue-400 font-semibold uppercase tracking-wider">
+                Gestão de Dispositivos
               </span>
             </div>
           </div>

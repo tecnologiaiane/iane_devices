@@ -158,7 +158,7 @@ export const ReportsView: React.FC = () => {
       // Generic fallback
       const headers = ['Identificador', 'Descrição', 'Status', 'Responsável', 'Departamento'];
       const rows = devices.map(d => [d.assetTag, `${d.brand} ${d.model}`, d.status, d.currentCollaboratorName || 'Estoque', d.currentDepartment || '']);
-      downloadCsv(`Relatorio_Telecom_${timestamp}.csv`, [headers, ...rows]);
+      downloadCsv(`Relatorio_IANE_Dispositivos_${timestamp}.csv`, [headers, ...rows]);
     }
   };
 

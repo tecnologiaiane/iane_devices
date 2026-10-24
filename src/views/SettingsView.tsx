@@ -47,7 +47,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `backup_telecomasset_${new Date().toISOString().split('T')[0]}.json`;
+    link.download = `backup_iane_dispositivos_${new Date().toISOString().split('T')[0]}.json`;
     link.click();
   };
 

@@ -27,7 +27,7 @@ services:
       - telecom_net
 
   # ----------------------------------------------------------------------------
-  # 2. Aplicação Web TelecomAsset Pro (Backend Express + Frontend React)
+  # 2. Aplicação Web IANE - Gestão de Dispositivos (Backend Express + Frontend React)
   # ----------------------------------------------------------------------------
   app:
     build:
