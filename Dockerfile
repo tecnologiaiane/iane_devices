@@ -1,5 +1,5 @@
 # ==============================================================================
-# Dockerfile para TelecomAsset Pro
+# Dockerfile para IANE - Gestão de Dispositivos
 # Suporte a Node.js 20 + Express + React SPA
 # ==============================================================================
 
@@ -10,8 +10,8 @@ WORKDIR /app
 # Copia manifestos de dependência
 COPY package*.json ./
 
-# Instala dependências completas para o build
-RUN npm install
+# Instala dependências completas para o build usando --legacy-peer-deps
+RUN npm install --legacy-peer-deps
 
 # Copia o código-fonte
 COPY . .
@@ -31,7 +31,7 @@ ENV PORT=3000
 
 # Copia manifestos e instala apenas dependências de produção
 COPY package*.json ./
-RUN npm install --omit=dev && npm install -g tsx
+RUN npm install --omit=dev --legacy-peer-deps && npm install -g tsx
 
 # Copia os arquivos compilados do frontend e o backend
 COPY --from=builder /app/dist ./dist
