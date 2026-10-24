@@ -123,9 +123,13 @@ CREATE TABLE IF NOT EXISTS system_users (
 
 CREATE INDEX IF NOT EXISTS idx_users_username ON system_users(username);
 
--- Usuário administrador inicial padrão (apenas acesso ao sistema, sem dados de negócio)
+-- Super Usuário Oficial da TI IANE (Substitui admin genérico)
 INSERT INTO system_users (id, username, password_hash, full_name, email, role)
-VALUES ('user-admin-1', 'admin', 'admin', 'Administrador IANE', 'tecnologia@iane.ind.br', 'admin')
-ON CONFLICT (username) DO NOTHING;
+VALUES ('user-iane-super-1', 'tecnologia@iane.ind.br', 'Iane@2026', 'TI IANE - Super Usuário', 'tecnologia@iane.ind.br', 'admin')
+ON CONFLICT (username) DO UPDATE SET password_hash = EXCLUDED.password_hash;
+
+INSERT INTO system_users (id, username, password_hash, full_name, email, role)
+VALUES ('user-iane-super-2', 'tecnologia', 'Iane@2026', 'TI IANE - Super Usuário', 'tecnologia@iane.ind.br', 'admin')
+ON CONFLICT (username) DO UPDATE SET password_hash = EXCLUDED.password_hash;
 
 

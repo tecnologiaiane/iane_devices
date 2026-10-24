@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Lock, Eye, EyeOff, ShieldCheck, ArrowRight, Info, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { User, Lock, Eye, EyeOff, AlertCircle, Info, ShieldCheck } from 'lucide-react';
 import { authService } from '../services/authService';
 import { User as UserType } from '../types';
 
@@ -8,7 +8,7 @@ interface LoginViewProps {
 }
 
 export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
-  const [username, setUsername] = useState('admin');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -20,7 +20,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
     setErrorMessage(null);
 
     if (!username.trim() || !password.trim()) {
-      setErrorMessage('Por favor, preencha o usuário e a senha.');
+      setErrorMessage('Por favor, informe o usuário e a senha.');
       return;
     }
 
@@ -33,39 +33,39 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
         setErrorMessage(res.message || 'Credenciais inválidas. Verifique usuário e senha.');
       }
     } catch {
-      setErrorMessage('Erro ao autenticar. Tente novamente.');
+      setErrorMessage('Erro ao autenticar no servidor. Tente novamente.');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="relative min-h-screen w-full flex items-center justify-center overflow-hidden bg-[#0c4a96] font-sans select-none">
-      {/* 1. Imagem de fundo institucional da IANE (logo_fbffa460.jpg) com desfoque elegante */}
+    <div className="relative min-h-screen w-full flex items-center justify-center overflow-hidden bg-[#0c3e7d] font-sans select-none">
+      {/* 1. Imagem de fundo corporativa logo.jpg com desfoque suave */}
       <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat transform scale-105 filter blur-md opacity-35"
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat transform scale-105 filter blur-xs opacity-40 transition-all duration-700"
         style={{
-          backgroundImage: "url('/assets/aistudio/logo_fbffa460.jpg')",
+          backgroundImage: "url('/logo.jpg')",
         }}
         aria-hidden="true"
       />
 
-      {/* 2. Camada de gradiente em azul profundo para harmonizar com o modelo de layout */}
-      <div className="absolute inset-0 bg-gradient-to-b from-[#1253a8]/80 via-[#0e4896]/85 to-[#082a5e]/95 backdrop-blur-[2px]" />
+      {/* 2. Camada gradiente azul corporativo para legibilidade e elegância */}
+      <div className="absolute inset-0 bg-gradient-to-b from-[#0b3c7b]/85 via-[#0d47a1]/80 to-[#072552]/95 backdrop-blur-[3px]" />
 
-      {/* Ondulações de iluminação suaves */}
-      <div className="absolute -top-32 -left-32 w-96 h-96 bg-blue-400/20 rounded-full filter blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-amber-400/15 rounded-full filter blur-3xl pointer-events-none" />
+      {/* Brilhos e reflexos sutis de iluminação de fundo */}
+      <div className="absolute -top-40 -left-40 w-96 h-96 bg-blue-400/20 rounded-full filter blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-amber-400/15 rounded-full filter blur-3xl pointer-events-none" />
 
-      {/* 3. Card Central de Login (Seguindo fielmente o modelo do usuário) */}
+      {/* 3. Card Central de Login */}
       <div className="relative z-10 w-full max-w-sm px-6 py-8 mx-4 flex flex-col items-center">
-        {/* Ícone Superior Central: Logo Oval da IANE transparente */}
-        <div className="mb-8 flex flex-col items-center group cursor-pointer">
+        {/* Ícone Superior Central: icone.png */}
+        <div className="mb-6 flex flex-col items-center">
           <div className="relative transition-transform duration-300 hover:scale-105 drop-shadow-2xl">
             <img
-              src="/assets/aistudio/image_7420eaef.png"
-              alt="Logo IANE"
-              className="w-36 h-auto max-h-24 object-contain filter drop-shadow-[0_8px_16px_rgba(0,0,0,0.35)]"
+              src="/icone.png"
+              alt="IANE"
+              className="w-36 h-auto max-h-24 object-contain filter drop-shadow-[0_8px_20px_rgba(0,0,0,0.4)]"
             />
           </div>
           <span className="mt-3 text-xs font-semibold tracking-widest uppercase text-blue-100/90 text-center drop-shadow-sm">
@@ -75,7 +75,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
 
         {/* Mensagem de Erro */}
         {errorMessage && (
-          <div className="w-full mb-4 px-3.5 py-2.5 rounded-lg bg-red-500/25 border border-red-400/40 text-red-100 text-xs flex items-center gap-2 animate-shake">
+          <div className="w-full mb-4 px-3.5 py-2.5 rounded-lg bg-red-500/25 border border-red-400/40 text-red-100 text-xs flex items-center gap-2 animate-shake shadow-md">
             <AlertCircle className="w-4 h-4 text-red-300 shrink-0" />
             <span className="flex-1 font-medium">{errorMessage}</span>
           </div>
@@ -118,7 +118,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-white/60 hover:text-white transition-colors"
+              className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-white/60 hover:text-white transition-colors cursor-pointer"
               tabIndex={-1}
               aria-label={showPassword ? 'Ocultar senha' : 'Exibir senha'}
             >
@@ -126,7 +126,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
             </button>
           </div>
 
-          {/* Botão LOGIN Estilizado em Branco com Texto Azul conforme o modelo */}
+          {/* Botão LOGIN Branco conforme o modelo */}
           <button
             type="submit"
             disabled={isLoading}
@@ -150,15 +150,9 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
             Forgot password?
           </button>
         </div>
-
-        {/* Dica de Acesso Rápido para Primeiro Login */}
-        <div className="mt-8 pt-4 border-t border-white/15 w-full flex items-center justify-center gap-2 text-[11px] text-white/70">
-          <ShieldCheck className="w-3.5 h-3.5 text-amber-300" />
-          <span>Acesso Inicial: <strong>admin</strong> | Senha: <strong>admin</strong></span>
-        </div>
       </div>
 
-      {/* Modal de Esqueceu a Senha */}
+      {/* Modal de Recuperação de Senha */}
       {isForgotPasswordOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-fadeIn">
           <div className="bg-white rounded-2xl max-w-sm w-full p-6 text-slate-800 shadow-2xl relative">
@@ -167,21 +161,21 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                 <Info className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-bold text-base text-slate-900">Recuperação de Senha</h3>
-                <p className="text-xs text-slate-500">IANE Indústria e Comércio</p>
+                <h3 className="font-bold text-base text-slate-900">Recuperação de Acesso</h3>
+                <p className="text-xs text-slate-500">IANE - Gestão de Dispositivos</p>
               </div>
             </div>
 
             <div className="text-xs text-slate-600 space-y-3 leading-relaxed mb-6">
               <p>
-                Por motivos de conformidade e segurança patrimonial da IANE, o reset de senhas de operadores e gestores de telefonia é gerenciado pelo setor de Tecnologia da Informação.
+                Por políticas de segurança interna e controle patrimonial, senhas de operadores e gestores são gerenciadas pelo setor de Tecnologia da Informação.
               </p>
               <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
-                <p className="font-semibold text-slate-800">Contato direto com TI:</p>
-                <p className="text-blue-600 font-mono mt-0.5">tecnologia@iane.ind.br</p>
+                <p className="font-semibold text-slate-800">Suporte e Gestão de Contas:</p>
+                <p className="text-blue-600 font-mono mt-0.5 select-all">tecnologia@iane.ind.br</p>
               </div>
               <p className="text-[11px] text-slate-400">
-                * Caso esteja em ambiente de homologação ou recém-instalado, utilize <strong>admin</strong> com senha <strong>admin</strong>.
+                Para redefinir sua senha diretamente no banco de dados PostgreSQL, execute o comando <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-700">UPDATE system_users</code>.
               </p>
             </div>
 
@@ -189,7 +183,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
               onClick={() => setIsForgotPasswordOpen(false)}
               className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-lg transition-colors cursor-pointer"
             >
-              Entendido, voltar ao login
+              Voltar ao login
             </button>
           </div>
         </div>

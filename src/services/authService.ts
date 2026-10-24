@@ -67,29 +67,28 @@ class AuthService {
       // Falha de rede ou backend indisponível; segue para validação local de fallback
     }
 
-    // 2. Validação local padrão (admin / iane)
+    // 2. Validação local do Super Usuário TI IANE
     if (
-      (trimmedUser === 'admin' && (trimmedPass === 'admin' || trimmedPass === 'admin123' || trimmedPass === 'iane123')) ||
-      (trimmedUser === 'iane' && (trimmedPass === 'iane' || trimmedPass === 'iane123' || trimmedPass === 'admin')) ||
-      (trimmedUser === 'tecnologia@iane.ind.br' && (trimmedPass === 'admin' || trimmedPass === 'iane123'))
+      (trimmedUser === 'tecnologia@iane.ind.br' || trimmedUser === 'tecnologia') &&
+      (trimmedPass === 'Iane@2026' || trimmedPass === 'iane@2026')
     ) {
       const user: User = {
-        id: 'user-admin',
+        id: 'user-iane-super-1',
         username: trimmedUser,
-        fullName: trimmedUser === 'iane' ? 'Gestão IANE' : 'Administrador IANE',
+        fullName: 'TI IANE - Super Usuário',
         email: 'tecnologia@iane.ind.br',
         role: 'admin',
       };
 
       localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
-      localStorage.setItem(AUTH_TOKEN_KEY, 'iane_local_session_token');
+      localStorage.setItem(AUTH_TOKEN_KEY, 'iane_session_token_' + Date.now());
       this.notify(user);
       return { success: true, user };
     }
 
     return {
       success: false,
-      message: 'Usuário ou senha inválidos. Tente "admin" e senha "admin".',
+      message: 'Usuário ou senha inválidos. Verifique suas credenciais de acesso.',
     };
   }
 

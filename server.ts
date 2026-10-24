@@ -109,22 +109,21 @@ app.post('/api/auth/login', async (req, res) => {
     }
   }
 
-  // Fallback padrão se usuário for admin / iane
+  // Super usuário corporativo TI IANE (modo fallback ou direto)
   if (
-    (trimmedUser === 'admin' && (trimmedPass === 'admin' || trimmedPass === 'admin123' || trimmedPass === 'iane123')) ||
-    (trimmedUser === 'iane' && (trimmedPass === 'iane' || trimmedPass === 'iane123' || trimmedPass === 'admin')) ||
-    (trimmedUser === 'tecnologia@iane.ind.br' && (trimmedPass === 'admin' || trimmedPass === 'iane123'))
+    (trimmedUser === 'tecnologia@iane.ind.br' || trimmedUser === 'tecnologia') &&
+    (trimmedPass === 'Iane@2026' || trimmedPass === 'iane@2026')
   ) {
     return res.json({
       success: true,
       user: {
-        id: 'user-admin',
+        id: 'user-iane-super-1',
         username: trimmedUser,
-        fullName: trimmedUser === 'iane' ? 'Gestão IANE' : 'Administrador IANE',
+        fullName: 'TI IANE - Super Usuário',
         email: 'tecnologia@iane.ind.br',
         role: 'admin',
       },
-      token: 'iane_local_session_' + Date.now(),
+      token: 'iane_session_' + Date.now(),
     });
   }
 
