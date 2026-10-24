@@ -1,0 +1,6 @@
+{
+  "name": "TelecomAsset Pro - Gestão de Telefonia Móvel",
+  "description": "Sistema corporativo profissional para controle de dispositivos móveis, linhas telefônicas, termos de responsabilidade e histórico de movimentações.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

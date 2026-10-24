@@ -1,0 +1,1983 @@
+import {
+  Device,
+  PhoneLine,
+  Collaborator,
+  Movement,
+  DocumentTerm,
+  AuditLog,
+  DashboardMetrics,
+  DeviceStatus,
+  LineStatus,
+  DeviceCondition,
+  MovementType,
+  TermType
+} from '../types';
+
+const STORAGE_KEYS = {
+  DEVICES: 'telecom_devices_v2',
+  LINES: 'telecom_lines_v2',
+  COLLABORATORS: 'telecom_collaborators_v2',
+  MOVEMENTS: 'telecom_movements_v2',
+  TERMS: 'telecom_terms_v2',
+  AUDIT: 'telecom_audit_v2',
+  INITIALIZED: 'telecom_initialized_v2',
+};
+
+export const STOCK_LABEL = 'Estoque do Gestor de Telefonia';
+
+const INITIAL_COLLABORATORS: Collaborator[] = [
+  {
+    id: 'col-1',
+    fullName: 'Carlos Eduardo Mendes',
+    registrationNumber: 'MAT-1024',
+    department: 'Comercial',
+    position: 'Gerente Regional de Vendas',
+    corporateEmail: 'carlos.mendes@empresa.com.br',
+    contactPhone: '(11) 98111-2001',
+    status: 'Ativo',
+    cpf: '123.456.789-01',
+    notes: 'Atende clientes chave região Sudeste.',
+    createdAt: '2024-01-10',
+  },
+  {
+    id: 'col-2',
+    fullName: 'Mariana Silveira Costa',
+    registrationNumber: 'MAT-1055',
+    department: 'Operações',
+    position: 'Supervisora de Operações de Campo',
+    corporateEmail: 'mariana.costa@empresa.com.br',
+    contactPhone: '(11) 98222-3002',
+    status: 'Ativo',
+    cpf: '234.567.890-12',
+    notes: 'Coordena equipe externa.',
+    createdAt: '2024-01-15',
+  },
+  {
+    id: 'col-3',
+    fullName: 'Roberto Albuquerque',
+    registrationNumber: 'MAT-1089',
+    department: 'Diretoria',
+    position: 'Diretor de Operações',
+    corporateEmail: 'roberto.albuquerque@empresa.com.br',
+    contactPhone: '(11) 98333-4003',
+    status: 'Ativo',
+    cpf: '345.678.901-23',
+    notes: 'Aparelho de padrão executivo.',
+    createdAt: '2023-11-01',
+  },
+  {
+    id: 'col-4',
+    fullName: 'Fernanda Lima Rocha',
+    registrationNumber: 'MAT-1102',
+    department: 'Logística',
+    position: 'Coordenadora de Frotas e Distribuição',
+    corporateEmail: 'fernanda.rocha@empresa.com.br',
+    contactPhone: '(11) 98444-5004',
+    status: 'Ativo',
+    cpf: '456.789.012-34',
+    notes: 'Acesso a rastreadores e romaneios móveis.',
+    createdAt: '2024-02-01',
+  },
+  {
+    id: 'col-5',
+    fullName: 'Lucas Pinheiro Santos',
+    registrationNumber: 'MAT-1140',
+    department: 'TI',
+    position: 'Analista de Infraestrutura & Redes',
+    corporateEmail: 'lucas.santos@empresa.com.br',
+    contactPhone: '(11) 98555-6005',
+    status: 'Ativo',
+    cpf: '567.890.123-45',
+    notes: 'Plantão de suporte e monitoramento.',
+    createdAt: '2024-02-15',
+  },
+  {
+    id: 'col-6',
+    fullName: 'Beatriz Vasconcelos',
+    registrationNumber: 'MAT-1178',
+    department: 'Comercial',
+    position: 'Consultora de Negócios Sênior',
+    corporateEmail: 'beatriz.v@empresa.com.br',
+    contactPhone: '(11) 98666-7006',
+    status: 'Ativo',
+    cpf: '678.901.234-56',
+    notes: 'Viagens frequentes filiais Paraná e RJ.',
+    createdAt: '2024-03-01',
+  },
+  {
+    id: 'col-7',
+    fullName: 'Gabriel Martins Duarte',
+    registrationNumber: 'MAT-1205',
+    department: 'Financeiro',
+    position: 'Coordenador de Controladoria',
+    corporateEmail: 'gabriel.duarte@empresa.com.br',
+    contactPhone: '(11) 98777-8007',
+    status: 'Ativo',
+    cpf: '789.012.345-67',
+    notes: 'Token bancário corporativo instalado.',
+    createdAt: '2024-03-10',
+  },
+  {
+    id: 'col-8',
+    fullName: 'Juliana Pires Nogueira',
+    registrationNumber: 'MAT-1230',
+    department: 'RH',
+    position: 'Especialista em Atração e Seleção',
+    corporateEmail: 'juliana.nogueira@empresa.com.br',
+    contactPhone: '(11) 98888-9008',
+    status: 'Ativo',
+    cpf: '890.123.456-78',
+    notes: 'Em atividade regular.',
+    createdAt: '2024-04-01',
+  },
+  {
+    id: 'col-9',
+    fullName: 'Thiago Neves Silveira',
+    registrationNumber: 'MAT-0980',
+    department: 'Operações',
+    position: 'Técnico de Instalação e Suporte',
+    corporateEmail: 'thiago.neves@empresa.com.br',
+    contactPhone: '(11) 98999-0009',
+    status: 'Desligado',
+    cpf: '901.234.567-89',
+    notes: 'Desligado da empresa em 15/09/2026. Ativos recolhidos e conferidos.',
+    createdAt: '2023-08-01',
+  }
+];
+
+const INITIAL_DEVICES: Device[] = [
+  {
+    id: 'dev-1',
+    assetTag: 'CEL-001',
+    imei1: '354890123456781',
+    imei2: '354890123456782',
+    brand: 'Apple',
+    model: 'iPhone 14 128GB Midnight',
+    serialNumber: 'DX3F9K21PL89',
+    purchaseDate: '2023-11-15',
+    purchaseValue: 5200.00,
+    condition: 'Excelente',
+    status: 'Em uso',
+    currentDepartment: 'Diretoria',
+    currentCollaboratorId: 'col-3',
+    currentCollaboratorName: 'Roberto Albuquerque',
+    associatedLineId: 'line-3',
+    associatedPhoneNumber: '(11) 98333-4003',
+    notes: 'Aparelho alocado à diretoria com capa de proteção anti-queda.',
+    createdAt: '2023-11-20',
+    updatedAt: '2023-11-20',
+  },
+  {
+    id: 'dev-2',
+    assetTag: 'CEL-002',
+    imei1: '358901234567890',
+    imei2: '358901234567891',
+    brand: 'Samsung',
+    model: 'Galaxy S23 256GB Preto',
+    serialNumber: 'RF8N4023KL9',
+    purchaseDate: '2024-01-05',
+    purchaseValue: 4300.00,
+    condition: 'Excelente',
+    status: 'Em uso',
+    currentDepartment: 'Comercial',
+    currentCollaboratorId: 'col-1',
+    currentCollaboratorName: 'Carlos Eduardo Mendes',
+    associatedLineId: 'line-1',
+    associatedPhoneNumber: '(11) 98111-2001',
+    notes: 'Kit completo entregue com película aplicada.',
+    createdAt: '2024-01-10',
+    updatedAt: '2024-01-10',
+  },
+  {
+    id: 'dev-3',
+    assetTag: 'CEL-003',
+    imei1: '864501234567890',
+    brand: 'Samsung',
+    model: 'Galaxy A54 5G 128GB Grafite',
+    serialNumber: 'RZ8T2039MN1',
+    purchaseDate: '2024-01-12',
+    purchaseValue: 1899.00,
+    condition: 'Bom',
+    status: 'Em uso',
+    currentDepartment: 'Operações',
+    currentCollaboratorId: 'col-2',
+    currentCollaboratorName: 'Mariana Silveira Costa',
+    associatedLineId: 'line-2',
+    associatedPhoneNumber: '(11) 98222-3002',
+    notes: 'Uso em campo com capa reforçada.',
+    createdAt: '2024-01-15',
+    updatedAt: '2024-01-15',
+  },
+  {
+    id: 'dev-4',
+    assetTag: 'CEL-004',
+    imei1: '357890123456789',
+    brand: 'Motorola',
+    model: 'Moto G84 5G 256GB Azul',
+    serialNumber: 'ZY223K48PQ',
+    purchaseDate: '2024-01-20',
+    purchaseValue: 1550.00,
+    condition: 'Bom',
+    status: 'Em uso',
+    currentDepartment: 'Logística',
+    currentCollaboratorId: 'col-4',
+    currentCollaboratorName: 'Fernanda Lima Rocha',
+    associatedLineId: 'line-4',
+    associatedPhoneNumber: '(11) 98444-5004',
+    notes: 'Aplicativo de logística e frotas configurado.',
+    createdAt: '2024-02-01',
+    updatedAt: '2024-02-01',
+  },
+  {
+    id: 'dev-5',
+    assetTag: 'CEL-005',
+    imei1: '356789012345678',
+    brand: 'Samsung',
+    model: 'Galaxy S22 128GB Verde',
+    serialNumber: 'R58M3099KL8',
+    purchaseDate: '2023-06-10',
+    purchaseValue: 3100.00,
+    condition: 'Bom',
+    status: 'Em uso',
+    currentDepartment: 'TI',
+    currentCollaboratorId: 'col-5',
+    currentCollaboratorName: 'Lucas Pinheiro Santos',
+    associatedLineId: 'line-5',
+    associatedPhoneNumber: '(11) 98555-6005',
+    notes: 'Ferramentas de autenticação de dois fatores e monitoramento.',
+    createdAt: '2024-02-15',
+    updatedAt: '2024-02-15',
+  },
+  {
+    id: 'dev-6',
+    assetTag: 'CEL-006',
+    imei1: '351234567890123',
+    brand: 'Samsung',
+    model: 'Galaxy A34 5G 128GB Prata',
+    serialNumber: 'RZ8T7721PL0',
+    purchaseDate: '2024-02-20',
+    purchaseValue: 1450.00,
+    condition: 'Excelente',
+    status: 'Em uso',
+    currentDepartment: 'Comercial',
+    currentCollaboratorId: 'col-6',
+    currentCollaboratorName: 'Beatriz Vasconcelos',
+    associatedLineId: 'line-6',
+    associatedPhoneNumber: '(11) 98666-7006',
+    notes: 'Linha comercial ativada com pacote roaming nacional.',
+    createdAt: '2024-03-01',
+    updatedAt: '2024-03-01',
+  },
+  {
+    id: 'dev-7',
+    assetTag: 'CEL-007',
+    imei1: '359012345678901',
+    brand: 'Samsung',
+    model: 'Galaxy A54 5G 128GB Grafite',
+    serialNumber: 'RZ8T8812MM2',
+    purchaseDate: '2024-02-20',
+    purchaseValue: 1899.00,
+    condition: 'Excelente',
+    status: 'Disponível', // Em estoque do gestor, liberado para entrega
+    notes: 'Devolvido ao estoque do Gestor por término de contrato de estagiário. Higienizado, conferido e liberado para nova entrega.',
+    createdAt: '2024-02-20',
+    updatedAt: '2024-09-20',
+  },
+  {
+    id: 'dev-8',
+    assetTag: 'CEL-008',
+    imei1: '352345678901234',
+    brand: 'Motorola',
+    model: 'Moto G54 5G 128GB Preto',
+    serialNumber: 'ZY229X11MN',
+    purchaseDate: '2024-03-05',
+    purchaseValue: 1290.00,
+    condition: 'Novo',
+    status: 'Disponível', // Em estoque do gestor
+    notes: 'Estoque do Gestor de Telefonia, aparelho novo lacrado.',
+    createdAt: '2024-03-10',
+    updatedAt: '2024-03-10',
+  },
+  {
+    id: 'dev-9',
+    assetTag: 'CEL-009',
+    imei1: '353456789012345',
+    brand: 'Motorola',
+    model: 'Moto G84 5G 256GB Grafite',
+    serialNumber: 'ZY228K99OP',
+    purchaseDate: '2024-03-05',
+    purchaseValue: 1550.00,
+    condition: 'Excelente',
+    status: 'Reservado', // No estoque do Gestor, mas indisponível para entrega geral
+    notes: 'No estoque do Gestor de Telefonia, reservado para novo gestor de compras que ingressa próxima semana.',
+    createdAt: '2024-03-10',
+    updatedAt: '2024-10-15',
+  },
+  {
+    id: 'dev-10',
+    assetTag: 'CEL-010',
+    imei1: '869012345678912',
+    brand: 'Apple',
+    model: 'iPhone 13 128GB Estelar',
+    serialNumber: 'ML9K3421ZX',
+    purchaseDate: '2023-05-15',
+    purchaseValue: 4100.00,
+    condition: 'Danificado',
+    status: 'Em manutenção', // Em assistência
+    notes: 'Queda com trinca no display frontal. Enviado pelo Gestor para assistência autorizada iPlace em 12/10/2026.',
+    createdAt: '2023-05-20',
+    updatedAt: '2026-10-12',
+  },
+  {
+    id: 'dev-11',
+    assetTag: 'CEL-011',
+    imei1: '354567890123456',
+    brand: 'Samsung',
+    model: 'Galaxy A32 4G 128GB Preto',
+    serialNumber: 'RF8J1002OP',
+    purchaseDate: '2022-03-10',
+    purchaseValue: 1100.00,
+    condition: 'Danificado',
+    status: 'Aguardando baixa patrimonial', // No estoque do Gestor, mas indisponível
+    notes: 'No estoque do Gestor de Telefonia. Bateria danificada e placa oxidada. Laudo técnico emitido, aguardando descarte contábil.',
+    createdAt: '2022-03-15',
+    updatedAt: '2024-08-10',
+  },
+  {
+    id: 'dev-12',
+    assetTag: 'CEL-012',
+    imei1: '355678901234567',
+    brand: 'Motorola',
+    model: 'Moto G32 128GB Cinza',
+    serialNumber: 'ZY221M55KL',
+    purchaseDate: '2023-02-14',
+    purchaseValue: 980.00,
+    condition: 'Regular',
+    status: 'Aguardando avaliação', // No estoque do Gestor, aguardando vistoria/higienização
+    notes: 'No estoque do Gestor de Telefonia. Devolvido recentemente, aguardando vistoria técnica de integridade antes de ser disponibilizado.',
+    createdAt: '2023-02-20',
+    updatedAt: '2026-10-18',
+  }
+];
+
+const INITIAL_LINES: PhoneLine[] = [
+  {
+    id: 'line-1',
+    phoneNumber: '(11) 98111-2001',
+    carrier: 'Vivo',
+    planName: 'Vivo Empresa Smart 60GB + Voz Ilimitada',
+    monthlyCost: 89.90,
+    status: 'Ativa',
+    associatedDeviceId: 'dev-2',
+    associatedDeviceTag: 'CEL-002',
+    associatedDeviceModel: 'Samsung Galaxy S23 256GB',
+    currentCollaboratorId: 'col-1',
+    currentCollaboratorName: 'Carlos Eduardo Mendes',
+    department: 'Comercial',
+    activationDate: '2024-01-10',
+    iccid: '89550212345678901234',
+    notes: 'Linha comercial principal com roaming Mercosul ativo.',
+    createdAt: '2024-01-10',
+    updatedAt: '2024-01-10',
+  },
+  {
+    id: 'line-2',
+    phoneNumber: '(11) 98222-3002',
+    carrier: 'Claro',
+    planName: 'Claro Total Empresas 40GB',
+    monthlyCost: 69.90,
+    status: 'Ativa',
+    associatedDeviceId: 'dev-3',
+    associatedDeviceTag: 'CEL-003',
+    associatedDeviceModel: 'Samsung Galaxy A54 5G',
+    currentCollaboratorId: 'col-2',
+    currentCollaboratorName: 'Mariana Silveira Costa',
+    department: 'Operações',
+    activationDate: '2024-01-15',
+    iccid: '89550512345678901235',
+    notes: 'Excelente cobertura em rodovias estaduais.',
+    createdAt: '2024-01-15',
+    updatedAt: '2024-01-15',
+  },
+  {
+    id: 'line-3',
+    phoneNumber: '(11) 98333-4003',
+    carrier: 'Vivo',
+    planName: 'Vivo Executivo VIP 100GB Global',
+    monthlyCost: 149.90,
+    status: 'Ativa',
+    associatedDeviceId: 'dev-1',
+    associatedDeviceTag: 'CEL-001',
+    associatedDeviceModel: 'Apple iPhone 14 128GB',
+    currentCollaboratorId: 'col-3',
+    currentCollaboratorName: 'Roberto Albuquerque',
+    department: 'Diretoria',
+    activationDate: '2023-11-20',
+    iccid: '89550299887766554433',
+    notes: 'Linha executiva com suporte prioritário e roaming internacional.',
+    createdAt: '2023-11-20',
+    updatedAt: '2023-11-20',
+  },
+  {
+    id: 'line-4',
+    phoneNumber: '(11) 98444-5004',
+    carrier: 'Claro',
+    planName: 'Claro Total Empresas 30GB',
+    monthlyCost: 59.90,
+    status: 'Ativa',
+    associatedDeviceId: 'dev-4',
+    associatedDeviceTag: 'CEL-004',
+    associatedDeviceModel: 'Motorola Moto G84 5G',
+    currentCollaboratorId: 'col-4',
+    currentCollaboratorName: 'Fernanda Lima Rocha',
+    department: 'Logística',
+    activationDate: '2024-02-01',
+    iccid: '89550577665544332211',
+    notes: 'Utilizada para coordenação de entrega de cargas.',
+    createdAt: '2024-02-01',
+    updatedAt: '2024-02-01',
+  },
+  {
+    id: 'line-5',
+    phoneNumber: '(11) 98555-6005',
+    carrier: 'TIM',
+    planName: 'TIM Black Empresa 50GB',
+    monthlyCost: 74.90,
+    status: 'Ativa',
+    associatedDeviceId: 'dev-5',
+    associatedDeviceTag: 'CEL-005',
+    associatedDeviceModel: 'Samsung Galaxy S22 128GB',
+    currentCollaboratorId: 'col-5',
+    currentCollaboratorName: 'Lucas Pinheiro Santos',
+    department: 'TI',
+    activationDate: '2024-02-15',
+    iccid: '89550411223344556677',
+    notes: 'Linha para plantão e alertas automáticos de servidores.',
+    createdAt: '2024-02-15',
+    updatedAt: '2024-02-15',
+  },
+  {
+    id: 'line-6',
+    phoneNumber: '(11) 98666-7006',
+    carrier: 'Vivo',
+    planName: 'Vivo Empresa Smart 40GB',
+    monthlyCost: 69.90,
+    status: 'Ativa',
+    associatedDeviceId: 'dev-6',
+    associatedDeviceTag: 'CEL-006',
+    associatedDeviceModel: 'Samsung Galaxy A34 5G',
+    currentCollaboratorId: 'col-6',
+    currentCollaboratorName: 'Beatriz Vasconcelos',
+    department: 'Comercial',
+    activationDate: '2024-03-01',
+    iccid: '89550244332211009988',
+    notes: 'Linha comercial externa.',
+    createdAt: '2024-03-01',
+    updatedAt: '2024-03-01',
+  },
+  {
+    id: 'line-7',
+    phoneNumber: '(11) 98777-8007',
+    carrier: 'Vivo',
+    planName: 'Vivo Empresa Smart 20GB',
+    monthlyCost: 49.90,
+    status: 'Ativa',
+    currentCollaboratorId: 'col-7',
+    currentCollaboratorName: 'Gabriel Martins Duarte',
+    department: 'Financeiro',
+    activationDate: '2024-03-10',
+    iccid: '89550266778899001122',
+    notes: 'Colaborador utiliza o chip corporativo em aparelho próprio (BYOD aprovado).',
+    createdAt: '2024-03-10',
+    updatedAt: '2024-03-10',
+  },
+  {
+    id: 'line-8',
+    phoneNumber: '(11) 98888-9008',
+    carrier: 'Claro',
+    planName: 'Claro Total Empresas 30GB',
+    monthlyCost: 59.90,
+    status: 'Disponível',
+    activationDate: '2024-03-01',
+    iccid: '89550533445566778899',
+    notes: 'Linha desassociada no estoque do Gestor, chip no cofre de TI.',
+    createdAt: '2024-03-01',
+    updatedAt: '2024-09-15',
+  },
+  {
+    id: 'line-9',
+    phoneNumber: '(11) 98999-1009',
+    carrier: 'Vivo',
+    planName: 'Vivo Empresa Smart 20GB',
+    monthlyCost: 49.90,
+    status: 'Disponível',
+    activationDate: '2024-04-01',
+    iccid: '89550288990011223344',
+    notes: 'Linha disponível no estoque para novas atribuições.',
+    createdAt: '2024-04-01',
+    updatedAt: '2024-04-01',
+  }
+];
+
+const INITIAL_TERMS: DocumentTerm[] = [
+  {
+    id: 'term-1',
+    code: 'TERMO-ENT-2024-001',
+    type: 'Termo de Entrega',
+    title: 'Termo de Responsabilidade e Guarda de Equipamento Telefônico',
+    date: '2023-11-20',
+    movementId: 'mov-1',
+    deviceId: 'dev-1',
+    deviceTag: 'CEL-001',
+    deviceModel: 'Apple iPhone 14 128GB Midnight',
+    deviceImei: '354890123456781',
+    phoneLineId: 'line-3',
+    phoneNumber: '(11) 98333-4003',
+    collaboratorId: 'col-3',
+    collaboratorName: 'Roberto Albuquerque',
+    collaboratorRegistration: 'MAT-1089',
+    collaboratorCpf: '345.678.901-23',
+    collaboratorDepartment: 'Diretoria',
+    status: 'Assinado',
+    accessoriesList: ['Carregador Original Apple', 'Cabo Lightning USB-C', 'Capa de Proteção Anti-Impacto', 'Chave Ejetora de SIM'],
+    clauses: [
+      'O colaborador declara ter recebido o equipamento liberado do Estoque do Gestor de Telefonia em perfeitas condições.',
+      'O bem destina-se exclusivamente ao desempenho das atividades profissionais corporativas.',
+      'Compromete-se a zelar pelo ativo, restituindo-o ao Estoque do Gestor de Telefonia em caso de rescisão ou solicitação formal.'
+    ],
+    signedAt: '2023-11-20 14:30',
+    notes: 'Entregue do estoque para diretoria.',
+    fileName: 'Termo_Entrega_CEL001_RobertoAlbuquerque.pdf'
+  },
+  {
+    id: 'term-2',
+    code: 'TERMO-ENT-2024-002',
+    type: 'Termo de Entrega',
+    title: 'Termo de Responsabilidade e Guarda de Equipamento Telefônico',
+    date: '2024-01-10',
+    movementId: 'mov-2',
+    deviceId: 'dev-2',
+    deviceTag: 'CEL-002',
+    deviceModel: 'Samsung Galaxy S23 256GB Preto',
+    deviceImei: '358901234567890',
+    phoneLineId: 'line-1',
+    phoneNumber: '(11) 98111-2001',
+    collaboratorId: 'col-1',
+    collaboratorName: 'Carlos Eduardo Mendes',
+    collaboratorRegistration: 'MAT-1024',
+    collaboratorCpf: '123.456.789-01',
+    collaboratorDepartment: 'Comercial',
+    status: 'Assinado',
+    accessoriesList: ['Carregador 25W Samsung', 'Cabo USB-C', 'Capa Protetora Transparente', 'Película de Vidro Instalada'],
+    clauses: [
+      'O colaborador declara ter recebido o equipamento do Estoque do Gestor de Telefonia em perfeitas condições.',
+      'Deverá devolver o equipamento ao Estoque do Gestor de Telefonia quando solicitado.'
+    ],
+    signedAt: '2024-01-10 10:15',
+    notes: 'Termo assinado fisicamente, via escaneada em anexo.',
+    fileName: 'Termo_Entrega_CEL002_CarlosMendes.pdf'
+  },
+  {
+    id: 'term-4',
+    code: 'TERMO-DEV-2024-001',
+    type: 'Termo de Devolução',
+    title: 'Termo de Devolução ao Estoque do Gestor de Telefonia',
+    date: '2024-09-15',
+    movementId: 'mov-7',
+    deviceId: 'dev-7',
+    deviceTag: 'CEL-007',
+    deviceModel: 'Samsung Galaxy A54 5G 128GB Grafite',
+    deviceImei: '359012345678901',
+    collaboratorId: 'col-9',
+    collaboratorName: 'Thiago Neves Silveira',
+    collaboratorRegistration: 'MAT-0980',
+    collaboratorDepartment: 'Operações',
+    status: 'Assinado',
+    accessoriesList: ['Carregador Original', 'Cabo USB-C', 'Capa de Proteção'],
+    clauses: [
+      'A empresa, por meio do Gestor de Telefonia, atesta a devolução do equipamento ao Estoque de TI.',
+      'O colaborador fica integralmente quitado e desonerado da guarda patrimonial deste ativo.',
+      'O aparelho foi recebido no estoque do gestor e submetido à conferência.'
+    ],
+    signedAt: '2024-09-15 11:00',
+    notes: 'Colaborador desligado. Aparelho recolhido e conferido pelo Gestor de Telefonia.',
+    fileName: 'Termo_Devolucao_CEL007_ThiagoNeves.pdf'
+  }
+];
+
+const INITIAL_MOVEMENTS: Movement[] = [
+  {
+    id: 'mov-1',
+    code: 'MOV-2023-001',
+    type: 'Entrega',
+    date: '2023-11-20',
+    deviceId: 'dev-1',
+    deviceTag: 'CEL-001',
+    deviceName: 'Apple iPhone 14 128GB Midnight',
+    imei: '354890123456781',
+    phoneLineId: 'line-3',
+    phoneNumber: '(11) 98333-4003',
+    carrier: 'Vivo',
+    originCollaboratorName: STOCK_LABEL,
+    destinationCollaboratorId: 'col-3',
+    destinationCollaboratorName: 'Roberto Albuquerque',
+    stockTransit: { involved: true, stage: 'Saída do Estoque', stockStatusAfter: 'Em uso' },
+    previousDeviceStatus: 'Disponível',
+    newDeviceStatus: 'Em uso',
+    previousLineStatus: 'Disponível',
+    newLineStatus: 'Ativa',
+    conditionAtMovement: 'Novo',
+    accessoriesIncluded: ['Carregador Original Apple', 'Cabo Lightning USB-C', 'Capa de Proteção Anti-Impacto', 'Chave Ejetora de SIM'],
+    registeredBy: 'Gestor de Telefonia',
+    reason: 'Entrega de ativo do estoque para novo diretor executivo.',
+    documentId: 'term-1',
+    documentCode: 'TERMO-ENT-2024-001',
+    documentType: 'Termo de Entrega',
+  },
+  {
+    id: 'mov-2',
+    code: 'MOV-2024-002',
+    type: 'Entrega',
+    date: '2024-01-10',
+    deviceId: 'dev-2',
+    deviceTag: 'CEL-002',
+    deviceName: 'Samsung Galaxy S23 256GB Preto',
+    imei: '358901234567890',
+    phoneLineId: 'line-1',
+    phoneNumber: '(11) 98111-2001',
+    carrier: 'Vivo',
+    originCollaboratorName: STOCK_LABEL,
+    destinationCollaboratorId: 'col-1',
+    destinationCollaboratorName: 'Carlos Eduardo Mendes',
+    stockTransit: { involved: true, stage: 'Saída do Estoque', stockStatusAfter: 'Em uso' },
+    previousDeviceStatus: 'Disponível',
+    newDeviceStatus: 'Em uso',
+    previousLineStatus: 'Disponível',
+    newLineStatus: 'Ativa',
+    conditionAtMovement: 'Novo',
+    accessoriesIncluded: ['Carregador 25W Samsung', 'Cabo USB-C', 'Capa Protetora Transparente', 'Película de Vidro Instalada'],
+    registeredBy: 'Gestor de Telefonia',
+    reason: 'Entrega do estoque para Gerente Comercial.',
+    documentId: 'term-2',
+    documentCode: 'TERMO-ENT-2024-002',
+    documentType: 'Termo de Entrega',
+  },
+  {
+    id: 'mov-7',
+    code: 'MOV-2024-007',
+    type: 'Devolução',
+    date: '2024-09-15',
+    deviceId: 'dev-7',
+    deviceTag: 'CEL-007',
+    deviceName: 'Samsung Galaxy A54 5G 128GB Grafite',
+    imei: '359012345678901',
+    originCollaboratorId: 'col-9',
+    originCollaboratorName: 'Thiago Neves Silveira',
+    destinationCollaboratorName: STOCK_LABEL,
+    stockTransit: { involved: true, stage: 'Entrada no Estoque', stockStatusAfter: 'Disponível' },
+    previousDeviceStatus: 'Em uso',
+    newDeviceStatus: 'Disponível',
+    conditionAtMovement: 'Excelente',
+    accessoriesIncluded: ['Carregador Original', 'Cabo USB-C', 'Capa de Proteção'],
+    registeredBy: 'Gestor de Telefonia',
+    reason: 'Devolução ao estoque por desligamento de colaborador.',
+    observations: 'Aparelho testado e higienizado no estoque do gestor, liberado para nova entrega.',
+    documentId: 'term-4',
+    documentCode: 'TERMO-DEV-2024-001',
+    documentType: 'Termo de Devolução',
+  },
+  {
+    id: 'mov-8',
+    code: 'MOV-2024-008',
+    type: 'Envio para Manutenção',
+    date: '2026-10-12',
+    deviceId: 'dev-10',
+    deviceTag: 'CEL-010',
+    deviceName: 'Apple iPhone 13 128GB Estelar',
+    imei: '869012345678912',
+    originCollaboratorName: STOCK_LABEL,
+    destinationCollaboratorName: 'Assistência Técnica iPlace',
+    stockTransit: { involved: true, stage: 'Saída do Estoque', stockStatusAfter: 'Em manutenção' },
+    previousDeviceStatus: 'Aguardando avaliação',
+    newDeviceStatus: 'Em manutenção',
+    conditionAtMovement: 'Danificado',
+    accessoriesIncluded: ['Aparelho'],
+    registeredBy: 'Gestor de Telefonia',
+    reason: 'Display quebrado por queda acidental.',
+    maintenanceProvider: 'Assistência Técnica Autorizada iPlace (OS #44921)',
+    maintenanceCost: 1350.00,
+    returnForecastDate: '2026-10-28',
+  }
+];
+
+const INITIAL_AUDIT: AuditLog[] = [
+  {
+    id: 'aud-1',
+    timestamp: '2026-10-22 10:15:30',
+    action: 'Inicialização',
+    entityType: 'Dispositivo',
+    entityId: 'all',
+    entityLabel: 'Estoque do Gestor',
+    details: 'Base de dados e controle patrimonial do Estoque do Gestor inicializados.',
+    user: 'Gestor de Telefonia'
+  }
+];
+
+class DataStorageService {
+  private get<T>(key: string, defaultValue: T): T {
+    try {
+      const data = localStorage.getItem(key);
+      if (!data) return defaultValue;
+      return JSON.parse(data) as T;
+    } catch (e) {
+      console.warn(`Erro ao ler ${key} do localStorage:`, e);
+      return defaultValue;
+    }
+  }
+
+  private set<T>(key: string, value: T): void {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch (e) {
+      console.error(`Erro ao salvar ${key} no localStorage:`, e);
+    }
+  }
+
+  public init() {
+    const initialized = localStorage.getItem(STORAGE_KEYS.INITIALIZED);
+    if (!initialized) {
+      this.resetToDefaults();
+    }
+  }
+
+  public resetToDefaults() {
+    this.set(STORAGE_KEYS.COLLABORATORS, INITIAL_COLLABORATORS);
+    this.set(STORAGE_KEYS.DEVICES, INITIAL_DEVICES);
+    this.set(STORAGE_KEYS.LINES, INITIAL_LINES);
+    this.set(STORAGE_KEYS.TERMS, INITIAL_TERMS);
+    this.set(STORAGE_KEYS.MOVEMENTS, INITIAL_MOVEMENTS);
+    this.set(STORAGE_KEYS.AUDIT, INITIAL_AUDIT);
+    localStorage.setItem(STORAGE_KEYS.INITIALIZED, 'true');
+  }
+
+  // --- Devices ---
+  public getDevices(): Device[] {
+    return this.get<Device[]>(STORAGE_KEYS.DEVICES, INITIAL_DEVICES);
+  }
+
+  public getDeviceById(id: string): Device | undefined {
+    return this.getDevices().find(d => d.id === id);
+  }
+
+  public saveDevice(device: Partial<Device> & { id?: string }): { success: boolean; message: string; device?: Device } {
+    const devices = this.getDevices();
+    const isNew = !device.id;
+    const now = new Date().toISOString().split('T')[0];
+
+    // IMEI 1 duplicado
+    if (device.imei1) {
+      const duplicateImei = devices.find(d => d.imei1.trim() === device.imei1?.trim() && d.id !== device.id);
+      if (duplicateImei) {
+        return { success: false, message: `O IMEI 1 (${device.imei1}) já está cadastrado no aparelho ${duplicateImei.assetTag} (${duplicateImei.brand} ${duplicateImei.model}).` };
+      }
+    }
+
+    // Tag duplicada
+    if (device.assetTag) {
+      const duplicateTag = devices.find(d => d.assetTag.trim().toUpperCase() === device.assetTag?.trim().toUpperCase() && d.id !== device.id);
+      if (duplicateTag) {
+        return { success: false, message: `O Identificador do Ativo (${device.assetTag}) já pertence a outro aparelho cadastrado.` };
+      }
+    }
+
+    let savedDevice: Device;
+
+    if (isNew) {
+      savedDevice = {
+        id: `dev-${Date.now()}`,
+        assetTag: device.assetTag || `CEL-${String(devices.length + 1).padStart(3, '0')}`,
+        imei1: device.imei1 || '',
+        imei2: device.imei2,
+        brand: device.brand || 'Samsung',
+        model: device.model || '',
+        serialNumber: device.serialNumber || '',
+        purchaseDate: device.purchaseDate,
+        purchaseValue: device.purchaseValue ? Number(device.purchaseValue) : undefined,
+        condition: device.condition || 'Novo',
+        status: device.status || 'Disponível', // Em estoque
+        currentDepartment: device.currentDepartment,
+        currentCollaboratorId: device.currentCollaboratorId,
+        currentCollaboratorName: device.currentCollaboratorName,
+        associatedLineId: device.associatedLineId,
+        associatedPhoneNumber: device.associatedPhoneNumber,
+        notes: device.notes,
+        createdAt: now,
+        updatedAt: now,
+      };
+      devices.unshift(savedDevice);
+      this.logAudit('Dispositivo', savedDevice.id, savedDevice.assetTag, `Novo aparelho cadastrado e inserido no Estoque (${savedDevice.status}).`);
+    } else {
+      const index = devices.findIndex(d => d.id === device.id);
+      if (index === -1) return { success: false, message: 'Aparelho não encontrado.' };
+
+      savedDevice = {
+        ...devices[index],
+        ...device,
+        updatedAt: now,
+      } as Device;
+      devices[index] = savedDevice;
+      this.logAudit('Dispositivo', savedDevice.id, savedDevice.assetTag, 'Atualização de cadastro do aparelho.');
+    }
+
+    this.set(STORAGE_KEYS.DEVICES, devices);
+    return { success: true, message: 'Dispositivo salvo com sucesso.', device: savedDevice };
+  }
+
+  public deleteDevice(id: string): { success: boolean; message: string } {
+    const devices = this.getDevices();
+    const device = devices.find(d => d.id === id);
+    if (!device) return { success: false, message: 'Aparelho não encontrado.' };
+
+    if (device.status === 'Em uso') {
+      return { success: false, message: 'Não é permitido excluir um aparelho em uso por colaborador. Devolva-o primeiro ao estoque.' };
+    }
+
+    const updated = devices.filter(d => d.id !== id);
+    this.set(STORAGE_KEYS.DEVICES, updated);
+    this.logAudit('Dispositivo', id, device.assetTag, 'Exclusão do registro do aparelho.');
+    return { success: true, message: 'Dispositivo removido com sucesso.' };
+  }
+
+  // --- Lines ---
+  public getLines(): PhoneLine[] {
+    return this.get<PhoneLine[]>(STORAGE_KEYS.LINES, INITIAL_LINES);
+  }
+
+  public getLineById(id: string): PhoneLine | undefined {
+    return this.getLines().find(l => l.id === id);
+  }
+
+  public saveLine(line: Partial<PhoneLine> & { id?: string }): { success: boolean; message: string; line?: PhoneLine } {
+    const lines = this.getLines();
+    const isNew = !line.id;
+    const now = new Date().toISOString().split('T')[0];
+
+    if (line.phoneNumber) {
+      const normalizedPhone = line.phoneNumber.replace(/\D/g, '');
+      const duplicatePhone = lines.find(l => l.phoneNumber.replace(/\D/g, '') === normalizedPhone && l.id !== line.id);
+      if (duplicatePhone) {
+        return { success: false, message: `O número de telefone ${line.phoneNumber} já está cadastrado para a operadora ${duplicatePhone.carrier}.` };
+      }
+    }
+
+    let savedLine: PhoneLine;
+
+    if (isNew) {
+      savedLine = {
+        id: `line-${Date.now()}`,
+        phoneNumber: line.phoneNumber || '',
+        carrier: line.carrier || 'Vivo',
+        planName: line.planName || 'Plano Corporativo',
+        monthlyCost: line.monthlyCost ? Number(line.monthlyCost) : undefined,
+        status: line.status || 'Disponível',
+        associatedDeviceId: line.associatedDeviceId,
+        associatedDeviceTag: line.associatedDeviceTag,
+        associatedDeviceModel: line.associatedDeviceModel,
+        currentCollaboratorId: line.currentCollaboratorId,
+        currentCollaboratorName: line.currentCollaboratorName,
+        department: line.department,
+        activationDate: line.activationDate,
+        iccid: line.iccid,
+        notes: line.notes,
+        createdAt: now,
+        updatedAt: now,
+      };
+      lines.unshift(savedLine);
+      this.logAudit('Linha', savedLine.id, savedLine.phoneNumber, 'Cadastro de nova linha telefônica no estoque.');
+    } else {
+      const index = lines.findIndex(l => l.id === line.id);
+      if (index === -1) return { success: false, message: 'Linha não encontrada.' };
+
+      savedLine = {
+        ...lines[index],
+        ...line,
+        updatedAt: now,
+      } as PhoneLine;
+      lines[index] = savedLine;
+      this.logAudit('Linha', savedLine.id, savedLine.phoneNumber, 'Atualização de dados cadastrais da linha.');
+    }
+
+    this.set(STORAGE_KEYS.LINES, lines);
+    return { success: true, message: 'Linha telefônica salva com sucesso.', line: savedLine };
+  }
+
+  public deleteLine(id: string): { success: boolean; message: string } {
+    const lines = this.getLines();
+    const line = lines.find(l => l.id === id);
+    if (!line) return { success: false, message: 'Linha não encontrada.' };
+
+    if (line.status === 'Ativa' && line.currentCollaboratorId) {
+      return { success: false, message: 'Não é possível excluir uma linha ativa vinculada a um colaborador.' };
+    }
+
+    const updated = lines.filter(l => l.id !== id);
+    this.set(STORAGE_KEYS.LINES, updated);
+    this.logAudit('Linha', id, line.phoneNumber, 'Exclusão do registro de linha telefônica.');
+    return { success: true, message: 'Linha removida com sucesso.' };
+  }
+
+  // --- Collaborators ---
+  public getCollaborators(): Collaborator[] {
+    return this.get<Collaborator[]>(STORAGE_KEYS.COLLABORATORS, INITIAL_COLLABORATORS);
+  }
+
+  public getCollaboratorById(id: string): Collaborator | undefined {
+    return this.getCollaborators().find(c => c.id === id);
+  }
+
+  public saveCollaborator(collab: Partial<Collaborator> & { id?: string }): { success: boolean; message: string; collaborator?: Collaborator } {
+    const collabs = this.getCollaborators();
+    const isNew = !collab.id;
+    const now = new Date().toISOString().split('T')[0];
+
+    if (collab.registrationNumber) {
+      const duplicateMat = collabs.find(c => c.registrationNumber.trim().toUpperCase() === collab.registrationNumber?.trim().toUpperCase() && c.id !== collab.id);
+      if (duplicateMat) {
+        return { success: false, message: `A matrícula ${collab.registrationNumber} já pertence ao colaborador ${duplicateMat.fullName}.` };
+      }
+    }
+
+    let savedCollab: Collaborator;
+
+    if (isNew) {
+      savedCollab = {
+        id: `col-${Date.now()}`,
+        fullName: collab.fullName || '',
+        registrationNumber: collab.registrationNumber || `MAT-${Math.floor(1000 + Math.random() * 9000)}`,
+        department: collab.department || 'Geral',
+        position: collab.position || '',
+        corporateEmail: collab.corporateEmail || '',
+        contactPhone: collab.contactPhone,
+        status: collab.status || 'Ativo',
+        cpf: collab.cpf,
+        notes: collab.notes,
+        createdAt: now,
+      };
+      collabs.unshift(savedCollab);
+      this.logAudit('Colaborador', savedCollab.id, savedCollab.fullName, 'Cadastro de novo colaborador.');
+    } else {
+      const index = collabs.findIndex(c => c.id === collab.id);
+      if (index === -1) return { success: false, message: 'Colaborador não encontrado.' };
+
+      savedCollab = {
+        ...collabs[index],
+        ...collab,
+      } as Collaborator;
+      collabs[index] = savedCollab;
+      this.logAudit('Colaborador', savedCollab.id, savedCollab.fullName, 'Atualização de cadastro do colaborador.');
+    }
+
+    this.set(STORAGE_KEYS.COLLABORATORS, collabs);
+    return { success: true, message: 'Colaborador salvo com sucesso.', collaborator: savedCollab };
+  }
+
+  // --- Movements & Terms ---
+  public getMovements(): Movement[] {
+    return this.get<Movement[]>(STORAGE_KEYS.MOVEMENTS, INITIAL_MOVEMENTS);
+  }
+
+  public getTerms(): DocumentTerm[] {
+    return this.get<DocumentTerm[]>(STORAGE_KEYS.TERMS, INITIAL_TERMS);
+  }
+
+  public getTermById(id: string): DocumentTerm | undefined {
+    return this.getTerms().find(t => t.id === id);
+  }
+
+  public updateTermStatus(id: string, status: 'Assinado' | 'Pendente de Assinatura' | 'Arquivado'): boolean {
+    const terms = this.getTerms();
+    const term = terms.find(t => t.id === id);
+    if (!term) return false;
+    term.status = status;
+    if (status === 'Assinado' && !term.signedAt) {
+      const now = new Date();
+      term.signedAt = `${now.toISOString().split('T')[0]} ${now.toLocaleTimeString('pt-BR').substring(0, 5)}`;
+    }
+    this.set(STORAGE_KEYS.TERMS, terms);
+    this.logAudit('Termo', id, term.code, `Status do termo alterado para ${status}.`);
+    return true;
+  }
+
+  // =========================================================================
+  // FLUXO OFICIAL 1: ENTREGA DE DISPOSITIVO (Estoque → Colaborador)
+  // =========================================================================
+  public executeDelivery(params: {
+    deviceId: string;
+    collaboratorId: string;
+    lineId?: string;
+    date: string;
+    condition: DeviceCondition;
+    accessories: string[];
+    reason?: string;
+    observations?: string;
+    registeredBy?: string;
+    batchOperationId?: string;
+  }): { success: boolean; message: string; movement?: Movement } {
+    const devices = this.getDevices();
+    const lines = this.getLines();
+    const collaborators = this.getCollaborators();
+
+    const device = devices.find(d => d.id === params.deviceId);
+    if (!device) return { success: false, message: 'Aparelho não encontrado.' };
+
+    // REGRA DE INTEGRIDADE: Somente aparelhos com status "Disponível" em estoque podem ser entregues!
+    if (device.status !== 'Disponível') {
+      return { 
+        success: false, 
+        message: `O aparelho ${device.assetTag} está com status "${device.status}". Somente aparelhos com status "Disponível" no estoque do Gestor de Telefonia podem ser entregues a colaboradores.` 
+      };
+    }
+
+    if (device.currentCollaboratorId) {
+      return { 
+        success: false, 
+        message: `Inconsistência: O aparelho ${device.assetTag} já está vinculado ao colaborador ${device.currentCollaboratorName}.` 
+      };
+    }
+
+    const collaborator = collaborators.find(c => c.id === params.collaboratorId);
+    if (!collaborator) return { success: false, message: 'Colaborador destino não encontrado.' };
+    if (collaborator.status === 'Desligado') {
+      return { success: false, message: 'Não é permitida a entrega de aparelhos a colaboradores com status Desligado.' };
+    }
+
+    let selectedLine: PhoneLine | undefined;
+    if (params.lineId) {
+      selectedLine = lines.find(l => l.id === params.lineId);
+      if (!selectedLine) return { success: false, message: 'Linha telefônica não encontrada.' };
+      
+      if (selectedLine.associatedDeviceId && selectedLine.associatedDeviceId !== device.id) {
+        const otherDev = devices.find(d => d.id === selectedLine?.associatedDeviceId);
+        if (otherDev && otherDev.status === 'Em uso') {
+          return { success: false, message: `A linha ${selectedLine.phoneNumber} já está vinculada ao aparelho ativo ${otherDev.assetTag}.` };
+        }
+      }
+    }
+
+    const now = new Date();
+    const movCode = `MOV-${now.getFullYear()}-${String(this.getMovements().length + 1).padStart(3, '0')}`;
+    const termCode = `TERMO-ENT-${now.getFullYear()}-${String(this.getTerms().length + 1).padStart(3, '0')}`;
+
+    // 1. Atualizar Dispositivo: Sai do Estoque -> Em uso
+    device.status = 'Em uso';
+    device.condition = params.condition;
+    device.currentCollaboratorId = collaborator.id;
+    device.currentCollaboratorName = collaborator.fullName;
+    device.currentDepartment = collaborator.department;
+    if (selectedLine) {
+      device.associatedLineId = selectedLine.id;
+      device.associatedPhoneNumber = selectedLine.phoneNumber;
+    }
+    device.updatedAt = params.date;
+
+    // 2. Atualizar Linha se selecionada
+    if (selectedLine) {
+      selectedLine.status = 'Ativa';
+      selectedLine.associatedDeviceId = device.id;
+      selectedLine.associatedDeviceTag = device.assetTag;
+      selectedLine.associatedDeviceModel = `${device.brand} ${device.model}`;
+      selectedLine.currentCollaboratorId = collaborator.id;
+      selectedLine.currentCollaboratorName = collaborator.fullName;
+      selectedLine.department = collaborator.department;
+      selectedLine.updatedAt = params.date;
+    }
+
+    // 3. Gerar Termo de Entrega
+    const termId = `term-${Date.now()}`;
+    const newTerm: DocumentTerm = {
+      id: termId,
+      code: termCode,
+      batchOperationId: params.batchOperationId,
+      type: 'Termo de Entrega',
+      title: 'Termo de Responsabilidade e Guarda de Ativo Telefônico',
+      date: params.date,
+      deviceId: device.id,
+      deviceTag: device.assetTag,
+      deviceModel: `${device.brand} ${device.model}`,
+      deviceImei: device.imei1,
+      phoneLineId: selectedLine?.id,
+      phoneNumber: selectedLine?.phoneNumber,
+      collaboratorId: collaborator.id,
+      collaboratorName: collaborator.fullName,
+      collaboratorRegistration: collaborator.registrationNumber,
+      collaboratorCpf: collaborator.cpf,
+      collaboratorDepartment: collaborator.department,
+      status: 'Pendente de Assinatura',
+      accessoriesList: params.accessories,
+      clauses: [
+        'O colaborador declara ter recebido o equipamento liberado do Estoque do Gestor de Telefonia em perfeitas condições.',
+        'O equipamento e a linha destinam-se exclusivamente ao desempenho das atividades profissionais corporativas.',
+        'O colaborador compromete-se a zelar pelo bem, respondendo por dolo ou negligência comprovada.',
+        'Em caso de rescisão, férias prolongadas ou solicitação da empresa, o equipamento deverá ser prontamente restituído ao Estoque do Gestor de Telefonia.',
+        'Em caso de furto, roubo ou extravio, é obrigatória a formalização de Boletim de Ocorrência Policial e comunicação ao Gestor de Telefonia em até 24 horas.'
+      ],
+      notes: params.observations,
+      fileName: `Termo_Entrega_${device.assetTag}_${collaborator.registrationNumber}.pdf`
+    };
+
+    // 4. Registrar Movimentação: Origem = Estoque do Gestor -> Destino = Colaborador
+    const movementId = `mov-${Date.now()}`;
+    newTerm.movementId = movementId;
+
+    const newMovement: Movement = {
+      id: movementId,
+      code: movCode,
+      batchOperationId: params.batchOperationId,
+      type: 'Entrega',
+      date: params.date,
+      deviceId: device.id,
+      deviceTag: device.assetTag,
+      deviceName: `${device.brand} ${device.model}`,
+      imei: device.imei1,
+      phoneLineId: selectedLine?.id,
+      phoneNumber: selectedLine?.phoneNumber,
+      carrier: selectedLine?.carrier,
+      originCollaboratorName: STOCK_LABEL, // Fiel ao conceito operacional: Sai do estoque
+      destinationCollaboratorId: collaborator.id,
+      destinationCollaboratorName: collaborator.fullName,
+      stockTransit: {
+        involved: true,
+        stage: 'Saída do Estoque',
+        stockStatusAfter: 'Em uso'
+      },
+      previousDeviceStatus: 'Disponível',
+      newDeviceStatus: 'Em uso',
+      conditionAtMovement: params.condition,
+      accessoriesIncluded: params.accessories,
+      registeredBy: params.registeredBy || 'Gestor de Telefonia',
+      reason: params.reason || 'Entrega de aparelho do estoque para colaborador.',
+      observations: params.observations,
+      documentId: termId,
+      documentCode: termCode,
+      documentType: 'Termo de Entrega'
+    };
+
+    // Persistência Atômica
+    this.set(STORAGE_KEYS.DEVICES, devices);
+    if (selectedLine) this.set(STORAGE_KEYS.LINES, lines);
+
+    const movements = this.getMovements();
+    movements.unshift(newMovement);
+    this.set(STORAGE_KEYS.MOVEMENTS, movements);
+
+    const terms = this.getTerms();
+    terms.unshift(newTerm);
+    this.set(STORAGE_KEYS.TERMS, terms);
+
+    this.logAudit('Movimentação', movementId, movCode, `Entrega do aparelho ${device.assetTag} liberado do Estoque para ${collaborator.fullName}.`);
+
+    return { 
+      success: true, 
+      message: `Aparelho ${device.assetTag} entregue com sucesso do Estoque para ${collaborator.fullName}. Termo ${termCode} gerado.`, 
+      movement: newMovement 
+    };
+  }
+
+  // =========================================================================
+  // FLUXO OFICIAL 2: DEVOLUÇÃO DE DISPOSITIVO (Colaborador → Estoque do Gestor)
+  // =========================================================================
+  public executeReturn(params: {
+    deviceId: string;
+    collaboratorId: string;
+    date: string;
+    condition: DeviceCondition;
+    nextDeviceStatus: 'Disponível' | 'Aguardando avaliação' | 'Em manutenção' | 'Reservado' | 'Aguardando baixa patrimonial';
+    lineHandling: 'retornar_ao_estoque' | 'manter_com_colaborador' | 'desassociar_e_suspender';
+    accessoriesReturned: string[];
+    reason?: string;
+    observations?: string;
+    registeredBy?: string;
+    batchOperationId?: string;
+    maintenanceProvider?: string;
+  }): { success: boolean; message: string; movement?: Movement } {
+    const devices = this.getDevices();
+    const lines = this.getLines();
+    const collaborators = this.getCollaborators();
+
+    const device = devices.find(d => d.id === params.deviceId);
+    if (!device) return { success: false, message: 'Aparelho não encontrado.' };
+
+    const collaborator = collaborators.find(c => c.id === params.collaboratorId);
+    if (!collaborator) return { success: false, message: 'Colaborador não encontrado.' };
+
+    if (device.currentCollaboratorId !== collaborator.id) {
+      return { 
+        success: false, 
+        message: `Inconsistência de devolução: O aparelho ${device.assetTag} está registrado sob responsabilidade de "${device.currentCollaboratorName || 'Nenhum'}", e não de "${collaborator.fullName}".` 
+      };
+    }
+
+    const now = new Date();
+    const movCode = `MOV-${now.getFullYear()}-${String(this.getMovements().length + 1).padStart(3, '0')}`;
+    const termCode = `TERMO-DEV-${now.getFullYear()}-${String(this.getTerms().length + 1).padStart(3, '0')}`;
+
+    const prevDeviceStatus = device.status;
+    const previousLineId = device.associatedLineId;
+    let lineObj: PhoneLine | undefined;
+    if (previousLineId) {
+      lineObj = lines.find(l => l.id === previousLineId);
+    }
+
+    // 1. Atualizar Dispositivo: Retorna à responsabilidade do Gestor de Telefonia
+    device.status = params.nextDeviceStatus;
+    device.condition = params.condition;
+    device.currentCollaboratorId = undefined;
+    device.currentCollaboratorName = undefined;
+    device.currentDepartment = undefined;
+    device.updatedAt = params.date;
+
+    // 2. Tratamento da Linha Telefônica conforme decisão operacional
+    if (lineObj) {
+      if (params.lineHandling === 'retornar_ao_estoque') {
+        // Desvincula do aparelho e do colaborador, volta a ficar disponível no estoque de linhas
+        device.associatedLineId = undefined;
+        device.associatedPhoneNumber = undefined;
+        lineObj.associatedDeviceId = undefined;
+        lineObj.associatedDeviceTag = undefined;
+        lineObj.associatedDeviceModel = undefined;
+        lineObj.currentCollaboratorId = undefined;
+        lineObj.currentCollaboratorName = undefined;
+        lineObj.department = undefined;
+        lineObj.status = 'Disponível';
+        lineObj.updatedAt = params.date;
+      } else if (params.lineHandling === 'manter_com_colaborador') {
+        // Colaborador mantém o chip (BYOD ou aguardando novo aparelho)
+        device.associatedLineId = undefined;
+        device.associatedPhoneNumber = undefined;
+        lineObj.associatedDeviceId = undefined;
+        lineObj.associatedDeviceTag = undefined;
+        lineObj.associatedDeviceModel = undefined;
+        // Permanece com currentCollaboratorId
+        lineObj.status = 'Ativa';
+        lineObj.updatedAt = params.date;
+      } else if (params.lineHandling === 'desassociar_e_suspender') {
+        device.associatedLineId = undefined;
+        device.associatedPhoneNumber = undefined;
+        lineObj.associatedDeviceId = undefined;
+        lineObj.associatedDeviceTag = undefined;
+        lineObj.associatedDeviceModel = undefined;
+        lineObj.currentCollaboratorId = undefined;
+        lineObj.currentCollaboratorName = undefined;
+        lineObj.status = 'Suspensa';
+        lineObj.updatedAt = params.date;
+      }
+    }
+
+    // 3. Criar Termo de Devolução
+    const termId = `term-${Date.now()}`;
+    const newTerm: DocumentTerm = {
+      id: termId,
+      code: termCode,
+      batchOperationId: params.batchOperationId,
+      type: 'Termo de Devolução',
+      title: 'Termo de Devolução ao Estoque do Gestor de Telefonia',
+      date: params.date,
+      deviceId: device.id,
+      deviceTag: device.assetTag,
+      deviceModel: `${device.brand} ${device.model}`,
+      deviceImei: device.imei1,
+      collaboratorId: collaborator.id,
+      collaboratorName: collaborator.fullName,
+      collaboratorRegistration: collaborator.registrationNumber,
+      collaboratorDepartment: collaborator.department,
+      status: 'Assinado', // Quitado na entrega no balcão de estoque do gestor
+      accessoriesList: params.accessoriesReturned,
+      clauses: [
+        'A empresa, por intermédio do Gestor de Telefonia, atesta o recebimento e recolhimento do ativo ao estoque central.',
+        'O colaborador fica integralmente quitado e desonerado da responsabilidade patrimonial sobre este equipamento.',
+        'Os dados corporativos foram formatados e o ativo direcionado ao status operacional: ' + params.nextDeviceStatus + '.'
+      ],
+      signedAt: `${params.date} ${now.toLocaleTimeString('pt-BR').substring(0, 5)}`,
+      notes: params.observations,
+      fileName: `Termo_Devolucao_${device.assetTag}_${collaborator.registrationNumber}.pdf`
+    };
+
+    // 4. Registrar Movimentação: Origem = Colaborador -> Destino = Estoque do Gestor
+    const movementId = `mov-${Date.now()}`;
+    newTerm.movementId = movementId;
+
+    const newMovement: Movement = {
+      id: movementId,
+      code: movCode,
+      batchOperationId: params.batchOperationId,
+      type: 'Devolução',
+      date: params.date,
+      deviceId: device.id,
+      deviceTag: device.assetTag,
+      deviceName: `${device.brand} ${device.model}`,
+      imei: device.imei1,
+      phoneLineId: lineObj?.id,
+      phoneNumber: lineObj?.phoneNumber,
+      carrier: lineObj?.carrier,
+      originCollaboratorId: collaborator.id,
+      originCollaboratorName: collaborator.fullName,
+      destinationCollaboratorName: STOCK_LABEL, // Fiel ao conceito: retorna ao estoque
+      stockTransit: {
+        involved: true,
+        stage: 'Entrada no Estoque',
+        stockStatusAfter: params.nextDeviceStatus
+      },
+      previousDeviceStatus: prevDeviceStatus,
+      newDeviceStatus: params.nextDeviceStatus,
+      conditionAtMovement: params.condition,
+      accessoriesIncluded: params.accessoriesReturned,
+      registeredBy: params.registeredBy || 'Gestor de Telefonia',
+      reason: params.reason || 'Devolução de aparelho ao estoque do Gestor.',
+      observations: params.observations,
+      documentId: termId,
+      documentCode: termCode,
+      documentType: 'Termo de Devolução',
+      maintenanceProvider: params.nextDeviceStatus === 'Em manutenção' ? params.maintenanceProvider : undefined
+    };
+
+    this.set(STORAGE_KEYS.DEVICES, devices);
+    if (lineObj) this.set(STORAGE_KEYS.LINES, lines);
+
+    const movements = this.getMovements();
+    movements.unshift(newMovement);
+    this.set(STORAGE_KEYS.MOVEMENTS, movements);
+
+    const terms = this.getTerms();
+    terms.unshift(newTerm);
+    this.set(STORAGE_KEYS.TERMS, terms);
+
+    this.logAudit('Movimentação', movementId, movCode, `Devolução do aparelho ${device.assetTag} de ${collaborator.fullName} ao Estoque. Destino no estoque: ${params.nextDeviceStatus}.`);
+
+    return { 
+      success: true, 
+      message: `Aparelho ${device.assetTag} devolvido com sucesso ao Estoque do Gestor (${params.nextDeviceStatus}). Termo de quitação ${termCode} gerado.`, 
+      movement: newMovement 
+    };
+  }
+
+  // =========================================================================
+  // FLUXO OFICIAL 3: TRANSFERÊNCIA ENTRE COLABORADORES
+  // Obrigatório: Colaborador A → Estoque do Gestor → Colaborador B
+  // =========================================================================
+  public executeTransfer(params: {
+    deviceId: string;
+    originCollaboratorId: string;
+    destinationCollaboratorId: string;
+    date: string;
+    condition: DeviceCondition;
+    destinationStatusAfterReturn: 'Disponível' | 'Aguardando avaliação' | 'Em manutenção';
+    lineHandling: 'transferir_linha_junto' | 'manter_linha_com_origem' | 'retornar_linha_ao_estoque';
+    accessories: string[];
+    reason?: string;
+    observations?: string;
+    registeredBy?: string;
+  }): { success: boolean; message: string; batchOperationId?: string } {
+    const devices = this.getDevices();
+    const collaborators = this.getCollaborators();
+    const lines = this.getLines();
+
+    const device = devices.find(d => d.id === params.deviceId);
+    if (!device) return { success: false, message: 'Aparelho não encontrado.' };
+
+    const originCollab = collaborators.find(c => c.id === params.originCollaboratorId);
+    if (!originCollab) return { success: false, message: 'Colaborador de origem não encontrado.' };
+
+    const destCollab = collaborators.find(c => c.id === params.destinationCollaboratorId);
+    if (!destCollab) return { success: false, message: 'Colaborador de destino não encontrado.' };
+
+    if (originCollab.id === destCollab.id) {
+      return { success: false, message: 'O colaborador de origem e de destino devem ser pessoas diferentes.' };
+    }
+
+    if (device.currentCollaboratorId !== originCollab.id) {
+      return { success: false, message: `O aparelho ${device.assetTag} não está sob posse de ${originCollab.fullName}.` };
+    }
+
+    const now = new Date();
+    const batchId = `TRF-${now.getFullYear()}-${Math.floor(100 + Math.random() * 900)}`;
+
+    // ETAPA 1: Devolução obrigatória ao Estoque do Gestor de Telefonia
+    const returnResult = this.executeReturn({
+      deviceId: device.id,
+      collaboratorId: originCollab.id,
+      date: params.date,
+      condition: params.condition,
+      nextDeviceStatus: params.destinationStatusAfterReturn,
+      lineHandling: params.lineHandling === 'transferir_linha_junto' ? 'retornar_ao_estoque' : 'manter_com_colaborador',
+      accessoriesReturned: params.accessories,
+      reason: `Transferência patrimonial [${batchId}] - Etapa 1: Devolução ao Estoque do Gestor.`,
+      observations: params.observations,
+      registeredBy: params.registeredBy || 'Gestor de Telefonia',
+      batchOperationId: batchId
+    });
+
+    if (!returnResult.success) {
+      return { success: false, message: `Falha na 1ª Etapa (Devolução ao Estoque): ${returnResult.message}` };
+    }
+
+    // REGRA DE INTEGRIDADE: Se o aparelho não estiver apto ("Disponível"), interrompe a 2ª etapa!
+    if (params.destinationStatusAfterReturn !== 'Disponível') {
+      return {
+        success: true,
+        message: `Etapa 1 concluída com sucesso: Aparelho ${device.assetTag} recolhido ao Estoque do Gestor com status "${params.destinationStatusAfterReturn}". A entrega ao colaborador ${destCollab.fullName} foi interrompida pois o ativo requer avaliação ou reparo prévio.`,
+        batchOperationId: batchId
+      };
+    }
+
+    // ETAPA 2: Nova entrega do Estoque do Gestor para o Colaborador B
+    let lineToAssignId: string | undefined;
+    if (params.lineHandling === 'transferir_linha_junto' && device.associatedLineId) {
+      lineToAssignId = device.associatedLineId;
+    }
+
+    const deliveryResult = this.executeDelivery({
+      deviceId: device.id,
+      collaboratorId: destCollab.id,
+      lineId: lineToAssignId,
+      date: params.date,
+      condition: params.condition,
+      accessories: params.accessories,
+      reason: `Transferência patrimonial [${batchId}] - Etapa 2: Entrega do Estoque para novo colaborador.`,
+      observations: `Transferido a partir do Estoque após custódia prévia de ${originCollab.fullName}.`,
+      registeredBy: params.registeredBy || 'Gestor de Telefonia',
+      batchOperationId: batchId
+    });
+
+    if (!deliveryResult.success) {
+      return { 
+        success: false, 
+        message: `Aparelho retornou ao Estoque, porém ocorreu falha na entrega: ${deliveryResult.message}`,
+        batchOperationId: batchId
+      };
+    }
+
+    this.logAudit('Movimentação', batchId, batchId, `Transferência completa registrada: ${originCollab.fullName} → Estoque do Gestor → ${destCollab.fullName}.`);
+
+    return {
+      success: true,
+      message: `Transferência completa concluída com sucesso! Registradas as 2 etapas com código comum ${batchId}: [1] Devolução de ${originCollab.fullName} ao Estoque e [2] Entrega do Estoque para ${destCollab.fullName}.`,
+      batchOperationId: batchId
+    };
+  }
+
+  // =========================================================================
+  // FLUXO OFICIAL 4: TROCA DE APARELHO PELO MESMO COLABORADOR
+  // Obrigatório: Colaborador A (Aparelho Antigo) → Estoque | Estoque (Aparelho Novo) → Colaborador A
+  // =========================================================================
+  public executeSwap(params: {
+    collaboratorId: string;
+    oldDeviceId: string;
+    oldDeviceCondition: DeviceCondition;
+    oldDeviceNextStatus: 'Disponível' | 'Aguardando avaliação' | 'Em manutenção' | 'Aguardando baixa patrimonial';
+    oldDeviceAccessories: string[];
+    newDeviceId: string;
+    newDeviceCondition: DeviceCondition;
+    newDeviceAccessories: string[];
+    lineOption: 'manter_linha_atual_no_novo' | 'sem_linha' | 'selecionar_outra_linha';
+    customLineId?: string;
+    date: string;
+    reason: string;
+    observations?: string;
+    registeredBy?: string;
+  }): { success: boolean; message: string; batchOperationId?: string } {
+    const devices = this.getDevices();
+    const collaborators = this.getCollaborators();
+    const lines = this.getLines();
+
+    const collaborator = collaborators.find(c => c.id === params.collaboratorId);
+    if (!collaborator) return { success: false, message: 'Colaborador não encontrado.' };
+
+    const oldDevice = devices.find(d => d.id === params.oldDeviceId);
+    if (!oldDevice) return { success: false, message: 'Aparelho antigo não encontrado.' };
+
+    const newDevice = devices.find(d => d.id === params.newDeviceId);
+    if (!newDevice) return { success: false, message: 'Novo aparelho não encontrado em estoque.' };
+
+    if (newDevice.status !== 'Disponível') {
+      return { success: false, message: `O aparelho selecionado ${newDevice.assetTag} não está disponível no estoque (status: ${newDevice.status}).` };
+    }
+
+    const previousLineId = oldDevice.associatedLineId;
+    const now = new Date();
+    const batchId = `TRC-${now.getFullYear()}-${Math.floor(100 + Math.random() * 900)}`;
+
+    // ETAPA 1: Devolução do aparelho antigo ao Estoque do Gestor
+    const returnResult = this.executeReturn({
+      deviceId: oldDevice.id,
+      collaboratorId: collaborator.id,
+      date: params.date,
+      condition: params.oldDeviceCondition,
+      nextDeviceStatus: params.oldDeviceNextStatus,
+      lineHandling: params.lineOption === 'manter_linha_atual_no_novo' ? 'manter_com_colaborador' : 'retornar_ao_estoque',
+      accessoriesReturned: params.oldDeviceAccessories,
+      reason: `Troca de dispositivo [${batchId}] - Etapa 1: Devolução do aparelho antigo (${oldDevice.assetTag}) ao Estoque.`,
+      observations: params.observations,
+      registeredBy: params.registeredBy || 'Gestor de Telefonia',
+      batchOperationId: batchId
+    });
+
+    if (!returnResult.success) {
+      return { success: false, message: `Falha na devolução do aparelho antigo: ${returnResult.message}` };
+    }
+
+    // ETAPA 2: Entrega do novo aparelho disponível do Estoque para o colaborador
+    let targetLineId: string | undefined;
+    if (params.lineOption === 'manter_linha_atual_no_novo') {
+      targetLineId = previousLineId;
+    } else if (params.lineOption === 'selecionar_outra_linha') {
+      targetLineId = params.customLineId;
+    }
+
+    const deliveryResult = this.executeDelivery({
+      deviceId: newDevice.id,
+      collaboratorId: collaborator.id,
+      lineId: targetLineId,
+      date: params.date,
+      condition: params.newDeviceCondition,
+      accessories: params.newDeviceAccessories,
+      reason: `Troca de dispositivo [${batchId}] - Etapa 2: Entrega do novo aparelho (${newDevice.assetTag}) do Estoque.`,
+      observations: `Substituição do aparelho anterior ${oldDevice.assetTag}. Motivo: ${params.reason}`,
+      registeredBy: params.registeredBy || 'Gestor de Telefonia',
+      batchOperationId: batchId
+    });
+
+    if (!deliveryResult.success) {
+      return { 
+        success: false, 
+        message: `Aparelho antigo recolhido ao Estoque, porém falha na entrega do novo ativo: ${deliveryResult.message}`,
+        batchOperationId: batchId
+      };
+    }
+
+    this.logAudit('Movimentação', batchId, batchId, `Troca de aparelho realizada com sucesso para ${collaborator.fullName}. Antigo: ${oldDevice.assetTag} → Estoque | Novo: ${newDevice.assetTag} ← Estoque.`);
+
+    return {
+      success: true,
+      message: `Troca concluída com sucesso (${batchId})! O aparelho ${oldDevice.assetTag} retornou ao Estoque (${params.oldDeviceNextStatus}) e o aparelho ${newDevice.assetTag} foi entregue a ${collaborator.fullName}.`,
+      batchOperationId: batchId
+    };
+  }
+
+  // =========================================================================
+  // LIBERAÇÃO DE ESTOQUE (Conferência / Higienização -> Disponível)
+  // =========================================================================
+  public releaseDeviceToStock(params: {
+    deviceId: string;
+    condition: DeviceCondition;
+    notes?: string;
+    registeredBy?: string;
+  }): { success: boolean; message: string } {
+    const devices = this.getDevices();
+    const device = devices.find(d => d.id === params.deviceId);
+    if (!device) return { success: false, message: 'Aparelho não encontrado.' };
+
+    const prevStatus = device.status;
+    device.status = 'Disponível';
+    device.condition = params.condition;
+    device.updatedAt = new Date().toISOString().split('T')[0];
+    if (params.notes) {
+      device.notes = device.notes ? `${device.notes} | ${params.notes}` : params.notes;
+    }
+
+    const now = new Date();
+    const movCode = `MOV-${now.getFullYear()}-${String(this.getMovements().length + 1).padStart(3, '0')}`;
+    const newMovement: Movement = {
+      id: `mov-${Date.now()}`,
+      code: movCode,
+      type: 'Liberação de Estoque',
+      date: new Date().toISOString().split('T')[0],
+      deviceId: device.id,
+      deviceTag: device.assetTag,
+      deviceName: `${device.brand} ${device.model}`,
+      imei: device.imei1,
+      originCollaboratorName: STOCK_LABEL,
+      destinationCollaboratorName: STOCK_LABEL,
+      stockTransit: { involved: true, stage: 'Conferência em Estoque', stockStatusAfter: 'Disponível' },
+      previousDeviceStatus: prevStatus,
+      newDeviceStatus: 'Disponível',
+      conditionAtMovement: params.condition,
+      accessoriesIncluded: ['Aparelho conferido'],
+      registeredBy: params.registeredBy || 'Gestor de Telefonia',
+      reason: 'Conferência técnica e higienização em estoque concluídas. Ativo liberado para novas entregas.',
+      observations: params.notes
+    };
+
+    this.set(STORAGE_KEYS.DEVICES, devices);
+    const movements = this.getMovements();
+    movements.unshift(newMovement);
+    this.set(STORAGE_KEYS.MOVEMENTS, movements);
+
+    this.logAudit('Dispositivo', device.id, device.assetTag, `Aparelho liberado no estoque do Gestor (Status alterado de "${prevStatus}" para "Disponível").`);
+
+    return { success: true, message: `Aparelho ${device.assetTag} liberado com sucesso. Agora consta como "Disponível" no estoque.` };
+  }
+
+  // --- Maintenance Operations ---
+  public sendToMaintenance(params: {
+    deviceId: string;
+    provider: string;
+    cost?: number;
+    forecastDate?: string;
+    reason: string;
+    date: string;
+    registeredBy?: string;
+  }): { success: boolean; message: string } {
+    const devices = this.getDevices();
+    const device = devices.find(d => d.id === params.deviceId);
+    if (!device) return { success: false, message: 'Aparelho não encontrado.' };
+
+    if (device.status === 'Em uso') {
+      return { success: false, message: 'O aparelho está atualmente em uso. Realize primeiro a devolução ao estoque do Gestor antes de enviar para manutenção.' };
+    }
+
+    const prevStatus = device.status;
+    device.status = 'Em manutenção';
+    device.condition = 'Danificado';
+    device.updatedAt = params.date;
+
+    const now = new Date();
+    const movCode = `MOV-${now.getFullYear()}-${String(this.getMovements().length + 1).padStart(3, '0')}`;
+    const newMovement: Movement = {
+      id: `mov-${Date.now()}`,
+      code: movCode,
+      type: 'Envio para Manutenção',
+      date: params.date,
+      deviceId: device.id,
+      deviceTag: device.assetTag,
+      deviceName: `${device.brand} ${device.model}`,
+      imei: device.imei1,
+      originCollaboratorName: STOCK_LABEL,
+      destinationCollaboratorName: params.provider,
+      stockTransit: { involved: true, stage: 'Saída do Estoque', stockStatusAfter: 'Em manutenção' },
+      previousDeviceStatus: prevStatus,
+      newDeviceStatus: 'Em manutenção',
+      conditionAtMovement: 'Danificado',
+      accessoriesIncluded: ['Aparelho'],
+      registeredBy: params.registeredBy || 'Gestor de Telefonia',
+      reason: params.reason,
+      maintenanceProvider: params.provider,
+      maintenanceCost: params.cost,
+      returnForecastDate: params.forecastDate,
+    };
+
+    this.set(STORAGE_KEYS.DEVICES, devices);
+    const movements = this.getMovements();
+    movements.unshift(newMovement);
+    this.set(STORAGE_KEYS.MOVEMENTS, movements);
+
+    this.logAudit('Dispositivo', device.id, device.assetTag, `Enviado do estoque para assistência "${params.provider}". Motivo: ${params.reason}`);
+    return { success: true, message: `Aparelho ${device.assetTag} enviado para manutenção técnica com sucesso.` };
+  }
+
+  public returnFromMaintenance(params: {
+    deviceId: string;
+    resolution: string;
+    finalCondition: DeviceCondition;
+    date: string;
+    registeredBy?: string;
+  }): { success: boolean; message: string } {
+    const devices = this.getDevices();
+    const device = devices.find(d => d.id === params.deviceId);
+    if (!device) return { success: false, message: 'Aparelho não encontrado.' };
+
+    if (device.status !== 'Em manutenção') {
+      return { success: false, message: 'O aparelho não está com status de manutenção.' };
+    }
+
+    // Retorna ao Estoque do Gestor como Disponível
+    device.status = 'Disponível';
+    device.condition = params.finalCondition;
+    device.updatedAt = params.date;
+
+    const now = new Date();
+    const movCode = `MOV-${now.getFullYear()}-${String(this.getMovements().length + 1).padStart(3, '0')}`;
+    const newMovement: Movement = {
+      id: `mov-${Date.now()}`,
+      code: movCode,
+      type: 'Retorno da Manutenção',
+      date: params.date,
+      deviceId: device.id,
+      deviceTag: device.assetTag,
+      deviceName: `${device.brand} ${device.model}`,
+      imei: device.imei1,
+      originCollaboratorName: 'Assistência Técnica',
+      destinationCollaboratorName: STOCK_LABEL,
+      stockTransit: { involved: true, stage: 'Entrada no Estoque', stockStatusAfter: 'Disponível' },
+      previousDeviceStatus: 'Em manutenção',
+      newDeviceStatus: 'Disponível',
+      conditionAtMovement: params.finalCondition,
+      accessoriesIncluded: ['Aparelho reparado'],
+      registeredBy: params.registeredBy || 'Gestor de Telefonia',
+      reason: 'Retorno de assistência técnica com reparo concluído. Ativo retorna ao estoque disponível.',
+      observations: params.resolution,
+    };
+
+    this.set(STORAGE_KEYS.DEVICES, devices);
+    const movements = this.getMovements();
+    movements.unshift(newMovement);
+    this.set(STORAGE_KEYS.MOVEMENTS, movements);
+
+    this.logAudit('Dispositivo', device.id, device.assetTag, `Retorno de manutenção concluído. Aparelho reintegrado ao estoque disponível.`);
+    return { success: true, message: `Retorno de manutenção registrado. Aparelho ${device.assetTag} retornou ao Estoque do Gestor com status "Disponível".` };
+  }
+
+  // --- Line Association ---
+  public associateLineToDevice(lineId: string, deviceId: string): { success: boolean; message: string } {
+    const lines = this.getLines();
+    const devices = this.getDevices();
+
+    const line = lines.find(l => l.id === lineId);
+    if (!line) return { success: false, message: 'Linha não encontrada.' };
+
+    const device = devices.find(d => d.id === deviceId);
+    if (!device) return { success: false, message: 'Aparelho não encontrado.' };
+
+    if (device.associatedLineId && device.associatedLineId !== line.id) {
+      const oldLine = lines.find(l => l.id === device.associatedLineId);
+      if (oldLine) {
+        oldLine.associatedDeviceId = undefined;
+        oldLine.associatedDeviceTag = undefined;
+        oldLine.associatedDeviceModel = undefined;
+      }
+    }
+
+    if (line.associatedDeviceId && line.associatedDeviceId !== device.id) {
+      const oldDev = devices.find(d => d.id === line.associatedDeviceId);
+      if (oldDev) {
+        oldDev.associatedLineId = undefined;
+        oldDev.associatedPhoneNumber = undefined;
+      }
+    }
+
+    line.associatedDeviceId = device.id;
+    line.associatedDeviceTag = device.assetTag;
+    line.associatedDeviceModel = `${device.brand} ${device.model}`;
+    if (device.currentCollaboratorId) {
+      line.currentCollaboratorId = device.currentCollaboratorId;
+      line.currentCollaboratorName = device.currentCollaboratorName;
+      line.department = device.currentDepartment;
+      line.status = 'Ativa';
+    }
+
+    device.associatedLineId = line.id;
+    device.associatedPhoneNumber = line.phoneNumber;
+
+    this.set(STORAGE_KEYS.LINES, lines);
+    this.set(STORAGE_KEYS.DEVICES, devices);
+    this.logAudit('Linha', line.id, line.phoneNumber, `Linha associada ao aparelho ${device.assetTag}.`);
+    return { success: true, message: `Linha ${line.phoneNumber} associada com sucesso ao aparelho ${device.assetTag}.` };
+  }
+
+  public disassociateLine(lineId: string): { success: boolean; message: string } {
+    const lines = this.getLines();
+    const devices = this.getDevices();
+
+    const line = lines.find(l => l.id === lineId);
+    if (!line) return { success: false, message: 'Linha não encontrada.' };
+
+    if (line.associatedDeviceId) {
+      const dev = devices.find(d => d.id === line.associatedDeviceId);
+      if (dev) {
+        dev.associatedLineId = undefined;
+        dev.associatedPhoneNumber = undefined;
+        this.set(STORAGE_KEYS.DEVICES, devices);
+      }
+    }
+
+    line.associatedDeviceId = undefined;
+    line.associatedDeviceTag = undefined;
+    line.associatedDeviceModel = undefined;
+    if (!line.currentCollaboratorId) {
+      line.status = 'Disponível';
+    }
+
+    this.set(STORAGE_KEYS.LINES, lines);
+    this.logAudit('Linha', line.id, line.phoneNumber, 'Desassociação de linha telefônica do aparelho.');
+    return { success: true, message: `Linha ${line.phoneNumber} desassociada com sucesso.` };
+  }
+
+  // --- Audit & Metrics ---
+  public getAuditLogs(): AuditLog[] {
+    return this.get<AuditLog[]>(STORAGE_KEYS.AUDIT, INITIAL_AUDIT);
+  }
+
+  private logAudit(entityType: 'Dispositivo' | 'Linha' | 'Colaborador' | 'Movimentação' | 'Termo', entityId: string, entityLabel: string, details: string, user: string = 'Gestor de Telefonia') {
+    const logs = this.getAuditLogs();
+    const now = new Date();
+    const timestamp = `${now.toISOString().split('T')[0]} ${now.toLocaleTimeString('pt-BR')}`;
+    logs.unshift({
+      id: `aud-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      timestamp,
+      action: details.split(' ')[0],
+      entityType,
+      entityId,
+      entityLabel,
+      details,
+      user
+    });
+    if (logs.length > 200) logs.pop();
+    this.set(STORAGE_KEYS.AUDIT, logs);
+  }
+
+  public getDashboardMetrics(): DashboardMetrics {
+    const devices = this.getDevices();
+    const lines = this.getLines();
+    const movements = this.getMovements();
+    const terms = this.getTerms();
+
+    const inUseDevices = devices.filter(d => d.status === 'Em uso').length;
+    
+    // Estoque do Gestor
+    const stockAvailable = devices.filter(d => d.status === 'Disponível').length;
+    const stockAwaitingEvaluation = devices.filter(d => d.status === 'Aguardando avaliação').length;
+    const stockMaintenance = devices.filter(d => d.status === 'Em manutenção').length;
+    const stockReserved = devices.filter(d => d.status === 'Reservado').length;
+    const stockAwaitingDisposal = devices.filter(d => d.status === 'Aguardando baixa patrimonial').length;
+    const stockDisposed = devices.filter(d => d.status === 'Baixado').length;
+    const lostDevices = devices.filter(d => d.status === 'Extraviado').length;
+
+    const stockTotal = devices.length - inUseDevices;
+
+    const activeLines = lines.filter(l => l.status === 'Ativa').length;
+    const availableLines = lines.filter(l => l.status === 'Disponível').length;
+    const suspendedLines = lines.filter(l => l.status === 'Suspensa').length;
+    const cancelledLines = lines.filter(l => l.status === 'Cancelada' || l.status === 'Em processo de cancelamento').length;
+
+    const devicesWithoutCollaborator = devices.filter(d => !d.currentCollaboratorId && d.status !== 'Baixado').length;
+    const linesWithoutDevice = lines.filter(l => !l.associatedDeviceId).length;
+    const linesWithoutCollaborator = lines.filter(l => l.status === 'Ativa' && !l.currentCollaboratorId).length;
+
+    let inconsistenciesCount = 0;
+    devices.forEach(d => {
+      if (d.status === 'Em uso' && !d.currentCollaboratorId) inconsistenciesCount++;
+      if (d.status === 'Disponível' && d.currentCollaboratorId) inconsistenciesCount++;
+    });
+
+    const pendingTermsCount = terms.filter(t => t.status === 'Pendente de Assinatura').length;
+
+    return {
+      totalDevices: devices.length,
+      inUseDevices,
+      
+      stockTotal,
+      stockAvailable,
+      stockAwaitingEvaluation,
+      stockMaintenance,
+      stockReserved,
+      stockAwaitingDisposal,
+      stockDisposed,
+      lostDevices,
+
+      totalLines: lines.length,
+      activeLines,
+      availableLines,
+      suspendedLines,
+      cancelledLines,
+
+      devicesWithoutCollaborator,
+      linesWithoutDevice,
+      linesWithoutCollaborator,
+
+      recentMovementsCount: movements.length,
+      pendingTermsCount,
+      inconsistenciesCount
+    };
+  }
+
+  // --- Export / Import ---
+  public exportFullBackup(): string {
+    const data = {
+      version: '2.0',
+      exportedAt: new Date().toISOString(),
+      devices: this.getDevices(),
+      lines: this.getLines(),
+      collaborators: this.getCollaborators(),
+      movements: this.getMovements(),
+      terms: this.getTerms(),
+      audit: this.getAuditLogs()
+    };
+    return JSON.stringify(data, null, 2);
+  }
+
+  public importFullBackup(jsonString: string): { success: boolean; message: string } {
+    try {
+      const data = JSON.parse(jsonString);
+      if (!data.devices || !data.collaborators || !data.lines) {
+        return { success: false, message: 'Estrutura JSON inválida para restauração do sistema.' };
+      }
+      this.set(STORAGE_KEYS.DEVICES, data.devices);
+      this.set(STORAGE_KEYS.LINES, data.lines);
+      this.set(STORAGE_KEYS.COLLABORATORS, data.collaborators);
+      this.set(STORAGE_KEYS.MOVEMENTS, data.movements || []);
+      this.set(STORAGE_KEYS.TERMS, data.terms || []);
+      this.set(STORAGE_KEYS.AUDIT, data.audit || []);
+      this.logAudit('Dispositivo', 'all', 'Restauração', 'Backup completo do sistema importado com êxito.');
+      return { success: true, message: 'Dados restaurados com êxito no sistema!' };
+    } catch (e) {
+      return { success: false, message: `Falha ao processar arquivo: ${(e as Error).message}` };
+    }
+  }
+
+  public importFromSpreadsheetData(data: {
+    devices?: Partial<Device>[];
+    lines?: Partial<PhoneLine>[];
+    collaborators?: Partial<Collaborator>[];
+  }): { success: boolean; importedDevices: number; importedLines: number; importedCollaborators: number; errors: string[] } {
+    const errors: string[] = [];
+    let countDev = 0;
+    let countLine = 0;
+    let countCollab = 0;
+
+    if (data.collaborators) {
+      for (const col of data.collaborators) {
+        if (!col.fullName) {
+          errors.push('Colaborador sem nome ignorado.');
+          continue;
+        }
+        const res = this.saveCollaborator(col);
+        if (res.success) countCollab++;
+        else errors.push(`Colaborador ${col.fullName}: ${res.message}`);
+      }
+    }
+
+    if (data.lines) {
+      for (const lin of data.lines) {
+        if (!lin.phoneNumber) {
+          errors.push('Linha sem número telefônico ignorada.');
+          continue;
+        }
+        const res = this.saveLine(lin);
+        if (res.success) countLine++;
+        else errors.push(`Linha ${lin.phoneNumber}: ${res.message}`);
+      }
+    }
+
+    if (data.devices) {
+      for (const dev of data.devices) {
+        if (!dev.assetTag && !dev.imei1) {
+          errors.push('Aparelho sem identificador ou IMEI ignorado.');
+          continue;
+        }
+        const res = this.saveDevice(dev);
+        if (res.success) countDev++;
+        else errors.push(`Aparelho ${dev.assetTag || dev.imei1}: ${res.message}`);
+      }
+    }
+
+    return {
+      success: true,
+      importedDevices: countDev,
+      importedLines: countLine,
+      importedCollaborators: countCollab,
+      errors
+    };
+  }
+}
+
+export const dataService = new DataStorageService();
+dataService.init();
