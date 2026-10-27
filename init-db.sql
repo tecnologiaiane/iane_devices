@@ -109,27 +109,63 @@ CREATE INDEX IF NOT EXISTS idx_movements_batch ON movements(batch_operation_id);
 CREATE INDEX IF NOT EXISTS idx_movements_device ON movements(device_id);
 CREATE INDEX IF NOT EXISTS idx_lines_phone ON phone_lines(phone_number);
 
--- 6. TABELA DE USUÁRIOS DO SISTEMA (LOGIN & ACESSO)
+-- 6. TABELA DE USUÁRIOS DO SISTEMA (LOGIN & ACESSO RBAC)
 CREATE TABLE IF NOT EXISTS system_users (
     id VARCHAR(50) PRIMARY KEY,
     username VARCHAR(100) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     full_name VARCHAR(150) NOT NULL,
     email VARCHAR(150),
-    role VARCHAR(50) DEFAULT 'admin', -- admin, gestor, visualizador
+    role VARCHAR(50) DEFAULT 'admin', -- admin, gestor, operador, visualizador
+    permissions TEXT[] DEFAULT ARRAY['all']::TEXT[],
     active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_username ON system_users(username);
 
--- Super Usuário Oficial da TI IANE (Substitui admin genérico)
-INSERT INTO system_users (id, username, password_hash, full_name, email, role)
-VALUES ('user-iane-super-1', 'tecnologia@iane.ind.br', 'Iane@2026', 'TI IANE - Super Usuário', 'tecnologia@iane.ind.br', 'admin')
-ON CONFLICT (username) DO UPDATE SET password_hash = EXCLUDED.password_hash;
+-- 7. TABELA DE AUDITORIA DE SISTEMA
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id VARCHAR(50) PRIMARY KEY,
+    action VARCHAR(100) NOT NULL,
+    entity_type VARCHAR(50) NOT NULL,
+    entity_id VARCHAR(50),
+    entity_label VARCHAR(150),
+    details TEXT,
+    user_name VARCHAR(150),
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
 
-INSERT INTO system_users (id, username, password_hash, full_name, email, role)
-VALUES ('user-iane-super-2', 'tecnologia', 'Iane@2026', 'TI IANE - Super Usuário', 'tecnologia@iane.ind.br', 'admin')
-ON CONFLICT (username) DO UPDATE SET password_hash = EXCLUDED.password_hash;
+-- Super Usuário Oficial da TI IANE com Senha Criptografada (bcrypt)
+-- Senha padrão inicial: Iane@2026
+INSERT INTO system_users (id, username, password_hash, full_name, email, role, permissions)
+VALUES (
+    'user-iane-super-1',
+    'tecnologia@iane.ind.br',
+    '$2b$10$fngkbVvcbicIlBm.BPw7TOEYDiwJEb7qyC.qFTgTxLDKMGEDm8bIW',
+    'TI IANE - Super Usuário',
+    'tecnologia@iane.ind.br',
+    'admin',
+    ARRAY['all', 'dashboard', 'dispositivos', 'dispositivos_edit', 'linhas', 'linhas_edit', 'colaboradores', 'colaboradores_edit', 'movimentacoes', 'termos', 'relatorios', 'configuracoes', 'manage_users']::TEXT[]
+)
+ON CONFLICT (username) DO UPDATE 
+SET password_hash = EXCLUDED.password_hash,
+    permissions = EXCLUDED.permissions,
+    role = EXCLUDED.role;
+
+INSERT INTO system_users (id, username, password_hash, full_name, email, role, permissions)
+VALUES (
+    'user-iane-super-2',
+    'tecnologia',
+    '$2b$10$fngkbVvcbicIlBm.BPw7TOEYDiwJEb7qyC.qFTgTxLDKMGEDm8bIW',
+    'TI IANE - Super Usuário',
+    'tecnologia@iane.ind.br',
+    'admin',
+    ARRAY['all', 'dashboard', 'dispositivos', 'dispositivos_edit', 'linhas', 'linhas_edit', 'colaboradores', 'colaboradores_edit', 'movimentacoes', 'termos', 'relatorios', 'configuracoes', 'manage_users']::TEXT[]
+)
+ON CONFLICT (username) DO UPDATE 
+SET password_hash = EXCLUDED.password_hash,
+    permissions = EXCLUDED.permissions,
+    role = EXCLUDED.role;
 
 

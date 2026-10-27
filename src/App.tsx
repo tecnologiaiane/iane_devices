@@ -28,6 +28,22 @@ export default function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
+  // Sincronização inicial com o banco PostgreSQL
+  React.useEffect(() => {
+    dataService.syncWithServer().then(() => setRefreshKey(k => k + 1));
+  }, []);
+
+  // Guarda de rota / permissão: se usuário não tem permissão para a aba ativa, redireciona para dashboard
+  React.useEffect(() => {
+    if (currentUser && activeTab !== 'dashboard') {
+      const perms = currentUser.permissions || ['all'];
+      const hasPerm = currentUser.role === 'admin' || perms.includes('all') || perms.includes(activeTab);
+      if (!hasPerm) {
+        setActiveTab('dashboard');
+      }
+    }
+  }, [currentUser, activeTab]);
+
   // Modal States
   const [isMovementModalOpen, setIsMovementModalOpen] = useState(false);
   const [movementPreselectDeviceId, setMovementPreselectDeviceId] = useState<string | undefined>();
@@ -189,6 +205,7 @@ export default function App() {
               key={refreshKey}
               onOpenSpreadsheetModal={() => setIsSpreadsheetModalOpen(true)}
               onDataReset={triggerRefresh}
+              currentUser={currentUser}
             />
           )}
         </main>

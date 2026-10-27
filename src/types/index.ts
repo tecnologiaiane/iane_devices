@@ -231,12 +231,28 @@ export interface DashboardMetrics {
   inconsistenciesCount: number;
 }
 
+export type UserRole = 'admin' | 'gestor' | 'operador' | 'visualizador';
+
 export interface User {
   id: string;
   username: string;
   fullName: string;
   email?: string;
-  role: 'admin' | 'gestor' | 'visualizador';
+  role: UserRole;
+  permissions: string[];
+  active?: boolean;
+  createdAt?: string;
+}
+
+export interface SystemUserFormData {
+  id?: string;
+  username: string;
+  fullName: string;
+  email?: string;
+  password?: string;
+  role: UserRole;
+  permissions: string[];
+  active: boolean;
 }
 
 export interface LoginCredentials {

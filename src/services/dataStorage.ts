@@ -10,7 +10,9 @@ import {
   LineStatus,
   DeviceCondition,
   MovementType,
-  TermType
+  TermType,
+  User,
+  SystemUserFormData
 } from '../types';
 
 const STORAGE_KEYS = {
@@ -45,11 +47,91 @@ class DataStorageService {
     }
   }
 
+  private async apiSync(path: string, method: string = 'GET', body?: any): Promise<any> {
+    try {
+      const token = localStorage.getItem('iane_auth_token_v2');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch(path, {
+        method,
+        headers,
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch {
+      return null;
+    }
+  }
+
+  private triggerServerSync(key: string, value: any): void {
+    try {
+      if (key === STORAGE_KEYS.DEVICES && Array.isArray(value) && value.length > 0) {
+        // Envia o último alterado/inserido para a API
+        this.apiSync('/api/devices', 'POST', value[0]);
+      } else if (key === STORAGE_KEYS.LINES && Array.isArray(value) && value.length > 0) {
+        this.apiSync('/api/lines', 'POST', value[0]);
+      } else if (key === STORAGE_KEYS.COLLABORATORS && Array.isArray(value) && value.length > 0) {
+        this.apiSync('/api/collaborators', 'POST', value[0]);
+      } else if (key === STORAGE_KEYS.MOVEMENTS && Array.isArray(value) && value.length > 0) {
+        this.apiSync('/api/movements', 'POST', value[0]);
+      } else if (key === STORAGE_KEYS.TERMS && Array.isArray(value) && value.length > 0) {
+        this.apiSync('/api/terms', 'POST', value[0]);
+      }
+    } catch (e) {
+      console.warn('Erro ao disparar sync em segundo plano:', e);
+    }
+  }
+
   private set<T>(key: string, value: T): void {
     try {
       localStorage.setItem(key, JSON.stringify(value));
+      this.triggerServerSync(key, value);
     } catch (e) {
       console.error(`Erro ao salvar ${key} no localStorage:`, e);
+    }
+  }
+
+  public async syncWithServer(): Promise<boolean> {
+    try {
+      const [devRes, lineRes, colRes, movRes, termRes, audRes] = await Promise.all([
+        this.apiSync('/api/devices'),
+        this.apiSync('/api/lines'),
+        this.apiSync('/api/collaborators'),
+        this.apiSync('/api/movements'),
+        this.apiSync('/api/terms'),
+        this.apiSync('/api/audit-logs'),
+      ]);
+
+      let updated = false;
+      if (devRes && devRes.success && Array.isArray(devRes.data) && devRes.data.length > 0) {
+        localStorage.setItem(STORAGE_KEYS.DEVICES, JSON.stringify(devRes.data));
+        updated = true;
+      }
+      if (lineRes && lineRes.success && Array.isArray(lineRes.data) && lineRes.data.length > 0) {
+        localStorage.setItem(STORAGE_KEYS.LINES, JSON.stringify(lineRes.data));
+        updated = true;
+      }
+      if (colRes && colRes.success && Array.isArray(colRes.data) && colRes.data.length > 0) {
+        localStorage.setItem(STORAGE_KEYS.COLLABORATORS, JSON.stringify(colRes.data));
+        updated = true;
+      }
+      if (movRes && movRes.success && Array.isArray(movRes.data) && movRes.data.length > 0) {
+        localStorage.setItem(STORAGE_KEYS.MOVEMENTS, JSON.stringify(movRes.data));
+        updated = true;
+      }
+      if (termRes && termRes.success && Array.isArray(termRes.data) && termRes.data.length > 0) {
+        localStorage.setItem(STORAGE_KEYS.TERMS, JSON.stringify(termRes.data));
+        updated = true;
+      }
+      if (audRes && audRes.success && Array.isArray(audRes.data) && audRes.data.length > 0) {
+        localStorage.setItem(STORAGE_KEYS.AUDIT, JSON.stringify(audRes.data));
+        updated = true;
+      }
+      return updated;
+    } catch (e) {
+      console.warn('Sincronização em segundo plano indisponível no momento:', e);
+      return false;
     }
   }
 
@@ -66,6 +148,15 @@ class DataStorageService {
     if (!initialized) {
       this.resetToDefaults();
     }
+
+    // Sincroniza com o PostgreSQL em background
+    this.syncWithServer();
+    // Atualização periódica a cada 20 segundos para manter todos os navegadores alinhados
+    if (typeof window !== 'undefined') {
+      window.setInterval(() => {
+        this.syncWithServer();
+      }, 20000);
+    }
   }
 
   public resetToDefaults() {
@@ -76,6 +167,64 @@ class DataStorageService {
     this.set(STORAGE_KEYS.MOVEMENTS, INITIAL_MOVEMENTS);
     this.set(STORAGE_KEYS.AUDIT, INITIAL_AUDIT);
     localStorage.setItem(STORAGE_KEYS.INITIALIZED, 'true');
+
+    // Notifica backend para truncar tabelas caso esteja rodando PostgreSQL
+    this.apiSync('/api/database/reset', 'POST');
+  }
+
+  // --- Gestão de Usuários (RBAC / CRUD de Operadores) ---
+  public async getUsers(): Promise<User[]> {
+    try {
+      const res = await this.apiSync('/api/users');
+      if (res && res.success && Array.isArray(res.data)) {
+        return res.data;
+      }
+    } catch (e) {
+      console.warn('Erro ao carregar usuários:', e);
+    }
+    return [
+      {
+        id: 'user-iane-super-1',
+        username: 'tecnologia@iane.ind.br',
+        fullName: 'TI IANE - Super Usuário',
+        email: 'tecnologia@iane.ind.br',
+        role: 'admin',
+        permissions: ['all'],
+        active: true,
+      }
+    ];
+  }
+
+  public async saveUser(userData: SystemUserFormData): Promise<{ success: boolean; message: string; user?: User }> {
+    try {
+      const isEdit = !!userData.id;
+      const url = isEdit ? `/api/users/${userData.id}` : '/api/users';
+      const method = isEdit ? 'PUT' : 'POST';
+      const res = await this.apiSync(url, method, userData);
+
+      if (res && res.success) {
+        this.logAudit('Dispositivo', res.data?.id || userData.id || 'usr', userData.username, isEdit ? 'Atualização de operador e permissões de acesso.' : 'Cadastro de novo operador no sistema.');
+        return { success: true, message: res.message || 'Usuário salvo com sucesso.', user: res.data };
+      } else {
+        return { success: false, message: res?.message || 'Não foi possível salvar o usuário.' };
+      }
+    } catch (err: any) {
+      return { success: false, message: err.message || 'Erro ao conectar ao servidor.' };
+    }
+  }
+
+  public async deleteUser(userId: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const res = await this.apiSync(`/api/users/${userId}`, 'DELETE');
+      if (res && res.success) {
+        this.logAudit('Dispositivo', userId, userId, 'Exclusão de operador do sistema.');
+        return { success: true, message: res.message || 'Usuário excluído com sucesso.' };
+      } else {
+        return { success: false, message: res?.message || 'Falha ao excluir usuário.' };
+      }
+    } catch (err: any) {
+      return { success: false, message: err.message || 'Erro ao conectar ao servidor.' };
+    }
   }
 
   // --- Devices ---
@@ -162,6 +311,7 @@ class DataStorageService {
 
     const updated = devices.filter(d => d.id !== id);
     this.set(STORAGE_KEYS.DEVICES, updated);
+    this.apiSync(`/api/devices/${id}`, 'DELETE');
     this.logAudit('Dispositivo', id, device.assetTag, 'Exclusão do registro do aparelho.');
     return { success: true, message: 'Dispositivo removido com sucesso.' };
   }
@@ -240,6 +390,7 @@ class DataStorageService {
 
     const updated = lines.filter(l => l.id !== id);
     this.set(STORAGE_KEYS.LINES, updated);
+    this.apiSync(`/api/lines/${id}`, 'DELETE');
     this.logAudit('Linha', id, line.phoneNumber, 'Exclusão do registro de linha telefônica.');
     return { success: true, message: 'Linha removida com sucesso.' };
   }
@@ -297,6 +448,24 @@ class DataStorageService {
 
     this.set(STORAGE_KEYS.COLLABORATORS, collabs);
     return { success: true, message: 'Colaborador salvo com sucesso.', collaborator: savedCollab };
+  }
+
+  public deleteCollaborator(id: string): { success: boolean; message: string } {
+    const collabs = this.getCollaborators();
+    const collab = collabs.find(c => c.id === id);
+    if (!collab) return { success: false, message: 'Colaborador não encontrado.' };
+
+    const devices = this.getDevices();
+    const hasDevice = devices.some(d => d.currentCollaboratorId === id && d.status === 'Em uso');
+    if (hasDevice) {
+      return { success: false, message: 'Não é possível excluir um colaborador com dispositivo em custódia. Realize primeiro a devolução ao estoque.' };
+    }
+
+    const updated = collabs.filter(c => c.id !== id);
+    this.set(STORAGE_KEYS.COLLABORATORS, updated);
+    this.apiSync(`/api/collaborators/${id}`, 'DELETE');
+    this.logAudit('Colaborador', id, collab.fullName, 'Exclusão do registro de colaborador.');
+    return { success: true, message: 'Colaborador removido com sucesso.' };
   }
 
   // --- Movements & Terms ---

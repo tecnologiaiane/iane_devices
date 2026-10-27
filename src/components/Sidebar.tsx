@@ -101,6 +101,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
   ];
 
+  const userPerms = currentUser?.permissions || ['all'];
+  const isAdmin = currentUser?.role === 'admin' || userPerms.includes('all');
+
+  const visibleMenuItems = menuItems.filter((item) => {
+    if (isAdmin) return true;
+    return userPerms.includes(item.id);
+  });
+
   return (
     <>
       {/* Mobile Backdrop */}
@@ -148,7 +156,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="px-3 pb-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
             Menu Principal
           </div>
-          {menuItems.map((item) => {
+          {visibleMenuItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
             return (
