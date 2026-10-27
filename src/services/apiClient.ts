@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig, AxiosResponse } from 'axios';
+
 export interface ApiResponse<T = any> {
   success: boolean;
   data?: T;
@@ -12,155 +14,265 @@ export interface ApiResponse<T = any> {
   status?: number;
 }
 
-export interface RequestConfig {
-  timeoutMs?: number;
-  headers?: Record<string, string>;
+export interface ApiNotification {
+  id: string;
+  type: 'error' | 'warning' | 'info';
+  title: string;
+  message: string;
+  status?: number;
+  timestamp: string;
 }
 
-class ApiClient {
-  private baseUrl: string = '';
-  private defaultTimeoutMs: number = 8000;
+type ErrorListener = (notification: ApiNotification) => void;
+
+class ApiClientService {
+  public readonly instance: AxiosInstance;
+  private errorListeners: Set<ErrorListener> = new Set();
   private isServerOnline: boolean = true;
-  private listeners: Set<(isOnline: boolean) => void> = new Set();
+  private statusListeners: Set<(isOnline: boolean) => void> = new Set();
 
   constructor() {
-    // Escuta eventos de rede do navegador
+    const baseURL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) ? import.meta.env.VITE_API_URL : '';
+
+    this.instance = axios.create({
+      baseURL,
+      timeout: 10000,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    this.setupInterceptors();
+
     if (typeof window !== 'undefined') {
       window.addEventListener('online', () => this.setOnlineStatus(true));
-      window.addEventListener('offline', () => this.setOnlineStatus(false));
+      window.addEventListener('offline', () => {
+        this.setOnlineStatus(false);
+        this.notifyError({
+          id: `net-offline-${Date.now()}`,
+          type: 'warning',
+          title: 'Sem Conexão com a Internet',
+          message: 'Seu navegador está desconectado da rede. O sistema operará em contingência local.',
+          timestamp: new Date().toLocaleTimeString('pt-BR'),
+        });
+      });
     }
   }
 
-  public subscribeStatus(listener: (isOnline: boolean) => void): () => void {
-    this.listeners.add(listener);
-    listener(this.isServerOnline);
-    return () => this.listeners.delete(listener);
+  private setupInterceptors(): void {
+    // -------------------------------------------------------------------------
+    // Interceptador de Requisição: Injeção automática do Token JWT
+    // -------------------------------------------------------------------------
+    this.instance.interceptors.request.use(
+      (config: InternalAxiosRequestConfig) => {
+        try {
+          const token = localStorage.getItem('iane_auth_token_v2');
+          if (token && config.headers) {
+            config.headers.Authorization = `Bearer ${token}`;
+          }
+        } catch (e) {
+          console.warn('[ApiClient] Erro ao ler token do localStorage:', e);
+        }
+        return config;
+      },
+      (error) => {
+        return Promise.reject(error);
+      }
+    );
+
+    // -------------------------------------------------------------------------
+    // Interceptador de Resposta: Tratamento Global de Erros (401, 403, 500, Offline)
+    // -------------------------------------------------------------------------
+    this.instance.interceptors.response.use(
+      (response: AxiosResponse) => {
+        this.setOnlineStatus(true);
+        return response;
+      },
+      (error: AxiosError<any>) => {
+        const status = error.response?.status;
+        const responseData = error.response?.data;
+        const customMessage = responseData?.message || responseData?.error;
+
+        let notification: ApiNotification | null = null;
+
+        // 1. Backend Inacessível / Erro de Rede / Timeout
+        if (!error.response || error.code === 'ERR_NETWORK' || error.code === 'ECONNABORTED') {
+          this.setOnlineStatus(false);
+          const isTimeout = error.code === 'ECONNABORTED' || error.message.includes('timeout');
+          notification = {
+            id: `net-err-${Date.now()}`,
+            type: 'error',
+            title: isTimeout ? 'Tempo Limite Esgotado' : 'Servidor Indisponível',
+            message: isTimeout
+              ? 'O servidor demorou muito para responder (timeout). Verifique se o container backend está ativo.'
+              : 'Não foi possível conectar ao servidor backend (PostgreSQL/Express). Operando em contingência local.',
+            status: 0,
+            timestamp: new Date().toLocaleTimeString('pt-BR'),
+          };
+        }
+        // 2. Erro 401: Não Autorizado / Sessão Expirada
+        else if (status === 401) {
+          notification = {
+            id: `auth-401-${Date.now()}`,
+            type: 'warning',
+            title: 'Sessão Expirada',
+            message: customMessage || 'Sua credencial de acesso expirou ou é inválida. Por favor, realize login novamente.',
+            status: 401,
+            timestamp: new Date().toLocaleTimeString('pt-BR'),
+          };
+        }
+        // 3. Erro 403: Acesso Proibido / Sem Permissão RBAC
+        else if (status === 403) {
+          notification = {
+            id: `auth-403-${Date.now()}`,
+            type: 'error',
+            title: 'Acesso Não Permitido',
+            message: customMessage || 'Você não possui permissão para executar esta operação. Contate o administrador do sistema.',
+            status: 403,
+            timestamp: new Date().toLocaleTimeString('pt-BR'),
+          };
+        }
+        // 4. Erro 500: Erro Interno no Servidor / Falha no PostgreSQL
+        else if (status && status >= 500) {
+          notification = {
+            id: `srv-500-${Date.now()}`,
+            type: 'error',
+            title: 'Erro Interno no Servidor',
+            message: customMessage || 'Ocorreu uma falha interna no processamento do banco PostgreSQL. Tente novamente mais tarde.',
+            status,
+            timestamp: new Date().toLocaleTimeString('pt-BR'),
+          };
+        }
+
+        if (notification) {
+          this.notifyError(notification);
+        }
+
+        return Promise.reject(error);
+      }
+    );
   }
 
-  private setOnlineStatus(online: boolean) {
+  private notifyError(notification: ApiNotification): void {
+    this.errorListeners.forEach((listener) => {
+      try {
+        listener(notification);
+      } catch (e) {
+        console.error('[ApiClient] Erro no listener de notificação:', e);
+      }
+    });
+
+    if (typeof window !== 'undefined') {
+      const event = new CustomEvent('iane:api-notification', { detail: notification });
+      window.dispatchEvent(event);
+    }
+  }
+
+  private setOnlineStatus(online: boolean): void {
     if (this.isServerOnline !== online) {
       this.isServerOnline = online;
-      this.listeners.forEach((fn) => {
+      this.statusListeners.forEach((fn) => {
         try { fn(online); } catch (e) { console.error(e); }
       });
     }
   }
 
-  public getOnlineStatus(): boolean {
+  public subscribeError(listener: ErrorListener): () => void {
+    this.errorListeners.add(listener);
+    return () => this.errorListeners.delete(listener);
+  }
+
+  public subscribeStatus(listener: (isOnline: boolean) => void): () => void {
+    this.statusListeners.add(listener);
+    listener(this.isServerOnline);
+    return () => this.statusListeners.delete(listener);
+  }
+
+  public isOnline(): boolean {
     return this.isServerOnline;
   }
 
-  private getAuthHeader(): Record<string, string> {
+  // ---------------------------------------------------------------------------
+  // Métodos Utilitários Padronizados (Evitam try/catch repetitivo no front-end)
+  // ---------------------------------------------------------------------------
+  public async get<T>(url: string, params?: Record<string, any>): Promise<ApiResponse<T>> {
     try {
-      const token = localStorage.getItem('iane_auth_token_v2');
-      if (token) {
-        return { Authorization: `Bearer ${token}` };
-      }
-    } catch {
-      // Ignora erro em ambientes sem localStorage
-    }
-    return {};
-  }
-
-  private async request<T>(
-    endpoint: string,
-    method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET',
-    body?: any,
-    config?: RequestConfig
-  ): Promise<ApiResponse<T>> {
-    const url = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-    const timeout = config?.timeoutMs || this.defaultTimeoutMs;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      ...this.getAuthHeader(),
-      ...(config?.headers || {}),
-    };
-
-    try {
-      const response = await fetch(url, {
-        method,
-        headers,
-        body: body !== undefined ? JSON.stringify(body) : undefined,
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-      this.setOnlineStatus(true);
-
-      const contentType = response.headers.get('content-type');
-      let data: any = null;
-
-      if (contentType && contentType.includes('application/json')) {
-        data = await response.json();
-      } else {
-        const text = await response.text();
-        data = { message: text };
-      }
-
-      if (!response.ok) {
-        return {
-          success: false,
-          status: response.status,
-          message: data?.message || data?.error || `Erro HTTP ${response.status}`,
-          error: data?.error,
-          data: data?.data,
-        };
-      }
-
+      const res = await this.instance.get<any>(url, { params });
+      const payload = res.data;
       return {
-        success: data?.success !== false,
-        data: data?.data !== undefined ? data.data : data,
-        message: data?.message,
-        status: response.status,
+        success: payload?.success !== false,
+        data: payload?.data !== undefined ? payload.data : payload,
+        message: payload?.message,
+        status: res.status,
       };
     } catch (err: any) {
-      clearTimeout(timeoutId);
-
-      const isAborted = err.name === 'AbortError';
-      const isNetworkError = err instanceof TypeError || err.message?.includes('Failed to fetch');
-
-      if (isAborted || isNetworkError) {
-        this.setOnlineStatus(false);
-      }
-
-      console.warn(`[ApiClient] Falha na requisição ${method} ${url}:`, err.message);
-
-      return {
-        success: false,
-        isOffline: true,
-        message: isAborted
-          ? 'Tempo limite de resposta do servidor esgotado (Timeout).'
-          : 'Backend indisponível ou inacessível no momento. Operando em contingência local.',
-        error: err.message,
-      };
+      return this.handleAxiosError<T>(err);
     }
   }
 
-  public async get<T>(endpoint: string, config?: RequestConfig): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, 'GET', undefined, config);
+  public async post<T>(url: string, data?: any): Promise<ApiResponse<T>> {
+    try {
+      const res = await this.instance.post<any>(url, data);
+      const payload = res.data;
+      return {
+        success: payload?.success !== false,
+        data: payload?.data !== undefined ? payload.data : payload,
+        message: payload?.message,
+        status: res.status,
+      };
+    } catch (err: any) {
+      return this.handleAxiosError<T>(err);
+    }
   }
 
-  public async post<T>(endpoint: string, body?: any, config?: RequestConfig): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, 'POST', body, config);
+  public async put<T>(url: string, data?: any): Promise<ApiResponse<T>> {
+    try {
+      const res = await this.instance.put<any>(url, data);
+      const payload = res.data;
+      return {
+        success: payload?.success !== false,
+        data: payload?.data !== undefined ? payload.data : payload,
+        message: payload?.message,
+        status: res.status,
+      };
+    } catch (err: any) {
+      return this.handleAxiosError<T>(err);
+    }
   }
 
-  public async put<T>(endpoint: string, body?: any, config?: RequestConfig): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, 'PUT', body, config);
+  public async delete<T>(url: string): Promise<ApiResponse<T>> {
+    try {
+      const res = await this.instance.delete<any>(url);
+      const payload = res.data;
+      return {
+        success: payload?.success !== false,
+        data: payload?.data !== undefined ? payload.data : payload,
+        message: payload?.message,
+        status: res.status,
+      };
+    } catch (err: any) {
+      return this.handleAxiosError<T>(err);
+    }
   }
 
-  public async delete<T>(endpoint: string, config?: RequestConfig): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, 'DELETE', undefined, config);
+  private handleAxiosError<T>(err: any): ApiResponse<T> {
+    const isOffline = !err.response || err.code === 'ERR_NETWORK' || err.code === 'ECONNABORTED';
+    const status = err.response?.status;
+    const data = err.response?.data;
+
+    return {
+      success: false,
+      isOffline,
+      status,
+      message: data?.message || data?.error || (isOffline ? 'Servidor indisponível no momento.' : err.message),
+      error: data?.error || err.message,
+    };
   }
 
   public async healthCheck(): Promise<{ isOnline: boolean; database?: string; environment?: string }> {
     try {
-      const res = await this.get<{ status: string; database: string; environment: string }>('/api/health', {
-        timeoutMs: 3000,
-      });
-      if (res.success && res.data) {
+      const res = await this.instance.get('/api/health', { timeout: 3000 });
+      if (res.data) {
         this.setOnlineStatus(true);
         return {
           isOnline: true,
@@ -177,4 +289,6 @@ class ApiClient {
   }
 }
 
-export const apiClient = new ApiClient();
+export const apiClient = new ApiClientService();
+export const axiosInstance = apiClient.instance;
+export default apiClient;

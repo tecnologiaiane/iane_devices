@@ -20,6 +20,7 @@ import { SpreadsheetImportModal } from './components/modals/SpreadsheetImportMod
 import { Device, PhoneLine, Collaborator, DocumentTerm, MovementType, User } from './types';
 import { dataService } from './services/dataStorage';
 import { authService } from './services/authService';
+import { apiClient, ApiNotification } from './services/apiClient';
 import { LoginView } from './views/LoginView';
 
 export default function App() {
@@ -27,6 +28,17 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [apiNotifications, setApiNotifications] = useState<ApiNotification[]>([]);
+
+  // Notificações globais de erros HTTP e indisponibilidade do backend
+  React.useEffect(() => {
+    return apiClient.subscribeError((notif) => {
+      setApiNotifications((prev) => [notif, ...prev.slice(0, 2)]);
+      setTimeout(() => {
+        setApiNotifications((prev) => prev.filter((n) => n.id !== notif.id));
+      }, 7000);
+    });
+  }, []);
 
   // Sincronização inicial com o banco PostgreSQL
   React.useEffect(() => {
@@ -254,6 +266,44 @@ export default function App() {
         onClose={() => setIsSpreadsheetModalOpen(false)}
         onSuccess={triggerRefresh}
       />
+
+      {/* Notificações Flutuantes Globais do ApiClient (401, 403, 500, Servidor Indisponível) */}
+      <aside aria-label="Notificações do Sistema" className="fixed bottom-5 right-5 z-50 flex flex-col gap-2.5 max-w-sm w-full pointer-events-none">
+        {apiNotifications.map((notif) => (
+          <div
+            key={notif.id}
+            role="alert"
+            className={`pointer-events-auto p-4 rounded-xl shadow-xl border backdrop-blur-md flex items-start justify-between gap-3 transition-all duration-300 ${
+              notif.type === 'error'
+                ? 'bg-rose-950/95 border-rose-700 text-rose-100 shadow-rose-950/40'
+                : 'bg-amber-950/95 border-amber-700 text-amber-100 shadow-amber-950/40'
+            }`}
+          >
+            <div className="flex items-start gap-2.5">
+              <span className="text-base select-none mt-0.5">⚠️</span>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-xs font-bold leading-tight">{notif.title}</p>
+                  {notif.status ? (
+                    <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-black/40 text-rose-300">
+                      HTTP {notif.status}
+                    </span>
+                  ) : null}
+                </div>
+                <p className="text-[11px] opacity-90 mt-1 leading-snug">{notif.message}</p>
+                <span className="text-[9px] opacity-60 block mt-1">{notif.timestamp}</span>
+              </div>
+            </div>
+            <button
+              onClick={() => setApiNotifications((prev) => prev.filter((n) => n.id !== notif.id))}
+              className="text-white/60 hover:text-white shrink-0 cursor-pointer p-1 rounded hover:bg-white/10"
+              title="Fechar notificação"
+            >
+              ✕
+            </button>
+          </div>
+        ))}
+      </aside>
     </div>
   );
 }
