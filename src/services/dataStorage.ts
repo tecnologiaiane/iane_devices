@@ -14,6 +14,7 @@ import {
   User,
   SystemUserFormData
 } from '../types';
+import { apiClient, ApiResponse } from './apiClient';
 
 const STORAGE_KEYS = {
   DEVICES: 'iane_devices_v3',
@@ -47,25 +48,16 @@ class DataStorageService {
     }
   }
 
-  public async apiSync(path: string, method: string = 'GET', body?: any): Promise<any> {
-    try {
-      const token = localStorage.getItem('iane_auth_token_v2');
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-      const res = await fetch(path, {
-        method,
-        headers,
-        body: body ? JSON.stringify(body) : undefined,
-      });
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => null);
-        console.warn(`[API] Resposta de ${method} ${path}:`, errorData);
-        return errorData || null;
-      }
-      return await res.json();
-    } catch (err) {
-      console.warn(`[API] Erro ao comunicar com ${method} ${path}:`, err);
-      return null;
+  public async apiSync<T = any>(path: string, method: string = 'GET', body?: any): Promise<ApiResponse<T>> {
+    const cleanMethod = method.toUpperCase();
+    if (cleanMethod === 'POST') {
+      return apiClient.post<T>(path, body);
+    } else if (cleanMethod === 'PUT') {
+      return apiClient.put<T>(path, body);
+    } else if (cleanMethod === 'DELETE') {
+      return apiClient.delete<T>(path);
+    } else {
+      return apiClient.get<T>(path);
     }
   }
 

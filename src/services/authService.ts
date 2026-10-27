@@ -1,4 +1,5 @@
 import { User, LoginCredentials } from '../types';
+import { apiClient } from './apiClient';
 
 const AUTH_USER_KEY = 'iane_auth_current_user_v2';
 const AUTH_TOKEN_KEY = 'iane_auth_token_v2';
@@ -52,42 +53,39 @@ class AuthService {
     }
 
     try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: trimmedUser, password: trimmedPass }),
+      const res = await apiClient.post<{ user: any; token: string }>('/api/auth/login', {
+        username: trimmedUser,
+        password: trimmedPass,
       });
 
-      const data = await res.json();
-
-      if (res.ok && data.success && data.user) {
+      if (res.success && res.data && res.data.user) {
+        const u = res.data.user;
         const user: User = {
-          id: data.user.id,
-          username: data.user.username,
-          fullName: data.user.fullName,
-          email: data.user.email,
-          role: data.user.role,
-          permissions: data.user.permissions || ['all'],
-          active: data.user.active !== false,
+          id: u.id,
+          username: u.username,
+          fullName: u.fullName,
+          email: u.email,
+          role: u.role,
+          permissions: u.permissions || ['all'],
+          active: u.active !== false,
         };
 
         localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
-        if (data.token) {
-          localStorage.setItem(AUTH_TOKEN_KEY, data.token);
+        if (res.data.token) {
+          localStorage.setItem(AUTH_TOKEN_KEY, res.data.token);
         }
         this.notify(user);
         return { success: true, user };
       } else {
         return {
           success: false,
-          message: data.message || 'Credenciais inválidas. Verifique o usuário e a senha informados.',
+          message: res.message || 'Credenciais inválidas. Verifique o usuário e a senha informados.',
         };
       }
     } catch (err: any) {
-      console.error('Erro na requisição de login:', err);
       return {
         success: false,
-        message: 'Não foi possível conectar ao servidor. Verifique se o backend está em execução.',
+        message: err.message || 'Não foi possível conectar ao servidor. Verifique se o backend está em execução.',
       };
     }
   }
