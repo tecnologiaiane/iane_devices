@@ -69,6 +69,61 @@ class DataStorageService {
     }
   }
 
+  // --- Métodos Assíncronos Oficiais que consultam o Backend PostgreSQL via ApiClient ---
+  public async fetchDevices(): Promise<Device[]> {
+    const res = await apiClient.get<Device[]>('/api/devices');
+    if (res.success && Array.isArray(res.data)) {
+      this.set(STORAGE_KEYS.DEVICES, res.data);
+      return res.data;
+    }
+    return this.getDevices();
+  }
+
+  public async fetchLines(): Promise<PhoneLine[]> {
+    const res = await apiClient.get<PhoneLine[]>('/api/lines');
+    if (res.success && Array.isArray(res.data)) {
+      this.set(STORAGE_KEYS.LINES, res.data);
+      return res.data;
+    }
+    return this.getLines();
+  }
+
+  public async fetchCollaborators(): Promise<Collaborator[]> {
+    const res = await apiClient.get<Collaborator[]>('/api/collaborators');
+    if (res.success && Array.isArray(res.data)) {
+      this.set(STORAGE_KEYS.COLLABORATORS, res.data);
+      return res.data;
+    }
+    return this.getCollaborators();
+  }
+
+  public async fetchMovements(): Promise<Movement[]> {
+    const res = await apiClient.get<Movement[]>('/api/movements');
+    if (res.success && Array.isArray(res.data)) {
+      this.set(STORAGE_KEYS.MOVEMENTS, res.data);
+      return res.data;
+    }
+    return this.getMovements();
+  }
+
+  public async fetchTerms(): Promise<DocumentTerm[]> {
+    const res = await apiClient.get<DocumentTerm[]>('/api/terms');
+    if (res.success && Array.isArray(res.data)) {
+      this.set(STORAGE_KEYS.TERMS, res.data);
+      return res.data;
+    }
+    return this.getTerms();
+  }
+
+  public async fetchAuditLogs(): Promise<AuditLog[]> {
+    const res = await apiClient.get<AuditLog[]>('/api/audit-logs');
+    if (res.success && Array.isArray(res.data)) {
+      this.set(STORAGE_KEYS.AUDIT, res.data);
+      return res.data;
+    }
+    return this.getAuditLogs();
+  }
+
   public async batchSyncToServer(): Promise<{ success: boolean; message: string }> {
     try {
       const payload = {
@@ -80,11 +135,11 @@ class DataStorageService {
         auditLogs: this.getAuditLogs(),
       };
 
-      const res = await this.apiSync('/api/sync/batch-upload', 'POST', payload);
-      if (res && res.success) {
+      const res = await apiClient.post('/api/sync/batch-upload', payload);
+      if (res.success) {
         return { success: true, message: 'Dados sincronizados com o PostgreSQL com sucesso!' };
       }
-      return { success: false, message: res?.error || res?.message || 'Falha ao sincronizar com o banco de dados.' };
+      return { success: false, message: res.error || res.message || 'Falha ao sincronizar com o banco de dados.' };
     } catch (e: any) {
       return { success: false, message: e.message || 'Erro ao sincronizar.' };
     }
@@ -93,50 +148,49 @@ class DataStorageService {
   public async syncWithServer(): Promise<boolean> {
     try {
       const [devRes, lineRes, colRes, movRes, termRes, audRes] = await Promise.all([
-        this.apiSync('/api/devices'),
-        this.apiSync('/api/lines'),
-        this.apiSync('/api/collaborators'),
-        this.apiSync('/api/movements'),
-        this.apiSync('/api/terms'),
-        this.apiSync('/api/audit-logs'),
+        apiClient.get<Device[]>('/api/devices'),
+        apiClient.get<PhoneLine[]>('/api/lines'),
+        apiClient.get<Collaborator[]>('/api/collaborators'),
+        apiClient.get<Movement[]>('/api/movements'),
+        apiClient.get<DocumentTerm[]>('/api/terms'),
+        apiClient.get<AuditLog[]>('/api/audit-logs'),
       ]);
 
       const serverHasData = 
-        (devRes?.success && Array.isArray(devRes.data) && devRes.data.length > 0) ||
-        (lineRes?.success && Array.isArray(lineRes.data) && lineRes.data.length > 0) ||
-        (colRes?.success && Array.isArray(colRes.data) && colRes.data.length > 0);
+        (devRes.success && Array.isArray(devRes.data) && devRes.data.length > 0) ||
+        (lineRes.success && Array.isArray(lineRes.data) && lineRes.data.length > 0) ||
+        (colRes.success && Array.isArray(colRes.data) && colRes.data.length > 0);
 
       const localHasData =
         this.getDevices().length > 0 ||
         this.getLines().length > 0 ||
         this.getCollaborators().length > 0;
 
-      // Se o servidor tem dados, o PostgreSQL é a fonte da verdade: atualiza o cache local
+      // Se o servidor tem dados, o PostgreSQL é a fonte da verdade definitiva: atualiza o estado local e cache
       if (serverHasData) {
-        if (devRes?.success && Array.isArray(devRes.data)) {
-          localStorage.setItem(STORAGE_KEYS.DEVICES, JSON.stringify(devRes.data));
+        if (devRes.success && Array.isArray(devRes.data)) {
+          this.set(STORAGE_KEYS.DEVICES, devRes.data);
         }
-        if (lineRes?.success && Array.isArray(lineRes.data)) {
-          localStorage.setItem(STORAGE_KEYS.LINES, JSON.stringify(lineRes.data));
+        if (lineRes.success && Array.isArray(lineRes.data)) {
+          this.set(STORAGE_KEYS.LINES, lineRes.data);
         }
-        if (colRes?.success && Array.isArray(colRes.data)) {
-          localStorage.setItem(STORAGE_KEYS.COLLABORATORS, JSON.stringify(colRes.data));
+        if (colRes.success && Array.isArray(colRes.data)) {
+          this.set(STORAGE_KEYS.COLLABORATORS, colRes.data);
         }
-        if (movRes?.success && Array.isArray(movRes.data)) {
-          localStorage.setItem(STORAGE_KEYS.MOVEMENTS, JSON.stringify(movRes.data));
+        if (movRes.success && Array.isArray(movRes.data)) {
+          this.set(STORAGE_KEYS.MOVEMENTS, movRes.data);
         }
-        if (termRes?.success && Array.isArray(termRes.data)) {
-          localStorage.setItem(STORAGE_KEYS.TERMS, JSON.stringify(termRes.data));
+        if (termRes.success && Array.isArray(termRes.data)) {
+          this.set(STORAGE_KEYS.TERMS, termRes.data);
         }
-        if (audRes?.success && Array.isArray(audRes.data)) {
-          localStorage.setItem(STORAGE_KEYS.AUDIT, JSON.stringify(audRes.data));
+        if (audRes.success && Array.isArray(audRes.data)) {
+          this.set(STORAGE_KEYS.AUDIT, audRes.data);
         }
         return true;
       }
 
-      // Se o banco PostgreSQL estiver vazio, mas o usuário tiver dados locais no navegador,
-      // faz o upload automático para popular o PostgreSQL
-      if (!serverHasData && localHasData) {
+      // Se o banco PostgreSQL estiver vazio mas houver dados no navegador, faz upload inicial
+      if (!serverHasData && localHasData && apiClient.isOnline()) {
         console.log('🔄 [Sync] Banco PostgreSQL vazio: realizando upload dos dados locais para persistência definitiva...');
         await this.batchSyncToServer();
         return true;
@@ -144,7 +198,7 @@ class DataStorageService {
 
       return false;
     } catch (e) {
-      console.warn('Sincronização em segundo plano indisponível no momento:', e);
+      console.warn('Sincronização com o servidor indisponível no momento:', e);
       return false;
     }
   }
