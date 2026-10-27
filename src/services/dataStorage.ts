@@ -240,10 +240,10 @@ class DataStorageService {
     this.apiSync('/api/database/reset', 'POST');
   }
 
-  // --- Gestão de Usuários (RBAC / CRUD de Operadores) ---
+  // --- Gestão de Usuários (RBAC / CRUD de Operadores via ApiClient) ---
   public async getUsers(): Promise<User[]> {
     try {
-      const res = await this.apiSync('/api/users');
+      const res = await apiClient.users.getUsers();
       if (res && res.success && Array.isArray(res.data)) {
         return res.data;
       }
@@ -266,12 +266,12 @@ class DataStorageService {
   public async saveUser(userData: SystemUserFormData): Promise<{ success: boolean; message: string; user?: User }> {
     try {
       const isEdit = !!userData.id;
-      const url = isEdit ? `/api/users/${userData.id}` : '/api/users';
-      const method = isEdit ? 'PUT' : 'POST';
-      const res = await this.apiSync(url, method, userData);
+      const res = isEdit
+        ? await apiClient.users.updateUser(userData.id!, userData)
+        : await apiClient.users.createUser(userData);
 
       if (res && res.success) {
-        this.logAudit('Dispositivo', res.data?.id || userData.id || 'usr', userData.username, isEdit ? 'Atualização de operador e permissões de acesso.' : 'Cadastro de novo operador no sistema.');
+        this.logAudit('Dispositivo', res.data?.id || userData.id || 'usr', userData.username, isEdit ? 'Atualização de operador e permissões de acesso via API.' : 'Cadastro de novo operador no sistema via API.');
         return { success: true, message: res.message || 'Usuário salvo com sucesso.', user: res.data };
       } else {
         return { success: false, message: res?.message || 'Não foi possível salvar o usuário.' };
@@ -283,13 +283,26 @@ class DataStorageService {
 
   public async deleteUser(userId: string): Promise<{ success: boolean; message: string }> {
     try {
-      const res = await this.apiSync(`/api/users/${userId}`, 'DELETE');
+      const res = await apiClient.users.deleteUser(userId);
       if (res && res.success) {
-        this.logAudit('Dispositivo', userId, userId, 'Exclusão de operador do sistema.');
+        this.logAudit('Dispositivo', userId, userId, 'Exclusão de operador do sistema via API.');
         return { success: true, message: res.message || 'Usuário excluído com sucesso.' };
       } else {
         return { success: false, message: res?.message || 'Falha ao excluir usuário.' };
       }
+    } catch (err: any) {
+      return { success: false, message: err.message || 'Erro ao conectar ao servidor.' };
+    }
+  }
+
+  public async updateUserPermissions(userId: string, permissions: string[]): Promise<{ success: boolean; message: string; user?: User }> {
+    try {
+      const res = await apiClient.users.updatePermissions(userId, permissions);
+      if (res && res.success) {
+        this.logAudit('Dispositivo', userId, userId, 'Alteração granular de permissões do operador.');
+        return { success: true, message: 'Permissões atualizadas com sucesso.', user: res.data };
+      }
+      return { success: false, message: res?.message || 'Falha ao atualizar permissões.' };
     } catch (err: any) {
       return { success: false, message: err.message || 'Erro ao conectar ao servidor.' };
     }

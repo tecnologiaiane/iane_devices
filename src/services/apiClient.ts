@@ -4,6 +4,7 @@
  */
 
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig, AxiosResponse } from 'axios';
+import { User, SystemUserFormData } from '../types';
 
 export interface ApiResponse<T = any> {
   success: boolean;
@@ -27,6 +28,7 @@ type ErrorListener = (notification: ApiNotification) => void;
 
 class ApiClientService {
   public readonly instance: AxiosInstance;
+  public readonly users: UserApiService;
   private errorListeners: Set<ErrorListener> = new Set();
   private isServerOnline: boolean = true;
   private statusListeners: Set<(isOnline: boolean) => void> = new Set();
@@ -41,6 +43,8 @@ class ApiClientService {
         'Content-Type': 'application/json',
       },
     });
+
+    this.users = new UserApiService(this);
 
     this.setupInterceptors();
 
@@ -289,6 +293,63 @@ class ApiClientService {
   }
 }
 
+/**
+ * Serviço de Gerenciamento de Usuários e Permissões (RBAC) via API
+ */
+export class UserApiService {
+  constructor(private client: ApiClientService) {}
+
+  /**
+   * Lista todos os operadores e administradores cadastrados no sistema
+   */
+  public async getUsers(): Promise<ApiResponse<User[]>> {
+    return this.client.get<User[]>('/api/users');
+  }
+
+  /**
+   * Obtém detalhes de um operador específico pelo ID
+   */
+  public async getUserById(id: string): Promise<ApiResponse<User>> {
+    return this.client.get<User>(`/api/users/${id}`);
+  }
+
+  /**
+   * Cadastra novo operador com senha criptografada (bcrypt) e permissões personalizadas
+   */
+  public async createUser(userData: SystemUserFormData): Promise<ApiResponse<User>> {
+    return this.client.post<User>('/api/users', userData);
+  }
+
+  /**
+   * Atualiza dados de um operador (nome, e-mail, papel, permissões ou nova senha)
+   */
+  public async updateUser(id: string, userData: Partial<SystemUserFormData>): Promise<ApiResponse<User>> {
+    return this.client.put<User>(`/api/users/${id}`, userData);
+  }
+
+  /**
+   * Atualiza granularmente a lista de permissões do operador (definido pelo Super Admin)
+   */
+  public async updatePermissions(id: string, permissions: string[]): Promise<ApiResponse<User>> {
+    return this.client.put<User>(`/api/users/${id}`, { permissions });
+  }
+
+  /**
+   * Ativa ou desativa a conta de um operador
+   */
+  public async toggleUserStatus(id: string, active: boolean): Promise<ApiResponse<User>> {
+    return this.client.put<User>(`/api/users/${id}`, { active });
+  }
+
+  /**
+   * Exclui um operador do sistema (com proteção automática para o Super Admin principal)
+   */
+  public async deleteUser(id: string): Promise<ApiResponse<{ message: string }>> {
+    return this.client.delete<{ message: string }>(`/api/users/${id}`);
+  }
+}
+
 export const apiClient = new ApiClientService();
 export const axiosInstance = apiClient.instance;
+export const userApi = apiClient.users;
 export default apiClient;
