@@ -47,7 +47,7 @@ class DataStorageService {
     }
   }
 
-  private async apiSync(path: string, method: string = 'GET', body?: any): Promise<any> {
+  public async apiSync(path: string, method: string = 'GET', body?: any): Promise<any> {
     try {
       const token = localStorage.getItem('iane_auth_token_v2');
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -57,38 +57,44 @@ class DataStorageService {
         headers,
         body: body ? JSON.stringify(body) : undefined,
       });
-      if (!res.ok) return null;
-      return await res.json();
-    } catch {
-      return null;
-    }
-  }
-
-  private triggerServerSync(key: string, value: any): void {
-    try {
-      if (key === STORAGE_KEYS.DEVICES && Array.isArray(value) && value.length > 0) {
-        // Envia o último alterado/inserido para a API
-        this.apiSync('/api/devices', 'POST', value[0]);
-      } else if (key === STORAGE_KEYS.LINES && Array.isArray(value) && value.length > 0) {
-        this.apiSync('/api/lines', 'POST', value[0]);
-      } else if (key === STORAGE_KEYS.COLLABORATORS && Array.isArray(value) && value.length > 0) {
-        this.apiSync('/api/collaborators', 'POST', value[0]);
-      } else if (key === STORAGE_KEYS.MOVEMENTS && Array.isArray(value) && value.length > 0) {
-        this.apiSync('/api/movements', 'POST', value[0]);
-      } else if (key === STORAGE_KEYS.TERMS && Array.isArray(value) && value.length > 0) {
-        this.apiSync('/api/terms', 'POST', value[0]);
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        console.warn(`[API] Resposta de ${method} ${path}:`, errorData);
+        return errorData || null;
       }
-    } catch (e) {
-      console.warn('Erro ao disparar sync em segundo plano:', e);
+      return await res.json();
+    } catch (err) {
+      console.warn(`[API] Erro ao comunicar com ${method} ${path}:`, err);
+      return null;
     }
   }
 
   private set<T>(key: string, value: T): void {
     try {
       localStorage.setItem(key, JSON.stringify(value));
-      this.triggerServerSync(key, value);
     } catch (e) {
       console.error(`Erro ao salvar ${key} no localStorage:`, e);
+    }
+  }
+
+  public async batchSyncToServer(): Promise<{ success: boolean; message: string }> {
+    try {
+      const payload = {
+        devices: this.getDevices(),
+        lines: this.getLines(),
+        collaborators: this.getCollaborators(),
+        movements: this.getMovements(),
+        terms: this.getTerms(),
+        auditLogs: this.getAuditLogs(),
+      };
+
+      const res = await this.apiSync('/api/sync/batch-upload', 'POST', payload);
+      if (res && res.success) {
+        return { success: true, message: 'Dados sincronizados com o PostgreSQL com sucesso!' };
+      }
+      return { success: false, message: res?.error || res?.message || 'Falha ao sincronizar com o banco de dados.' };
+    } catch (e: any) {
+      return { success: false, message: e.message || 'Erro ao sincronizar.' };
     }
   }
 
@@ -103,32 +109,48 @@ class DataStorageService {
         this.apiSync('/api/audit-logs'),
       ]);
 
-      let updated = false;
-      if (devRes && devRes.success && Array.isArray(devRes.data) && devRes.data.length > 0) {
-        localStorage.setItem(STORAGE_KEYS.DEVICES, JSON.stringify(devRes.data));
-        updated = true;
+      const serverHasData = 
+        (devRes?.success && Array.isArray(devRes.data) && devRes.data.length > 0) ||
+        (lineRes?.success && Array.isArray(lineRes.data) && lineRes.data.length > 0) ||
+        (colRes?.success && Array.isArray(colRes.data) && colRes.data.length > 0);
+
+      const localHasData =
+        this.getDevices().length > 0 ||
+        this.getLines().length > 0 ||
+        this.getCollaborators().length > 0;
+
+      // Se o servidor tem dados, o PostgreSQL é a fonte da verdade: atualiza o cache local
+      if (serverHasData) {
+        if (devRes?.success && Array.isArray(devRes.data)) {
+          localStorage.setItem(STORAGE_KEYS.DEVICES, JSON.stringify(devRes.data));
+        }
+        if (lineRes?.success && Array.isArray(lineRes.data)) {
+          localStorage.setItem(STORAGE_KEYS.LINES, JSON.stringify(lineRes.data));
+        }
+        if (colRes?.success && Array.isArray(colRes.data)) {
+          localStorage.setItem(STORAGE_KEYS.COLLABORATORS, JSON.stringify(colRes.data));
+        }
+        if (movRes?.success && Array.isArray(movRes.data)) {
+          localStorage.setItem(STORAGE_KEYS.MOVEMENTS, JSON.stringify(movRes.data));
+        }
+        if (termRes?.success && Array.isArray(termRes.data)) {
+          localStorage.setItem(STORAGE_KEYS.TERMS, JSON.stringify(termRes.data));
+        }
+        if (audRes?.success && Array.isArray(audRes.data)) {
+          localStorage.setItem(STORAGE_KEYS.AUDIT, JSON.stringify(audRes.data));
+        }
+        return true;
       }
-      if (lineRes && lineRes.success && Array.isArray(lineRes.data) && lineRes.data.length > 0) {
-        localStorage.setItem(STORAGE_KEYS.LINES, JSON.stringify(lineRes.data));
-        updated = true;
+
+      // Se o banco PostgreSQL estiver vazio, mas o usuário tiver dados locais no navegador,
+      // faz o upload automático para popular o PostgreSQL
+      if (!serverHasData && localHasData) {
+        console.log('🔄 [Sync] Banco PostgreSQL vazio: realizando upload dos dados locais para persistência definitiva...');
+        await this.batchSyncToServer();
+        return true;
       }
-      if (colRes && colRes.success && Array.isArray(colRes.data) && colRes.data.length > 0) {
-        localStorage.setItem(STORAGE_KEYS.COLLABORATORS, JSON.stringify(colRes.data));
-        updated = true;
-      }
-      if (movRes && movRes.success && Array.isArray(movRes.data) && movRes.data.length > 0) {
-        localStorage.setItem(STORAGE_KEYS.MOVEMENTS, JSON.stringify(movRes.data));
-        updated = true;
-      }
-      if (termRes && termRes.success && Array.isArray(termRes.data) && termRes.data.length > 0) {
-        localStorage.setItem(STORAGE_KEYS.TERMS, JSON.stringify(termRes.data));
-        updated = true;
-      }
-      if (audRes && audRes.success && Array.isArray(audRes.data) && audRes.data.length > 0) {
-        localStorage.setItem(STORAGE_KEYS.AUDIT, JSON.stringify(audRes.data));
-        updated = true;
-      }
-      return updated;
+
+      return false;
     } catch (e) {
       console.warn('Sincronização em segundo plano indisponível no momento:', e);
       return false;
@@ -297,6 +319,7 @@ class DataStorageService {
     }
 
     this.set(STORAGE_KEYS.DEVICES, devices);
+    this.apiSync('/api/devices', 'POST', savedDevice);
     return { success: true, message: 'Dispositivo salvo com sucesso.', device: savedDevice };
   }
 
@@ -376,6 +399,7 @@ class DataStorageService {
     }
 
     this.set(STORAGE_KEYS.LINES, lines);
+    this.apiSync('/api/lines', 'POST', savedLine);
     return { success: true, message: 'Linha telefônica salva com sucesso.', line: savedLine };
   }
 
@@ -447,6 +471,7 @@ class DataStorageService {
     }
 
     this.set(STORAGE_KEYS.COLLABORATORS, collabs);
+    this.apiSync('/api/collaborators', 'POST', savedCollab);
     return { success: true, message: 'Colaborador salvo com sucesso.', collaborator: savedCollab };
   }
 
@@ -491,6 +516,7 @@ class DataStorageService {
       term.signedAt = `${now.toISOString().split('T')[0]} ${now.toLocaleTimeString('pt-BR').substring(0, 5)}`;
     }
     this.set(STORAGE_KEYS.TERMS, terms);
+    this.apiSync('/api/terms', 'POST', term);
     this.logAudit('Termo', id, term.code, `Status do termo alterado para ${status}.`);
     return true;
   }
@@ -660,6 +686,12 @@ class DataStorageService {
     const terms = this.getTerms();
     terms.unshift(newTerm);
     this.set(STORAGE_KEYS.TERMS, terms);
+
+    // Persistência direta no PostgreSQL
+    this.apiSync('/api/devices', 'POST', device);
+    if (selectedLine) this.apiSync('/api/lines', 'POST', selectedLine);
+    this.apiSync('/api/movements', 'POST', newMovement);
+    this.apiSync('/api/terms', 'POST', newTerm);
 
     this.logAudit('Movimentação', movementId, movCode, `Entrega do aparelho ${device.assetTag} liberado do Estoque para ${collaborator.fullName}.`);
 
@@ -837,6 +869,12 @@ class DataStorageService {
     const terms = this.getTerms();
     terms.unshift(newTerm);
     this.set(STORAGE_KEYS.TERMS, terms);
+
+    // Persistência direta no PostgreSQL
+    this.apiSync('/api/devices', 'POST', device);
+    if (lineObj) this.apiSync('/api/lines', 'POST', lineObj);
+    this.apiSync('/api/movements', 'POST', newMovement);
+    this.apiSync('/api/terms', 'POST', newTerm);
 
     this.logAudit('Movimentação', movementId, movCode, `Devolução do aparelho ${device.assetTag} de ${collaborator.fullName} ao Estoque. Destino no estoque: ${params.nextDeviceStatus}.`);
 
@@ -1099,6 +1137,9 @@ class DataStorageService {
     movements.unshift(newMovement);
     this.set(STORAGE_KEYS.MOVEMENTS, movements);
 
+    this.apiSync('/api/devices', 'POST', device);
+    this.apiSync('/api/movements', 'POST', newMovement);
+
     this.logAudit('Dispositivo', device.id, device.assetTag, `Aparelho liberado no estoque do Gestor (Status alterado de "${prevStatus}" para "Disponível").`);
 
     return { success: true, message: `Aparelho ${device.assetTag} liberado com sucesso. Agora consta como "Disponível" no estoque.` };
@@ -1157,6 +1198,9 @@ class DataStorageService {
     movements.unshift(newMovement);
     this.set(STORAGE_KEYS.MOVEMENTS, movements);
 
+    this.apiSync('/api/devices', 'POST', device);
+    this.apiSync('/api/movements', 'POST', newMovement);
+
     this.logAudit('Dispositivo', device.id, device.assetTag, `Enviado do estoque para assistência "${params.provider}". Motivo: ${params.reason}`);
     return { success: true, message: `Aparelho ${device.assetTag} enviado para manutenção técnica com sucesso.` };
   }
@@ -1209,6 +1253,9 @@ class DataStorageService {
     movements.unshift(newMovement);
     this.set(STORAGE_KEYS.MOVEMENTS, movements);
 
+    this.apiSync('/api/devices', 'POST', device);
+    this.apiSync('/api/movements', 'POST', newMovement);
+
     this.logAudit('Dispositivo', device.id, device.assetTag, `Retorno de manutenção concluído. Aparelho reintegrado ao estoque disponível.`);
     return { success: true, message: `Retorno de manutenção registrado. Aparelho ${device.assetTag} retornou ao Estoque do Gestor com status "Disponível".` };
   }
@@ -1256,6 +1303,8 @@ class DataStorageService {
 
     this.set(STORAGE_KEYS.LINES, lines);
     this.set(STORAGE_KEYS.DEVICES, devices);
+    this.apiSync('/api/lines', 'POST', line);
+    this.apiSync('/api/devices', 'POST', device);
     this.logAudit('Linha', line.id, line.phoneNumber, `Linha associada ao aparelho ${device.assetTag}.`);
     return { success: true, message: `Linha ${line.phoneNumber} associada com sucesso ao aparelho ${device.assetTag}.` };
   }
@@ -1267,12 +1316,14 @@ class DataStorageService {
     const line = lines.find(l => l.id === lineId);
     if (!line) return { success: false, message: 'Linha não encontrada.' };
 
+    let dev: Device | undefined;
     if (line.associatedDeviceId) {
-      const dev = devices.find(d => d.id === line.associatedDeviceId);
+      dev = devices.find(d => d.id === line.associatedDeviceId);
       if (dev) {
         dev.associatedLineId = undefined;
         dev.associatedPhoneNumber = undefined;
         this.set(STORAGE_KEYS.DEVICES, devices);
+        this.apiSync('/api/devices', 'POST', dev);
       }
     }
 
@@ -1284,6 +1335,7 @@ class DataStorageService {
     }
 
     this.set(STORAGE_KEYS.LINES, lines);
+    this.apiSync('/api/lines', 'POST', line);
     this.logAudit('Linha', line.id, line.phoneNumber, 'Desassociação de linha telefônica do aparelho.');
     return { success: true, message: `Linha ${line.phoneNumber} desassociada com sucesso.` };
   }
@@ -1297,7 +1349,7 @@ class DataStorageService {
     const logs = this.getAuditLogs();
     const now = new Date();
     const timestamp = `${now.toISOString().split('T')[0]} ${now.toLocaleTimeString('pt-BR')}`;
-    logs.unshift({
+    const newLog: AuditLog = {
       id: `aud-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       timestamp,
       action: details.split(' ')[0],
@@ -1306,9 +1358,11 @@ class DataStorageService {
       entityLabel,
       details,
       user
-    });
+    };
+    logs.unshift(newLog);
     if (logs.length > 200) logs.pop();
     this.set(STORAGE_KEYS.AUDIT, logs);
+    this.apiSync('/api/audit-logs', 'POST', newLog);
   }
 
   public getDashboardMetrics(): DashboardMetrics {
@@ -1403,8 +1457,9 @@ class DataStorageService {
       this.set(STORAGE_KEYS.MOVEMENTS, data.movements || []);
       this.set(STORAGE_KEYS.TERMS, data.terms || []);
       this.set(STORAGE_KEYS.AUDIT, data.audit || []);
+      this.batchSyncToServer();
       this.logAudit('Dispositivo', 'all', 'Restauração', 'Backup completo do sistema importado com êxito.');
-      return { success: true, message: 'Dados restaurados com êxito no sistema!' };
+      return { success: true, message: 'Dados restaurados com êxito no sistema e sincronizados com o PostgreSQL!' };
     } catch (e) {
       return { success: false, message: `Falha ao processar arquivo: ${(e as Error).message}` };
     }

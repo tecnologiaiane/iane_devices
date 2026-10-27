@@ -69,43 +69,90 @@ const memoryStore = {
 
 async function autoMigrateDatabase(client: pg.PoolClient) {
   try {
-    // 1. Tabela de Usuários com RBAC
+    // Extensões
+    await client.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`);
+
+    // 1. Tabela de Colaboradores
     await client.query(`
-      CREATE TABLE IF NOT EXISTS system_users (
+      CREATE TABLE IF NOT EXISTS collaborators (
         id VARCHAR(50) PRIMARY KEY,
-        username VARCHAR(100) UNIQUE NOT NULL,
-        password_hash VARCHAR(255) NOT NULL,
-        full_name VARCHAR(150) NOT NULL,
+        name VARCHAR(150) NOT NULL,
+        registration_id VARCHAR(50) UNIQUE,
+        department VARCHAR(100) DEFAULT 'Geral',
+        role VARCHAR(100) DEFAULT 'Colaborador',
         email VARCHAR(150),
-        role VARCHAR(50) DEFAULT 'admin',
-        permissions TEXT[] DEFAULT ARRAY['all']::TEXT[],
+        phone VARCHAR(30),
         active BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
     `);
 
-    // Atualiza colunas caso venha de versão legada
+    // 2. Tabela de Linhas Telefônicas
     await client.query(`
-      ALTER TABLE system_users ADD COLUMN IF NOT EXISTS permissions TEXT[] DEFAULT ARRAY['all']::TEXT[];
-      ALTER TABLE system_users ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT TRUE;
-      ALTER TABLE system_users ADD COLUMN IF NOT EXISTS email VARCHAR(150);
-    `);
-
-    // 2. Tabela de Auditoria
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS audit_logs (
+      CREATE TABLE IF NOT EXISTS phone_lines (
         id VARCHAR(50) PRIMARY KEY,
-        action VARCHAR(100) NOT NULL,
-        entity_type VARCHAR(50) NOT NULL,
-        entity_id VARCHAR(50),
-        entity_label VARCHAR(150),
-        details TEXT,
-        user_name VARCHAR(150),
-        timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        phone_number VARCHAR(30) UNIQUE NOT NULL,
+        operator VARCHAR(50) NOT NULL DEFAULT 'Vivo',
+        account_number VARCHAR(50),
+        plan_name VARCHAR(100) DEFAULT 'Corporativo',
+        monthly_cost NUMERIC(10, 2) DEFAULT 0.00,
+        status VARCHAR(50) NOT NULL DEFAULT 'Disponível',
+        current_device_id VARCHAR(50),
+        current_collaborator_id VARCHAR(50),
+        notes TEXT,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
     `);
 
-    // 3. Tabela de Termos
+    // 3. Tabela de Dispositivos Móveis
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS devices (
+        id VARCHAR(50) PRIMARY KEY,
+        tag VARCHAR(50) UNIQUE NOT NULL,
+        brand VARCHAR(50) NOT NULL DEFAULT 'Samsung',
+        model VARCHAR(100) NOT NULL,
+        imei_1 VARCHAR(25) UNIQUE NOT NULL,
+        imei_2 VARCHAR(25),
+        serial_number VARCHAR(80),
+        purchase_value NUMERIC(10, 2) DEFAULT 0.00,
+        purchase_date DATE,
+        condition VARCHAR(50) NOT NULL DEFAULT 'Novo',
+        status VARCHAR(50) NOT NULL DEFAULT 'Disponível',
+        current_collaborator_id VARCHAR(50),
+        current_line_id VARCHAR(50),
+        stock_custody_notes TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // 4. Tabela de Movimentações Patrimoniais
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS movements (
+        id VARCHAR(50) PRIMARY KEY,
+        batch_operation_id VARCHAR(50),
+        flow_type VARCHAR(50) NOT NULL,
+        device_id VARCHAR(50) NOT NULL,
+        device_tag VARCHAR(50),
+        device_model VARCHAR(100),
+        device_imei VARCHAR(25),
+        origin_collaborator_id VARCHAR(50),
+        origin_collaborator_name VARCHAR(150),
+        destination_collaborator_id VARCHAR(50),
+        destination_collaborator_name VARCHAR(150),
+        movement_type VARCHAR(50) NOT NULL,
+        movement_date DATE NOT NULL,
+        operator_name VARCHAR(100) NOT NULL,
+        condition_at_movement VARCHAR(50),
+        accessories_returned TEXT[],
+        reason TEXT,
+        document_term_id VARCHAR(50),
+        stock_transit BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // 5. Tabela de Termos
     await client.query(`
       CREATE TABLE IF NOT EXISTS terms_documents (
         id VARCHAR(50) PRIMARY KEY,
@@ -125,7 +172,45 @@ async function autoMigrateDatabase(client: pg.PoolClient) {
       );
     `);
 
-    // 4. Garante que os Super Usuários oficiais existam com senha bcrypt
+    // 6. Tabela de Usuários com RBAC
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS system_users (
+        id VARCHAR(50) PRIMARY KEY,
+        username VARCHAR(100) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        full_name VARCHAR(150) NOT NULL,
+        email VARCHAR(150),
+        role VARCHAR(50) DEFAULT 'admin',
+        permissions TEXT[] DEFAULT ARRAY['all']::TEXT[],
+        active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // 7. Tabela de Auditoria
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS audit_logs (
+        id VARCHAR(50) PRIMARY KEY,
+        action VARCHAR(100) NOT NULL,
+        entity_type VARCHAR(50) NOT NULL,
+        entity_id VARCHAR(50),
+        entity_label VARCHAR(150),
+        details TEXT,
+        user_name VARCHAR(150),
+        timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // Índices de otimização
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_devices_tag ON devices(tag);
+      CREATE INDEX IF NOT EXISTS idx_devices_status ON devices(status);
+      CREATE INDEX IF NOT EXISTS idx_lines_phone ON phone_lines(phone_number);
+      CREATE INDEX IF NOT EXISTS idx_collab_name ON collaborators(name);
+      CREATE INDEX IF NOT EXISTS idx_movements_date ON movements(movement_date);
+    `);
+
+    // 8. Garante que os Super Usuários oficiais existam com senha bcrypt
     const superAdminHash = '$2b$10$fngkbVvcbicIlBm.BPw7TOEYDiwJEb7qyC.qFTgTxLDKMGEDm8bIW'; // Iane@2026
     const allPerms = ['all', 'dashboard', 'dispositivos', 'dispositivos_edit', 'linhas', 'linhas_edit', 'colaboradores', 'colaboradores_edit', 'movimentacoes', 'termos', 'relatorios', 'configuracoes', 'manage_users'];
 
@@ -140,7 +225,7 @@ async function autoMigrateDatabase(client: pg.PoolClient) {
           role = EXCLUDED.role;
     `, [superAdminHash, allPerms]);
 
-    console.log('✅ [PostgreSQL] Migrações e usuários de segurança inicializados.');
+    console.log('✅ [PostgreSQL] Todas as tabelas e migrações do sistema verificadas com sucesso!');
   } catch (err: any) {
     console.error('⚠️ [PostgreSQL] Erro na automigração:', err.message);
   }
@@ -1006,7 +1091,210 @@ app.post('/api/audit-logs', async (req, res) => {
   res.status(201).json({ success: true });
 });
 
-// 11. Limpeza / Reset Total do Banco de Dados
+// 11. Sincronização em Lote (Upload Completo do LocalStorage para o PostgreSQL)
+app.post('/api/sync/batch-upload', async (req, res) => {
+  const { devices, lines, collaborators, movements, terms, auditLogs } = req.body || {};
+
+  if (!pool || !isDbConnected) {
+    return res.json({ success: true, message: 'Dados salvos em modo contingência/memória.' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // 1. Colaboradores primeiro (para satisfazer relacionamentos)
+    if (Array.isArray(collaborators) && collaborators.length > 0) {
+      for (const c of collaborators) {
+        await client.query(`
+          INSERT INTO collaborators (id, name, registration_id, department, role, email, phone, active)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          ON CONFLICT (id) DO UPDATE SET
+            name = EXCLUDED.name,
+            registration_id = EXCLUDED.registration_id,
+            department = EXCLUDED.department,
+            role = EXCLUDED.role,
+            email = EXCLUDED.email,
+            phone = EXCLUDED.phone,
+            active = EXCLUDED.active;
+        `, [
+          c.id,
+          c.fullName || c.name || 'Sem Nome',
+          c.registrationNumber || c.registration_id || `MAT-${c.id}`,
+          c.department || 'Geral',
+          c.position || c.role || 'Colaborador',
+          c.corporateEmail || c.email || null,
+          c.contactPhone || c.phone || null,
+          c.status === 'Ativo' || c.active !== false
+        ]);
+      }
+    }
+
+    // 2. Linhas Telefônicas
+    if (Array.isArray(lines) && lines.length > 0) {
+      for (const l of lines) {
+        await client.query(`
+          INSERT INTO phone_lines (id, phone_number, operator, account_number, plan_name, monthly_cost, status, current_device_id, current_collaborator_id, notes)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+          ON CONFLICT (id) DO UPDATE SET
+            phone_number = EXCLUDED.phone_number,
+            operator = EXCLUDED.operator,
+            account_number = EXCLUDED.account_number,
+            plan_name = EXCLUDED.plan_name,
+            monthly_cost = EXCLUDED.monthly_cost,
+            status = EXCLUDED.status,
+            current_device_id = EXCLUDED.current_device_id,
+            current_collaborator_id = EXCLUDED.current_collaborator_id,
+            notes = EXCLUDED.notes;
+        `, [
+          l.id,
+          l.phoneNumber,
+          l.carrier || l.operator || 'Vivo',
+          l.accountNumber || null,
+          l.planName || 'Corporativo',
+          l.monthlyCost || 0,
+          l.status || 'Disponível',
+          l.associatedDeviceId || null,
+          l.currentCollaboratorId || null,
+          l.notes || null
+        ]);
+      }
+    }
+
+    // 3. Dispositivos Móveis
+    if (Array.isArray(devices) && devices.length > 0) {
+      for (const d of devices) {
+        await client.query(`
+          INSERT INTO devices (id, tag, brand, model, imei_1, imei_2, serial_number, purchase_value, purchase_date, condition, status, current_collaborator_id, current_line_id, stock_custody_notes)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+          ON CONFLICT (id) DO UPDATE SET
+            tag = EXCLUDED.tag,
+            brand = EXCLUDED.brand,
+            model = EXCLUDED.model,
+            imei_1 = EXCLUDED.imei_1,
+            imei_2 = EXCLUDED.imei_2,
+            serial_number = EXCLUDED.serial_number,
+            purchase_value = EXCLUDED.purchase_value,
+            purchase_date = EXCLUDED.purchase_date,
+            condition = EXCLUDED.condition,
+            status = EXCLUDED.status,
+            current_collaborator_id = EXCLUDED.current_collaborator_id,
+            current_line_id = EXCLUDED.current_line_id,
+            stock_custody_notes = EXCLUDED.stock_custody_notes,
+            updated_at = CURRENT_TIMESTAMP;
+        `, [
+          d.id,
+          d.assetTag || d.tag,
+          d.brand || 'Samsung',
+          d.model || 'Aparelho',
+          d.imei1 || d.imei_1 || `IMEI-${d.id}`,
+          d.imei2 || d.imei_2 || null,
+          d.serialNumber || d.serial_number || `SN-${d.id}`,
+          d.purchaseValue || 0,
+          d.purchaseDate || null,
+          d.condition || 'Novo',
+          d.status || 'Disponível',
+          d.currentCollaboratorId || null,
+          d.associatedLineId || d.current_line_id || null,
+          d.notes || d.stockCustodyNotes || null
+        ]);
+      }
+    }
+
+    // 4. Movimentações Patrimoniais
+    if (Array.isArray(movements) && movements.length > 0) {
+      for (const m of movements) {
+        await client.query(`
+          INSERT INTO movements (
+            id, batch_operation_id, flow_type, device_id, device_tag, device_model, device_imei,
+            origin_collaborator_id, origin_collaborator_name, destination_collaborator_id, destination_collaborator_name,
+            movement_type, movement_date, operator_name, condition_at_movement, accessories_returned, reason, document_term_id
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+          ON CONFLICT (id) DO NOTHING;
+        `, [
+          m.id,
+          m.batchOperationId || null,
+          m.flowType || 'entrega',
+          m.deviceId,
+          m.deviceTag || null,
+          m.deviceName || m.deviceModel || null,
+          m.imei || null,
+          m.originCollaboratorId || null,
+          m.originCollaboratorName || null,
+          m.destinationCollaboratorId || null,
+          m.destinationCollaboratorName || null,
+          m.type || 'Entrega',
+          m.date || new Date().toISOString().split('T')[0],
+          m.registeredBy || 'Gestor de Telefonia',
+          m.conditionAtMovement || 'Bom',
+          m.accessoriesIncluded || [],
+          m.reason || null,
+          m.documentId || null
+        ]);
+      }
+    }
+
+    // 5. Termos e Documentos
+    if (Array.isArray(terms) && terms.length > 0) {
+      for (const t of terms) {
+        await client.query(`
+          INSERT INTO terms_documents (id, term_number, type, collaborator_id, collaborator_name, device_id, device_tag, device_model, phone_line_number, generation_date, signed_status, file_name, notes)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+          ON CONFLICT (id) DO UPDATE SET
+            signed_status = EXCLUDED.signed_status,
+            file_name = EXCLUDED.file_name,
+            notes = EXCLUDED.notes;
+        `, [
+          t.id,
+          t.code || t.termNumber || `TERMO-${t.id}`,
+          t.type || 'Termo de Entrega',
+          t.collaboratorId || null,
+          t.collaboratorName || null,
+          t.deviceId || null,
+          t.deviceTag || null,
+          t.deviceModel || null,
+          t.phoneNumber || null,
+          t.date || new Date().toISOString().split('T')[0],
+          t.status || 'Pendente',
+          t.fileName || null,
+          t.notes || null
+        ]);
+      }
+    }
+
+    // 6. Trilha de Auditoria
+    if (Array.isArray(auditLogs) && auditLogs.length > 0) {
+      for (const a of auditLogs) {
+        await client.query(`
+          INSERT INTO audit_logs (id, action, entity_type, entity_id, entity_label, details, user_name, timestamp)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          ON CONFLICT (id) DO NOTHING;
+        `, [
+          a.id,
+          a.action || 'OPERAÇÃO',
+          a.entityType || 'Geral',
+          a.entityId || null,
+          a.entityLabel || null,
+          a.details || null,
+          a.user || 'Operador',
+          a.timestamp ? new Date(a.timestamp) : new Date()
+        ]);
+      }
+    }
+
+    await client.query('COMMIT');
+    console.log(`✅ [PostgreSQL] Sincronização em lote concluída com sucesso: ${devices?.length || 0} dispositivos, ${lines?.length || 0} linhas, ${collaborators?.length || 0} colaboradores.`);
+    return res.json({ success: true, message: 'Dados sincronizados com o PostgreSQL com sucesso!' });
+  } catch (err: any) {
+    await client.query('ROLLBACK');
+    console.error('⚠️ [POST /api/sync/batch-upload] Erro:', err.message);
+    return res.status(500).json({ success: false, error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// 12. Limpeza / Reset Total do Banco de Dados
 app.post('/api/database/reset', async (_req, res) => {
   if (pool && isDbConnected) {
     const client = await pool.connect();

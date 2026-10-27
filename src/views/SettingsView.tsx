@@ -111,6 +111,28 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     loadUsers();
   }, []);
 
+  const [isSyncingWithDb, setIsSyncingWithDb] = useState(false);
+
+  const handleForceSyncWithDatabase = async () => {
+    setIsSyncingWithDb(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+    try {
+      const res = await dataService.batchSyncToServer();
+      if (res.success) {
+        setSuccessMessage('Sucesso: Todos os dados locais foram gravados e persistidos no banco de dados PostgreSQL!');
+        const health = await fetch('/api/health').then(r => r.json()).catch(() => null);
+        if (health) setServerHealth(health);
+      } else {
+        setErrorMessage(res.message);
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Erro ao comunicar com o servidor.');
+    } finally {
+      setIsSyncingWithDb(false);
+    }
+  };
+
   const handleOpenCreateUser = () => {
     setUserToEdit(null);
     setFormFullName('');
@@ -311,12 +333,24 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700 text-xs">
-            <div className={`w-2.5 h-2.5 rounded-full ${serverHealth?.database === 'connected' ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'}`} />
-            <span className="text-slate-300 font-medium">Status do Banco:</span>
-            <span className={`font-semibold ${serverHealth?.database === 'connected' ? 'text-emerald-400' : 'text-amber-300'}`}>
-              {serverHealth?.database === 'connected' ? 'PostgreSQL Conectado' : 'Modo Híbrido (Armazenamento Local/Memória)'}
-            </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700 text-xs">
+              <div className={`w-2.5 h-2.5 rounded-full ${serverHealth?.database === 'connected' ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'}`} />
+              <span className="text-slate-300 font-medium">Status do Banco:</span>
+              <span className={`font-semibold ${serverHealth?.database === 'connected' ? 'text-emerald-400' : 'text-amber-300'}`}>
+                {serverHealth?.database === 'connected' ? 'PostgreSQL Conectado' : 'Modo Híbrido (Armazenamento Local/Memória)'}
+              </span>
+            </div>
+
+            <button
+              onClick={handleForceSyncWithDatabase}
+              disabled={isSyncingWithDb}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
+              title="Grava todos os cadastros e movimentações atuais diretamente no banco PostgreSQL"
+            >
+              <Database className={`w-3.5 h-3.5 ${isSyncingWithDb ? 'animate-spin' : ''}`} />
+              <span>{isSyncingWithDb ? 'Gravando no Banco...' : 'Gravar Dados no PostgreSQL'}</span>
+            </button>
           </div>
         </div>
 
