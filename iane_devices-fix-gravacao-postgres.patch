@@ -1,0 +1,264 @@
+diff --git a/server.ts b/server.ts
+index 7be41d2..49763aa 100644
+--- a/server.ts
++++ b/server.ts
+@@ -10,6 +10,7 @@ import pg from 'pg';
+ import dotenv from 'dotenv';
+ import bcrypt from 'bcryptjs';
+ import jwt from 'jsonwebtoken';
++import { randomBytes } from 'crypto';
+ 
+ dotenv.config();
+ 
+@@ -67,6 +68,10 @@ const memoryStore = {
+   auditLogs: [] as any[],
+ };
+ 
++// Marcador único para IMEI/serial ausentes (planilhas incompletas). Máx. 20 caracteres,
++// pois imei_1 é VARCHAR(20) no init-db.sql. Evita colisão do UNIQUE com string vazia.
++const pendingValue = (prefix: string) => `${prefix}-${randomBytes(6).toString('hex')}`;
++
+ async function autoMigrateDatabase(client: pg.PoolClient) {
+   try {
+     // Extensões
+@@ -239,17 +244,21 @@ if (databaseUrl) {
+     max: 10,
+   });
+ 
+-  pool.connect()
+-    .then(async (client) => {
++  const connectToDatabase = async (attempt = 1): Promise<void> => {
++    try {
++      const client = await pool!.connect();
+       isDbConnected = true;
+       console.log('✅ [PostgreSQL] Conexão com o banco de dados corporativo estabelecida com sucesso!');
+       await autoMigrateDatabase(client);
+       client.release();
+-    })
+-    .catch((err) => {
+-      console.warn('⚠️ [PostgreSQL] Não foi possível conectar ao banco via DATABASE_URL:', err.message);
+-      console.warn('💡 O sistema permanecerá ativo respondendo via camada de persistência local/memória.');
+-    });
++    } catch (err: any) {
++      const waitMs = Math.min(30000, 3000 * attempt);
++      console.warn(`⚠️ [PostgreSQL] Tentativa ${attempt}: não foi possível conectar via DATABASE_URL: ${err.message}`);
++      console.warn(`💡 Gravações NÃO estão indo para o PostgreSQL (modo memória). Nova tentativa em ${waitMs / 1000}s.`);
++      setTimeout(() => { void connectToDatabase(attempt + 1); }, waitMs);
++    }
++  };
++  void connectToDatabase();
+ } else {
+   console.log('ℹ️ [PostgreSQL] DATABASE_URL não definida. Modo local habilitado.');
+ }
+@@ -579,11 +588,11 @@ app.post('/api/devices', async (req, res) => {
+       const values = [
+         id,
+         d.assetTag || d.tag,
+-        d.brand,
+-        d.model,
+-        d.imei1,
++        d.brand || 'Samsung',
++        d.model || 'Aparelho',
++        d.imei1 || d.imei_1 || pendingValue('PEND'),
+         d.imei2 || null,
+-        d.serialNumber,
++        d.serialNumber || d.serial_number || pendingValue('SN-PEND'),
+         d.purchaseValue || 0,
+         d.purchaseDate || null,
+         d.condition || 'Novo',
+@@ -1187,9 +1196,9 @@ app.post('/api/sync/batch-upload', async (req, res) => {
+           d.assetTag || d.tag,
+           d.brand || 'Samsung',
+           d.model || 'Aparelho',
+-          d.imei1 || d.imei_1 || `IMEI-${d.id}`,
++          d.imei1 || d.imei_1 || pendingValue('PEND'),
+           d.imei2 || d.imei_2 || null,
+-          d.serialNumber || d.serial_number || `SN-${d.id}`,
++          d.serialNumber || d.serial_number || pendingValue('SN-PEND'),
+           d.purchaseValue || 0,
+           d.purchaseDate || null,
+           d.condition || 'Novo',
+diff --git a/src/services/apiClient.ts b/src/services/apiClient.ts
+index ed40ca0..be4b566 100644
+--- a/src/services/apiClient.ts
++++ b/src/services/apiClient.ts
+@@ -148,6 +148,23 @@ class ApiClientService {
+           };
+         }
+ 
++        // 5. Erros 4xx em gravações (ex.: violação de unicidade/chave estrangeira no PostgreSQL)
++        else if (status && status >= 400 && status < 500 && status !== 404) {
++          const url = error.config?.url || '';
++          const method = (error.config?.method || '').toLowerCase();
++          const isDataWrite = ['post', 'put', 'delete'].includes(method) && !url.startsWith('/api/auth') && !url.startsWith('/api/users');
++          if (isDataWrite) {
++            notification = {
++              id: `srv-${status}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
++              type: 'error',
++              title: 'Registro não gravado no banco de dados',
++              message: `${url}: ${customMessage || 'o servidor rejeitou a gravação.'}`,
++              status,
++              timestamp: new Date().toLocaleTimeString('pt-BR'),
++            };
++          }
++        }
++
+         if (notification) {
+           this.notifyError(notification);
+         }
+diff --git a/src/services/dataStorage.ts b/src/services/dataStorage.ts
+index a0428dd..7ffd557 100644
+--- a/src/services/dataStorage.ts
++++ b/src/services/dataStorage.ts
+@@ -28,6 +28,15 @@ const STORAGE_KEYS = {
+ 
+ export const STOCK_LABEL = 'Estoque do Gestor de Telefonia';
+ 
++// Gerador de IDs únicos. Date.now() sozinho colide quando vários registros são criados
++// no mesmo milissegundo (ex.: importação de planilha) e o servidor sobrescreve o registro
++// anterior (UPSERT por id). crypto.randomUUID() não é usado porque exige HTTPS.
++let idCounter = 0;
++const uid = (prefix: string): string => {
++  idCounter = (idCounter + 1) % 1000000;
++  return `${prefix}-${Date.now()}-${idCounter}-${Math.random().toString(36).slice(2, 6)}`;
++};
++
+ // Base de dados 100% limpa (sem dados fictícios para produção)
+ const INITIAL_COLLABORATORS: Collaborator[] = [];
+ const INITIAL_DEVICES: Device[] = [];
+@@ -227,7 +236,9 @@ class DataStorageService {
+     }
+   }
+ 
+-  public resetToDefaults() {
++  // resetServer=true apaga TAMBÉM o PostgreSQL. Só deve ser usado em ação explícita do usuário
++  // (botão "Zerar base" em Configurações). No init() de um navegador novo é sempre local.
++  public resetToDefaults(resetServer: boolean = false) {
+     this.set(STORAGE_KEYS.COLLABORATORS, INITIAL_COLLABORATORS);
+     this.set(STORAGE_KEYS.DEVICES, INITIAL_DEVICES);
+     this.set(STORAGE_KEYS.LINES, INITIAL_LINES);
+@@ -236,8 +247,10 @@ class DataStorageService {
+     this.set(STORAGE_KEYS.AUDIT, INITIAL_AUDIT);
+     localStorage.setItem(STORAGE_KEYS.INITIALIZED, 'true');
+ 
+-    // Notifica backend para truncar tabelas caso esteja rodando PostgreSQL
+-    this.apiSync('/api/database/reset', 'POST');
++    if (resetServer) {
++      // Notifica backend para truncar tabelas caso esteja rodando PostgreSQL
++      this.apiSync('/api/database/reset', 'POST');
++    }
+   }
+ 
+   // --- Gestão de Usuários (RBAC / CRUD de Operadores via ApiClient) ---
+@@ -342,7 +355,7 @@ class DataStorageService {
+ 
+     if (isNew) {
+       savedDevice = {
+-        id: `dev-${Date.now()}`,
++        id: uid('dev'),
+         assetTag: device.assetTag || `CEL-${String(devices.length + 1).padStart(3, '0')}`,
+         imei1: device.imei1 || '',
+         imei2: device.imei2,
+@@ -424,7 +437,7 @@ class DataStorageService {
+ 
+     if (isNew) {
+       savedLine = {
+-        id: `line-${Date.now()}`,
++        id: uid('line'),
+         phoneNumber: line.phoneNumber || '',
+         carrier: line.carrier || 'Vivo',
+         planName: line.planName || 'Plano Corporativo',
+@@ -503,7 +516,7 @@ class DataStorageService {
+ 
+     if (isNew) {
+       savedCollab = {
+-        id: `col-${Date.now()}`,
++        id: uid('col'),
+         fullName: collab.fullName || '',
+         registrationNumber: collab.registrationNumber || `MAT-${Math.floor(1000 + Math.random() * 9000)}`,
+         department: collab.department || 'Geral',
+@@ -665,7 +678,7 @@ class DataStorageService {
+     }
+ 
+     // 3. Gerar Termo de Entrega
+-    const termId = `term-${Date.now()}`;
++    const termId = uid('term');
+     const newTerm: DocumentTerm = {
+       id: termId,
+       code: termCode,
+@@ -698,7 +711,7 @@ class DataStorageService {
+     };
+ 
+     // 4. Registrar Movimentação: Origem = Estoque do Gestor -> Destino = Colaborador
+-    const movementId = `mov-${Date.now()}`;
++    const movementId = uid('mov');
+     newTerm.movementId = movementId;
+ 
+     const newMovement: Movement = {
+@@ -852,7 +865,7 @@ class DataStorageService {
+     }
+ 
+     // 3. Criar Termo de Devolução
+-    const termId = `term-${Date.now()}`;
++    const termId = uid('term');
+     const newTerm: DocumentTerm = {
+       id: termId,
+       code: termCode,
+@@ -881,7 +894,7 @@ class DataStorageService {
+     };
+ 
+     // 4. Registrar Movimentação: Origem = Colaborador -> Destino = Estoque do Gestor
+-    const movementId = `mov-${Date.now()}`;
++    const movementId = uid('mov');
+     newTerm.movementId = movementId;
+ 
+     const newMovement: Movement = {
+@@ -1171,7 +1184,7 @@ class DataStorageService {
+     const now = new Date();
+     const movCode = `MOV-${now.getFullYear()}-${String(this.getMovements().length + 1).padStart(3, '0')}`;
+     const newMovement: Movement = {
+-      id: `mov-${Date.now()}`,
++      id: uid('mov'),
+       code: movCode,
+       type: 'Liberação de Estoque',
+       date: new Date().toISOString().split('T')[0],
+@@ -1230,7 +1243,7 @@ class DataStorageService {
+     const now = new Date();
+     const movCode = `MOV-${now.getFullYear()}-${String(this.getMovements().length + 1).padStart(3, '0')}`;
+     const newMovement: Movement = {
+-      id: `mov-${Date.now()}`,
++      id: uid('mov'),
+       code: movCode,
+       type: 'Envio para Manutenção',
+       date: params.date,
+@@ -1287,7 +1300,7 @@ class DataStorageService {
+     const now = new Date();
+     const movCode = `MOV-${now.getFullYear()}-${String(this.getMovements().length + 1).padStart(3, '0')}`;
+     const newMovement: Movement = {
+-      id: `mov-${Date.now()}`,
++      id: uid('mov'),
+       code: movCode,
+       type: 'Retorno da Manutenção',
+       date: params.date,
+@@ -1409,7 +1422,7 @@ class DataStorageService {
+     const now = new Date();
+     const timestamp = `${now.toISOString().split('T')[0]} ${now.toLocaleTimeString('pt-BR')}`;
+     const newLog: AuditLog = {
+-      id: `aud-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
++      id: uid('aud'),
+       timestamp,
+       action: details.split(' ')[0],
+       entityType,
+diff --git a/src/views/SettingsView.tsx b/src/views/SettingsView.tsx
+index 3dc2612..318f63d 100644
+--- a/src/views/SettingsView.tsx
++++ b/src/views/SettingsView.tsx
+@@ -279,7 +279,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
+ 
+   const handleClearDatabase = () => {
+     if (window.confirm('Atenção: Isso removerá todos os dados (aparelhos, linhas, colaboradores e movimentações), deixando o sistema 100% limpo para produção. Deseja continuar?')) {
+-      dataService.resetToDefaults();
++      dataService.resetToDefaults(true);
+       setAuditLogs(dataService.getAuditLogs());
+       setSuccessMessage('Base de dados zerada com sucesso. O sistema está limpo para inserção de dados reais.');
+       onDataReset();

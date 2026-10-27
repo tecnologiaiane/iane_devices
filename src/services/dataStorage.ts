@@ -28,6 +28,15 @@ const STORAGE_KEYS = {
 
 export const STOCK_LABEL = 'Estoque do Gestor de Telefonia';
 
+// Gerador de IDs únicos. Date.now() sozinho colide quando vários registros são criados
+// no mesmo milissegundo (ex.: importação de planilha) e o servidor sobrescreve o registro
+// anterior (UPSERT por id). crypto.randomUUID() não é usado porque exige HTTPS.
+let idCounter = 0;
+const uid = (prefix: string): string => {
+  idCounter = (idCounter + 1) % 1000000;
+  return `${prefix}-${Date.now()}-${idCounter}-${Math.random().toString(36).slice(2, 6)}`;
+};
+
 // Base de dados 100% limpa (sem dados fictícios para produção)
 const INITIAL_COLLABORATORS: Collaborator[] = [];
 const INITIAL_DEVICES: Device[] = [];
@@ -227,7 +236,9 @@ class DataStorageService {
     }
   }
 
-  public resetToDefaults() {
+  // resetServer=true apaga TAMBÉM o PostgreSQL. Só deve ser usado em ação explícita do usuário
+  // (botão "Zerar base" em Configurações). No init() de um navegador novo é sempre local.
+  public resetToDefaults(resetServer: boolean = false) {
     this.set(STORAGE_KEYS.COLLABORATORS, INITIAL_COLLABORATORS);
     this.set(STORAGE_KEYS.DEVICES, INITIAL_DEVICES);
     this.set(STORAGE_KEYS.LINES, INITIAL_LINES);
@@ -236,8 +247,10 @@ class DataStorageService {
     this.set(STORAGE_KEYS.AUDIT, INITIAL_AUDIT);
     localStorage.setItem(STORAGE_KEYS.INITIALIZED, 'true');
 
-    // Notifica backend para truncar tabelas caso esteja rodando PostgreSQL
-    this.apiSync('/api/database/reset', 'POST');
+    if (resetServer) {
+      // Notifica backend para truncar tabelas caso esteja rodando PostgreSQL
+      this.apiSync('/api/database/reset', 'POST');
+    }
   }
 
   // --- Gestão de Usuários (RBAC / CRUD de Operadores via ApiClient) ---
@@ -342,7 +355,7 @@ class DataStorageService {
 
     if (isNew) {
       savedDevice = {
-        id: `dev-${Date.now()}`,
+        id: uid('dev'),
         assetTag: device.assetTag || `CEL-${String(devices.length + 1).padStart(3, '0')}`,
         imei1: device.imei1 || '',
         imei2: device.imei2,
@@ -424,7 +437,7 @@ class DataStorageService {
 
     if (isNew) {
       savedLine = {
-        id: `line-${Date.now()}`,
+        id: uid('line'),
         phoneNumber: line.phoneNumber || '',
         carrier: line.carrier || 'Vivo',
         planName: line.planName || 'Plano Corporativo',
@@ -503,7 +516,7 @@ class DataStorageService {
 
     if (isNew) {
       savedCollab = {
-        id: `col-${Date.now()}`,
+        id: uid('col'),
         fullName: collab.fullName || '',
         registrationNumber: collab.registrationNumber || `MAT-${Math.floor(1000 + Math.random() * 9000)}`,
         department: collab.department || 'Geral',
@@ -665,7 +678,7 @@ class DataStorageService {
     }
 
     // 3. Gerar Termo de Entrega
-    const termId = `term-${Date.now()}`;
+    const termId = uid('term');
     const newTerm: DocumentTerm = {
       id: termId,
       code: termCode,
@@ -698,7 +711,7 @@ class DataStorageService {
     };
 
     // 4. Registrar Movimentação: Origem = Estoque do Gestor -> Destino = Colaborador
-    const movementId = `mov-${Date.now()}`;
+    const movementId = uid('mov');
     newTerm.movementId = movementId;
 
     const newMovement: Movement = {
@@ -852,7 +865,7 @@ class DataStorageService {
     }
 
     // 3. Criar Termo de Devolução
-    const termId = `term-${Date.now()}`;
+    const termId = uid('term');
     const newTerm: DocumentTerm = {
       id: termId,
       code: termCode,
@@ -881,7 +894,7 @@ class DataStorageService {
     };
 
     // 4. Registrar Movimentação: Origem = Colaborador -> Destino = Estoque do Gestor
-    const movementId = `mov-${Date.now()}`;
+    const movementId = uid('mov');
     newTerm.movementId = movementId;
 
     const newMovement: Movement = {
@@ -1171,7 +1184,7 @@ class DataStorageService {
     const now = new Date();
     const movCode = `MOV-${now.getFullYear()}-${String(this.getMovements().length + 1).padStart(3, '0')}`;
     const newMovement: Movement = {
-      id: `mov-${Date.now()}`,
+      id: uid('mov'),
       code: movCode,
       type: 'Liberação de Estoque',
       date: new Date().toISOString().split('T')[0],
@@ -1230,7 +1243,7 @@ class DataStorageService {
     const now = new Date();
     const movCode = `MOV-${now.getFullYear()}-${String(this.getMovements().length + 1).padStart(3, '0')}`;
     const newMovement: Movement = {
-      id: `mov-${Date.now()}`,
+      id: uid('mov'),
       code: movCode,
       type: 'Envio para Manutenção',
       date: params.date,
@@ -1287,7 +1300,7 @@ class DataStorageService {
     const now = new Date();
     const movCode = `MOV-${now.getFullYear()}-${String(this.getMovements().length + 1).padStart(3, '0')}`;
     const newMovement: Movement = {
-      id: `mov-${Date.now()}`,
+      id: uid('mov'),
       code: movCode,
       type: 'Retorno da Manutenção',
       date: params.date,
@@ -1409,7 +1422,7 @@ class DataStorageService {
     const now = new Date();
     const timestamp = `${now.toISOString().split('T')[0]} ${now.toLocaleTimeString('pt-BR')}`;
     const newLog: AuditLog = {
-      id: `aud-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      id: uid('aud'),
       timestamp,
       action: details.split(' ')[0],
       entityType,

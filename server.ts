@@ -10,6 +10,7 @@ import pg from 'pg';
 import dotenv from 'dotenv';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { randomBytes } from 'crypto';
 
 dotenv.config();
 
@@ -66,6 +67,10 @@ const memoryStore = {
   terms: [] as any[],
   auditLogs: [] as any[],
 };
+
+// Marcador único para IMEI/serial ausentes (planilhas incompletas). Máx. 20 caracteres,
+// pois imei_1 é VARCHAR(20) no init-db.sql. Evita colisão do UNIQUE com string vazia.
+const pendingValue = (prefix: string) => `${prefix}-${randomBytes(6).toString('hex')}`;
 
 async function autoMigrateDatabase(client: pg.PoolClient) {
   try {
@@ -239,17 +244,21 @@ if (databaseUrl) {
     max: 10,
   });
 
-  pool.connect()
-    .then(async (client) => {
+  const connectToDatabase = async (attempt = 1): Promise<void> => {
+    try {
+      const client = await pool!.connect();
       isDbConnected = true;
       console.log('✅ [PostgreSQL] Conexão com o banco de dados corporativo estabelecida com sucesso!');
       await autoMigrateDatabase(client);
       client.release();
-    })
-    .catch((err) => {
-      console.warn('⚠️ [PostgreSQL] Não foi possível conectar ao banco via DATABASE_URL:', err.message);
-      console.warn('💡 O sistema permanecerá ativo respondendo via camada de persistência local/memória.');
-    });
+    } catch (err: any) {
+      const waitMs = Math.min(30000, 3000 * attempt);
+      console.warn(`⚠️ [PostgreSQL] Tentativa ${attempt}: não foi possível conectar via DATABASE_URL: ${err.message}`);
+      console.warn(`💡 Gravações NÃO estão indo para o PostgreSQL (modo memória). Nova tentativa em ${waitMs / 1000}s.`);
+      setTimeout(() => { void connectToDatabase(attempt + 1); }, waitMs);
+    }
+  };
+  void connectToDatabase();
 } else {
   console.log('ℹ️ [PostgreSQL] DATABASE_URL não definida. Modo local habilitado.');
 }
@@ -579,11 +588,11 @@ app.post('/api/devices', async (req, res) => {
       const values = [
         id,
         d.assetTag || d.tag,
-        d.brand,
-        d.model,
-        d.imei1,
+        d.brand || 'Samsung',
+        d.model || 'Aparelho',
+        d.imei1 || d.imei_1 || pendingValue('PEND'),
         d.imei2 || null,
-        d.serialNumber,
+        d.serialNumber || d.serial_number || pendingValue('SN-PEND'),
         d.purchaseValue || 0,
         d.purchaseDate || null,
         d.condition || 'Novo',
@@ -1187,9 +1196,9 @@ app.post('/api/sync/batch-upload', async (req, res) => {
           d.assetTag || d.tag,
           d.brand || 'Samsung',
           d.model || 'Aparelho',
-          d.imei1 || d.imei_1 || `IMEI-${d.id}`,
+          d.imei1 || d.imei_1 || pendingValue('PEND'),
           d.imei2 || d.imei_2 || null,
-          d.serialNumber || d.serial_number || `SN-${d.id}`,
+          d.serialNumber || d.serial_number || pendingValue('SN-PEND'),
           d.purchaseValue || 0,
           d.purchaseDate || null,
           d.condition || 'Novo',

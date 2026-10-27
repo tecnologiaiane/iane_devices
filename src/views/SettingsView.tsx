@@ -279,7 +279,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const handleClearDatabase = () => {
     if (window.confirm('Atenção: Isso removerá todos os dados (aparelhos, linhas, colaboradores e movimentações), deixando o sistema 100% limpo para produção. Deseja continuar?')) {
-      dataService.resetToDefaults();
+      dataService.resetToDefaults(true);
       setAuditLogs(dataService.getAuditLogs());
       setSuccessMessage('Base de dados zerada com sucesso. O sistema está limpo para inserção de dados reais.');
       onDataReset();
