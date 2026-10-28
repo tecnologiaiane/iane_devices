@@ -128,11 +128,31 @@ Cada aba possui URL própria (navegação direta e recarregamento funcionam no s
 ### Docker
 
 ```bash
-# Crie o .env com POSTGRES_PASSWORD, DATABASE_URL e JWT_SECRET
+# 1. Gere o .env (senha do banco, segredo JWT e URL de conexão)
+cd /opt/iane_devices
+PGPASS=$(openssl rand -hex 24)
+JWT=$(openssl rand -hex 48)
+sudo tee .env > /dev/null <<EOF
+POSTGRES_PASSWORD=$PGPASS
+JWT_SECRET=$JWT
+DATABASE_URL=postgresql://iane_admin:$PGPASS@postgres:5432/telecom_assets
+TZ=America/Sao_Paulo
+EOF
+
+# 2. Garanta que o usuário que roda o compose consiga ler o arquivo
+sudo chown "$USER":"$USER" .env
+chmod 600 .env
+
+# 3. Valide e suba
+docker compose config --quiet
 docker compose up -d --build
 ```
 
-O compose recusa iniciar sem `POSTGRES_PASSWORD`, `DATABASE_URL` e `JWT_SECRET` definidos. A porta do PostgreSQL é publicada apenas em `127.0.0.1:5432` (acesso administrativo local); remova essa seção ou ajuste conscientemente para expor na rede. O container da aplicação define `TZ=America/Sao_Paulo` e `ALLOW_MEMORY_FALLBACK=false`.
+> `sudo cat > .env` **não funciona**: o `sudo` vale para o `cat`, mas o redirecionamento `>` é executado pelo seu shell e continua sem permissão. Use `sudo tee` (ou `sudo mv` de um arquivo temporário).
+
+> Se o volume `postgres_data` já existe, `POSTGRES_PASSWORD` precisa ser a senha com que o banco foi inicializado; alterar a variável não muda a senha dentro do volume. Trocar implica recriar o volume (`docker compose down -v`), o que apaga os dados.
+
+O compose recusa iniciar sem `POSTGRES_PASSWORD`, `DATABASE_URL` e `JWT_SECRET` definidos. A porta do PostgreSQL é publicada apenas em `127.0.0.1:5432` (acesso administrativo local); remova essa seção ou ajuste conscientemente para expor na rede. O container da aplicação define `TZ=America/Sao_Paulo` e `ALLOW_MEMORY_FALLBACK=false`. Senhas com caracteres especiais (`@`, `#`, `/`, `:`) precisam ser codificadas na URL do `DATABASE_URL` (ex.: `@` → `%40`).
 
 ---
 
