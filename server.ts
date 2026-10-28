@@ -23,10 +23,17 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const isProduction = process.env.NODE_ENV === 'production';
-const JWT_SECRET = process.env.JWT_SECRET || 'iane_telecom_asset_secret_key_2026';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  if (isProduction) {
+    throw new Error('JWT_SECRET não está definido. Configure uma variável de ambiente segura em produção.');
+  }
+  console.warn('⚠️ [SEGURANÇA] JWT_SECRET não definido. Usando segredo temporário apenas para desenvolvimento.');
+}
 // Por padrão o servidor NÃO finge que gravou quando o PostgreSQL está fora do ar (responde 503).
 // Para desenvolvimento sem banco, defina ALLOW_MEMORY_FALLBACK=true.
 const ALLOW_MEMORY_FALLBACK = process.env.ALLOW_MEMORY_FALLBACK === 'true';
+const EFFECTIVE_JWT_SECRET = JWT_SECRET || 'iane_telecom_dev_insecure_secret_change_me';
 
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
@@ -298,25 +305,61 @@ if (databaseUrl) {
 }
 
 // ----------------------------------------------------------------------------
-// Middleware de Autenticação JWT
+// Middleware de Autenticação JWT e Autorização
 // ----------------------------------------------------------------------------
 function authenticateToken(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) {
-    return next(); // Continua sem user autenticado
+    (req as any).user = null;
+    return next();
   }
 
-  jwt.verify(token, JWT_SECRET, (err, decoded: any) => {
+  jwt.verify(token, EFFECTIVE_JWT_SECRET, (err, decoded: any) => {
     if (!err && decoded) {
       (req as any).user = decoded;
+    } else {
+      (req as any).user = null;
     }
     next();
   });
 }
 
 app.use(authenticateToken);
+
+function requireAuth(req: Request, res: Response, next: NextFunction) {
+  if (!(req as any).user) {
+    return res.status(401).json({ success: false, message: 'Não autorizado. Faça login para continuar.' });
+  }
+  next();
+}
+
+function requirePermission(permission: string) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'Não autorizado. Faça login para continuar.' });
+    }
+    if (user.role === 'admin') return next();
+    const perms = Array.isArray(user.permissions) ? user.permissions : [];
+    if (perms.includes('all') || perms.includes(permission)) {
+      return next();
+    }
+    return res.status(403).json({ success: false, message: 'Acesso negado. Permissão insuficiente.' });
+  };
+}
+
+// Rotas públicas
+const PUBLIC_PATHS = ['/api/health', '/api/auth/login'];
+app.use((req, res, next) => {
+  if (PUBLIC_PATHS.some(p => req.path === p)) return next();
+  // Protege todas as rotas /api
+  if (req.path.startsWith('/api/')) {
+    return requireAuth(req, res, next);
+  }
+  next();
+});
 
 // Rotas de dados exigem o PostgreSQL. Sem banco, respondem 503 para que o front-end mantenha a gravação
 // na fila e tente de novo (antes o servidor respondia "sucesso" gravando só em memória).
@@ -390,7 +433,7 @@ app.post('/api/auth/login', async (req, res) => {
             permissions: dbUser.permissions || ['all'],
           };
 
-          const token = jwt.sign(userPayload, JWT_SECRET, { expiresIn: '7d' });
+          const token = jwt.sign(userPayload, EFFECTIVE_JWT_SECRET, { expiresIn: '7d' });
 
           return res.json({
             success: true,
@@ -425,7 +468,7 @@ app.post('/api/auth/login', async (req, res) => {
         role: user.role as any,
         permissions: user.permissions,
       };
-      const token = jwt.sign(userPayload, JWT_SECRET, { expiresIn: '7d' });
+      const token = jwt.sign(userPayload, EFFECTIVE_JWT_SECRET, { expiresIn: '7d' });
       return res.json({ success: true, user: userPayload, token });
     }
   }
@@ -434,7 +477,7 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 // 3. Gestão de Usuários (RBAC / CRUD de Operadores)
-app.get('/api/users', async (_req, res) => {
+app.get('/api/users', requirePermission('manage_users'), async (_req, res) => {
   if (pool && isDbConnected) {
     try {
       const result = await pool.query(`
@@ -452,7 +495,7 @@ app.get('/api/users', async (_req, res) => {
   res.json({ success: true, data: safeUsers });
 });
 
-app.post('/api/users', async (req, res) => {
+app.post('/api/users', requirePermission('manage_users'), async (req, res) => {
   const { username, fullName, email, password, role, permissions, active } = req.body || {};
 
   if (!username || !fullName || !password) {
@@ -506,7 +549,7 @@ app.post('/api/users', async (req, res) => {
   res.status(201).json({ success: true, data: safeUser, message: 'Usuário criado com sucesso.' });
 });
 
-app.put('/api/users/:id', async (req, res) => {
+app.put('/api/users/:id', requirePermission('manage_users'), async (req, res) => {
   const { id } = req.params;
   const { fullName, email, password, role, permissions, active } = req.body || {};
 
@@ -556,7 +599,7 @@ app.put('/api/users/:id', async (req, res) => {
   res.json({ success: true, data: safeUser, message: 'Usuário atualizado com sucesso.' });
 });
 
-app.delete('/api/users/:id', async (req, res) => {
+app.delete('/api/users/:id', requirePermission('manage_users'), async (req, res) => {
   const { id } = req.params;
 
   if (id === 'user-iane-super-1' || id === 'user-iane-super-2') {
