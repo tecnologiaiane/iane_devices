@@ -9,7 +9,8 @@ services:
     environment:
       POSTGRES_DB: telecom_assets
       POSTGRES_USER: iane_admin
-      POSTGRES_PASSWORD: Iane@admin
+      # Defina POSTGRES_PASSWORD e DATABASE_URL no arquivo .env para produção.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-Iane@admin}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
@@ -36,7 +37,10 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
-      DATABASE_URL: postgres://iane_admin:Iane%40admin@postgres:5432/telecom_assets
+      # Defina JWT_SECRET no .env com um valor longo e aleatório (ex.: openssl rand -hex 48).
+      # Sem ele o servidor gera um segredo efêmero e as sessões caem a cada reinício.
+      JWT_SECRET: ${JWT_SECRET:-}
+      DATABASE_URL: ${DATABASE_URL:-postgres://iane_admin:Iane%40admin@postgres:5432/telecom_assets}
     ports:
       # Acesso web via rede local ou externa
       - "3000:3000"

@@ -108,7 +108,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       .then(data => setServerHealth(data))
       .catch(() => setServerHealth({ database: 'local_storage_mode', environment: 'client' }));
 
-    loadUsers();
+    if (canManageUsers) {
+      loadUsers();
+    }
   }, []);
 
   const [isSyncingWithDb, setIsSyncingWithDb] = useState(false);
@@ -314,10 +316,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       )}
 
       {/* Production Architecture & PostgreSQL Status */}
-      <div className="bg-slate-900 text-slate-100 p-6 rounded-xl border border-slate-800 shadow-md">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+      <div className="bg-ink-900 text-ink-100 p-6 rounded-xl border border-ink-800 shadow-md">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-4 border-b border-ink-800">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-blue-600/30 border border-blue-500/40 flex items-center justify-center text-blue-400 shrink-0">
+            <div className="w-10 h-10 rounded-lg bg-iane-600/30 border border-iane-500/40 flex items-center justify-center text-iane-400 shrink-0">
               <Server className="w-5 h-5" />
             </div>
             <div>
@@ -327,17 +329,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   Pronto para Produção
                 </span>
               </h2>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-ink-400">
                 Backend Express (`server.ts`), Criptografia bcrypt e Controle de Acesso por Perfil (RBAC)
               </p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700 text-xs">
-              <div className={`w-2.5 h-2.5 rounded-full ${serverHealth?.database === 'connected' ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'}`} />
-              <span className="text-slate-300 font-medium">Status do Banco:</span>
-              <span className={`font-semibold ${serverHealth?.database === 'connected' ? 'text-emerald-400' : 'text-amber-300'}`}>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-ink-800/80 border border-ink-700 text-xs">
+              <div className={`w-2.5 h-2.5 rounded-full ${serverHealth?.database === 'connected' ? 'bg-emerald-500 animate-pulse' : 'bg-sun-400'}`} />
+              <span className="text-ink-300 font-medium">Status do Banco:</span>
+              <span className={`font-semibold ${serverHealth?.database === 'connected' ? 'text-emerald-400' : 'text-sun-300'}`}>
                 {serverHealth?.database === 'connected' ? 'PostgreSQL Conectado' : 'Modo Híbrido (Armazenamento Local/Memória)'}
               </span>
             </div>
@@ -345,7 +347,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <button
               onClick={handleForceSyncWithDatabase}
               disabled={isSyncingWithDb}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-iane-600 hover:bg-iane-500 text-white text-xs font-medium transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
               title="Grava todos os cadastros e movimentações atuais diretamente no banco PostgreSQL"
             >
               <Database className={`w-3.5 h-3.5 ${isSyncingWithDb ? 'animate-spin' : ''}`} />
@@ -355,32 +357,32 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4 text-xs">
-          <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/60">
+          <div className="bg-ink-800/50 p-3 rounded-lg border border-ink-700/60">
             <div className="flex items-center gap-2 font-semibold text-white mb-1">
-              <Terminal className="w-3.5 h-3.5 text-blue-400" />
+              <Terminal className="w-3.5 h-3.5 text-iane-400" />
               <span>1. Base Compartilhada</span>
             </div>
-            <p className="text-slate-400 text-[11px] leading-relaxed">
+            <p className="text-ink-400 text-[11px] leading-relaxed">
               Todos os computadores da empresa conectam na mesma base de dados através da API REST corporativa.
             </p>
           </div>
 
-          <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/60">
+          <div className="bg-ink-800/50 p-3 rounded-lg border border-ink-700/60">
             <div className="flex items-center gap-2 font-semibold text-white mb-1">
               <Lock className="w-3.5 h-3.5 text-emerald-400" />
               <span>2. Senhas Seguras (bcrypt)</span>
             </div>
-            <p className="text-slate-400 text-[11px] leading-relaxed">
+            <p className="text-ink-400 text-[11px] leading-relaxed">
               Senhas criptografadas com salting (bcrypt 10 rounds). Nenhuma senha em texto puro é gravada.
             </p>
           </div>
 
-          <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/60">
+          <div className="bg-ink-800/50 p-3 rounded-lg border border-ink-700/60">
             <div className="flex items-center gap-2 font-semibold text-white mb-1">
               <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
               <span>3. Permissões Granulares</span>
             </div>
-            <p className="text-slate-400 text-[11px] leading-relaxed">
+            <p className="text-ink-400 text-[11px] leading-relaxed">
               Super Admin define exatamente quais módulos cada operador pode visualizar, editar ou movimentar.
             </p>
           </div>
@@ -390,20 +392,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       {/* =========================================================================
           GESTÃO DE USUÁRIOS E PERMISSÕES (RBAC - EXCLUSIVO SUPER ADMIN / GESTORES)
           ========================================================================= */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-        <div className="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/50">
+      <div className="bg-white rounded-xl border border-ink-200 shadow-xs overflow-hidden">
+        <div className="p-5 border-b border-ink-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-ink-50/50">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600 shrink-0">
+            <div className="w-9 h-9 rounded-lg bg-iane-50 border border-iane-200 flex items-center justify-center text-iane-600 shrink-0">
               <Users className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <h3 className="text-sm font-bold text-ink-900 flex items-center gap-2">
                 <span>Gestão de Usuários & Permissões de Acesso</span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 text-blue-800">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-iane-100 text-iane-800">
                   {users.length} cadastrados
                 </span>
               </h3>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-ink-500">
                 Cadastre operadores e defina permissões específicas por módulo do sistema
               </p>
             </div>
@@ -412,7 +414,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           {canManageUsers && (
             <button
               onClick={handleOpenCreateUser}
-              className="py-2 px-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
+              className="py-2 px-3.5 bg-iane-600 hover:bg-iane-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
             >
               <UserPlus className="w-4 h-4" />
               <span>Novo Usuário</span>
@@ -423,7 +425,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         {/* User Table */}
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200 text-[11px]">
+            <thead className="bg-ink-50 text-ink-600 font-semibold border-b border-ink-200 text-[11px]">
               <tr>
                 <th className="py-3 px-4">Nome & Login</th>
                 <th className="py-3 px-4">E-mail Corporativo</th>
@@ -433,16 +435,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <th className="py-3 px-4 text-right">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-ink-100">
               {loadingUsers ? (
                 <tr>
-                  <td colSpan={6} className="py-6 text-center text-slate-400">
+                  <td colSpan={6} className="py-6 text-center text-ink-400">
                     Carregando usuários do sistema...
                   </td>
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-6 text-center text-slate-400">
+                  <td colSpan={6} className="py-6 text-center text-ink-400">
                     Nenhum usuário cadastrado.
                   </td>
                 </tr>
@@ -454,10 +456,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
                   const roleBadgeClass = {
                     admin: 'bg-purple-100 text-purple-800 border-purple-200',
-                    gestor: 'bg-blue-100 text-blue-800 border-blue-200',
+                    gestor: 'bg-iane-100 text-iane-800 border-iane-200',
                     operador: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-                    visualizador: 'bg-slate-100 text-slate-700 border-slate-200',
-                  }[u.role] || 'bg-slate-100 text-slate-700';
+                    visualizador: 'bg-ink-100 text-ink-700 border-ink-200',
+                  }[u.role] || 'bg-ink-100 text-ink-700';
 
                   const roleLabel = {
                     admin: 'Super Administrador',
@@ -470,21 +472,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   const countPerms = hasAll ? AVAILABLE_PERMISSIONS.length : (u.permissions?.length || 0);
 
                   return (
-                    <tr key={u.id} className="hover:bg-slate-50/60 transition-colors">
+                    <tr key={u.id} className="hover:bg-ink-50/60 transition-colors">
                       <td className="py-3 px-4">
-                        <div className="font-semibold text-slate-900 flex items-center gap-1.5">
+                        <div className="font-semibold text-ink-900 flex items-center gap-1.5">
                           <span>{u.fullName}</span>
                           {isMyself && (
-                            <span className="text-[10px] px-1.5 py-0.2 bg-blue-50 text-blue-700 border border-blue-200 rounded font-normal">
+                            <span className="text-[10px] px-1.5 py-0.2 bg-iane-50 text-iane-700 border border-iane-200 rounded font-normal">
                               Você
                             </span>
                           )}
                         </div>
-                        <div className="text-[11px] text-slate-400 font-mono">@{u.username}</div>
+                        <div className="text-[11px] text-ink-400 font-mono">@{u.username}</div>
                       </td>
 
-                      <td className="py-3 px-4 text-slate-600">
-                        {u.email || <span className="text-slate-400 italic">Não informado</span>}
+                      <td className="py-3 px-4 text-ink-600">
+                        {u.email || <span className="text-ink-400 italic">Não informado</span>}
                       </td>
 
                       <td className="py-3 px-4">
@@ -494,7 +496,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       </td>
 
                       <td className="py-3 px-4">
-                        <span className="text-slate-700 font-medium">
+                        <span className="text-ink-700 font-medium">
                           {hasAll ? (
                             <span className="text-emerald-700 font-semibold">Acesso Total ({AVAILABLE_PERMISSIONS.length} módulos)</span>
                           ) : (
@@ -504,8 +506,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       </td>
 
                       <td className="py-3 px-4">
-                        <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${u.active !== false ? 'text-emerald-700' : 'text-slate-400'}`}>
-                          <span className={`w-2 h-2 rounded-full ${u.active !== false ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                        <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${u.active !== false ? 'text-emerald-700' : 'text-ink-400'}`}>
+                          <span className={`w-2 h-2 rounded-full ${u.active !== false ? 'bg-emerald-500' : 'bg-ink-300'}`} />
                           {u.active !== false ? 'Ativo' : 'Inativo'}
                         </span>
                       </td>
@@ -516,7 +518,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                             <button
                               onClick={() => handleOpenEditUser(u)}
                               title="Editar Usuário e Permissões"
-                              className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
+                              className="p-1.5 text-ink-500 hover:text-iane-600 hover:bg-iane-50 rounded-md transition-colors cursor-pointer"
                             >
                               <Edit2 className="w-3.5 h-3.5" />
                             </button>
@@ -527,15 +529,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                               title={isCurrentSuper ? 'Super Admin principal não pode ser excluído' : isMyself ? 'Você não pode excluir seu próprio login' : 'Excluir Usuário'}
                               className={`p-1.5 rounded-md transition-colors ${
                                 isCurrentSuper || isMyself
-                                  ? 'text-slate-300 cursor-not-allowed'
-                                  : 'text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer'
+                                  ? 'text-ink-300 cursor-not-allowed'
+                                  : 'text-ink-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer'
                               }`}
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         ) : (
-                          <span className="text-[11px] text-slate-400 italic">Somente leitura</span>
+                          <span className="text-[11px] text-ink-400 italic">Somente leitura</span>
                         )}
                       </td>
                     </tr>
@@ -550,15 +552,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       {/* Grid de Ferramentas Auxiliares */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* 1. Migração da Planilha Atual */}
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between space-y-4">
+        <div className="bg-white p-5 rounded-xl border border-ink-200 shadow-xs flex flex-col justify-between space-y-4">
           <div>
             <div className="flex items-center gap-2.5 mb-2">
               <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
-              <h3 className="text-sm font-bold text-slate-900">
+              <h3 className="text-sm font-bold text-ink-900">
                 Assistente de Migração da Planilha Existente
               </h3>
             </div>
-            <p className="text-xs text-slate-600 leading-relaxed">
+            <p className="text-xs text-ink-600 leading-relaxed">
               Importe os dados das abas <strong>Base de Dados</strong> e <strong>Analítico</strong>. O assistente analisa o cabeçalho das colunas, detecta números de telefone, fabricantes e valida IMEIs duplicados antes de confirmar a importação.
             </p>
           </div>
@@ -573,15 +575,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
 
         {/* 2. Backup & Restauração JSON */}
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between space-y-4">
+        <div className="bg-white p-5 rounded-xl border border-ink-200 shadow-xs flex flex-col justify-between space-y-4">
           <div>
             <div className="flex items-center gap-2.5 mb-2">
-              <Database className="w-5 h-5 text-blue-600" />
-              <h3 className="text-sm font-bold text-slate-900">
+              <Database className="w-5 h-5 text-iane-600" />
+              <h3 className="text-sm font-bold text-ink-900">
                 Backup e Restauração de Dados
               </h3>
             </div>
-            <p className="text-xs text-slate-600 leading-relaxed">
+            <p className="text-xs text-ink-600 leading-relaxed">
               Exporte todos os registros do sistema (aparelhos, linhas, colaboradores, termos e movimentações) em arquivo JSON seguro para contingência ou restaure um backup anterior.
             </p>
           </div>
@@ -589,14 +591,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={handleDownloadBackup}
-              className="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+              className="py-2.5 px-3 bg-ink-100 hover:bg-ink-200 text-ink-800 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
             >
-              <Download className="w-3.5 h-3.5 text-slate-600" />
+              <Download className="w-3.5 h-3.5 text-ink-600" />
               <span>Baixar Backup</span>
             </button>
 
-            <label className="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer">
-              <Upload className="w-3.5 h-3.5 text-slate-600" />
+            <label className="py-2.5 px-3 bg-ink-100 hover:bg-ink-200 text-ink-800 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer">
+              <Upload className="w-3.5 h-3.5 text-ink-600" />
               <span>Restaurar Backup</span>
               <input
                 type="file"
@@ -611,11 +613,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
       {/* Limpeza Total da Base de Dados */}
       {canManageUsers && (
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+        <div className="bg-white p-5 rounded-xl border border-ink-200 shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-ink-100 pb-3">
             <div className="flex items-center gap-2">
               <RotateCcw className="w-4 h-4 text-rose-600" />
-              <h3 className="text-sm font-bold text-slate-900">Limpar Base de Dados (Zerar para Produção)</h3>
+              <h3 className="text-sm font-bold text-ink-900">Limpar Base de Dados (Zerar para Produção)</h3>
             </div>
             <button
               onClick={handleClearDatabase}
@@ -624,27 +626,27 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               Zerar Todos os Dados
             </button>
           </div>
-          <p className="text-xs text-slate-500 leading-relaxed">
+          <p className="text-xs text-ink-500 leading-relaxed">
             Remove os registros de aparelhos, linhas, colaboradores e movimentações tanto localmente quanto no PostgreSQL, deixando o sistema 100% limpo para inventário oficial da IANE.
           </p>
         </div>
       )}
 
       {/* Audit Log Table */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-        <div className="p-4 border-b border-slate-200 flex items-center justify-between">
+      <div className="bg-white rounded-xl border border-ink-200 shadow-xs overflow-hidden">
+        <div className="p-4 border-b border-ink-200 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <History className="w-4 h-4 text-slate-500" />
-            <h3 className="text-sm font-bold text-slate-900">Trilha de Auditoria do Sistema</h3>
+            <History className="w-4 h-4 text-ink-500" />
+            <h3 className="text-sm font-bold text-ink-900">Trilha de Auditoria do Sistema</h3>
           </div>
-          <span className="text-xs text-slate-500 font-mono">
+          <span className="text-xs text-ink-500 font-mono">
             {auditLogs.length} eventos registrados
           </span>
         </div>
 
         <div className="max-h-72 overflow-y-auto">
           <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold text-[11px] sticky top-0">
+            <thead className="bg-ink-50 border-b border-ink-200 text-ink-600 font-semibold text-[11px] sticky top-0">
               <tr>
                 <th className="py-2.5 px-3">Data / Hora</th>
                 <th className="py-2.5 px-3">Entidade</th>
@@ -653,14 +655,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <th className="py-2.5 px-3">Usuário</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-ink-100">
               {auditLogs.map((log) => (
-                <tr key={log.id} className="hover:bg-slate-50/50">
-                  <td className="py-2 px-3 font-mono text-slate-500 whitespace-nowrap">{log.timestamp}</td>
-                  <td className="py-2 px-3 font-semibold text-slate-800">{log.entityType}</td>
-                  <td className="py-2 px-3 font-mono text-blue-700">{log.entityLabel}</td>
-                  <td className="py-2 px-3 text-slate-700">{log.details}</td>
-                  <td className="py-2 px-3 text-slate-500">{log.user}</td>
+                <tr key={log.id} className="hover:bg-ink-50/50">
+                  <td className="py-2 px-3 font-mono text-ink-500 whitespace-nowrap">{log.timestamp}</td>
+                  <td className="py-2 px-3 font-semibold text-ink-800">{log.entityType}</td>
+                  <td className="py-2 px-3 font-mono text-iane-700">{log.entityLabel}</td>
+                  <td className="py-2 px-3 text-ink-700">{log.details}</td>
+                  <td className="py-2 px-3 text-ink-500">{log.user}</td>
                 </tr>
               ))}
             </tbody>
@@ -672,18 +674,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           MODAL DE CADASTRO / EDIÇÃO DE USUÁRIO (RBAC)
           ========================================================================= */}
       {isUserModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden border border-slate-200 my-8">
-            <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+        <div className="fixed inset-0 z-50 bg-ink-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden border border-ink-200 my-8">
+            <div className="px-6 py-4 bg-ink-900 text-white flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <ShieldCheck className="w-5 h-5 text-blue-400" />
+                <ShieldCheck className="w-5 h-5 text-iane-400" />
                 <h3 className="font-bold text-sm">
                   {userToEdit ? 'Editar Usuário e Permissões' : 'Cadastrar Novo Operador'}
                 </h3>
               </div>
               <button
                 onClick={() => setIsUserModalOpen(false)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
+                className="text-ink-400 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -693,7 +695,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               {/* Dados Básicos */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label className="block text-xs font-semibold text-ink-700 mb-1">
                     Nome Completo *
                   </label>
                   <input
@@ -702,12 +704,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     value={formFullName}
                     onChange={(e) => setFormFullName(e.target.value)}
                     placeholder="Ex: Carlos Eduardo Silva"
-                    className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full text-xs px-3 py-2 border border-ink-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-iane-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label className="block text-xs font-semibold text-ink-700 mb-1">
                     Nome de Usuário (Login) *
                   </label>
                   <input
@@ -717,14 +719,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     value={formUsername}
                     onChange={(e) => setFormUsername(e.target.value)}
                     placeholder="Ex: carlos.silva"
-                    className={`w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      userToEdit ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : ''
+                    className={`w-full text-xs px-3 py-2 border border-ink-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-iane-500 ${
+                      userToEdit ? 'bg-ink-100 text-ink-500 cursor-not-allowed' : ''
                     }`}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label className="block text-xs font-semibold text-ink-700 mb-1">
                     E-mail Corporativo
                   </label>
                   <input
@@ -732,12 +734,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     value={formEmail}
                     onChange={(e) => setFormEmail(e.target.value)}
                     placeholder="Ex: carlos.silva@iane.ind.br"
-                    className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full text-xs px-3 py-2 border border-ink-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-iane-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label className="block text-xs font-semibold text-ink-700 mb-1">
                     {userToEdit ? 'Nova Senha (deixe em branco p/ manter)' : 'Senha de Acesso (Mín. 6 chars) *'}
                   </label>
                   <div className="relative">
@@ -747,12 +749,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       value={formPassword}
                       onChange={(e) => setFormPassword(e.target.value)}
                       placeholder={userToEdit ? '••••••••' : 'Defina a senha'}
-                      className="w-full text-xs px-3 py-2 pr-9 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full text-xs px-3 py-2 pr-9 border border-ink-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-iane-500"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      className="absolute right-2.5 top-1/2 -tranink-y-1/2 text-ink-400 hover:text-ink-600"
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -761,12 +763,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
 
               {/* Papel do Usuário */}
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+              <div className="p-4 bg-ink-50 border border-ink-200 rounded-xl space-y-3">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-800">
+                  <label className="text-xs font-bold text-ink-800">
                     Papel / Perfil de Acesso
                   </label>
-                  <span className="text-[11px] text-slate-500">
+                  <span className="text-[11px] text-ink-500">
                     Determina o nível padrão de privilégios
                   </span>
                 </div>
@@ -787,8 +789,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         onClick={() => handleRoleChange(roleKey)}
                         className={`p-2.5 rounded-lg border text-xs font-semibold text-center transition-all cursor-pointer ${
                           isSelected
-                            ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                            ? 'bg-iane-600 text-white border-iane-600 shadow-xs'
+                            : 'bg-white text-ink-700 border-ink-200 hover:bg-ink-100'
                         }`}
                       >
                         {labels[roleKey]}
@@ -802,10 +804,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h4 className="text-xs font-bold text-slate-900">
+                    <h4 className="text-xs font-bold text-ink-900">
                       Permissões por Módulo do Sistema
                     </h4>
-                    <p className="text-[11px] text-slate-500">
+                    <p className="text-[11px] text-ink-500">
                       Marque exatamente o que este usuário tem autorização para visualizar ou modificar
                     </p>
                   </div>
@@ -813,22 +815,22 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     <button
                       type="button"
                       onClick={handleSelectAllPerms}
-                      className="text-blue-600 hover:underline font-medium cursor-pointer"
+                      className="text-iane-600 hover:underline font-medium cursor-pointer"
                     >
                       Marcar todos
                     </button>
-                    <span className="text-slate-300">|</span>
+                    <span className="text-ink-300">|</span>
                     <button
                       type="button"
                       onClick={handleClearAllPerms}
-                      className="text-slate-500 hover:underline font-medium cursor-pointer"
+                      className="text-ink-500 hover:underline font-medium cursor-pointer"
                     >
                       Desmarcar todos
                     </button>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto p-1 border border-slate-200 rounded-xl bg-slate-50/50">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto p-1 border border-ink-200 rounded-xl bg-ink-50/50">
                   {AVAILABLE_PERMISSIONS.map((perm) => {
                     const isChecked = formRole === 'admin' || formPermissions.includes(perm.id) || formPermissions.includes('all');
                     return (
@@ -839,22 +841,22 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                           formRole === 'admin'
                             ? 'bg-purple-50/40 border-purple-200 cursor-not-allowed opacity-90'
                             : isChecked
-                            ? 'bg-blue-50/60 border-blue-200 cursor-pointer'
-                            : 'bg-white border-slate-200 hover:bg-slate-50 cursor-pointer'
+                            ? 'bg-iane-50/60 border-iane-200 cursor-pointer'
+                            : 'bg-white border-ink-200 hover:bg-ink-50 cursor-pointer'
                         }`}
                       >
-                        <div className="pt-0.5 shrink-0 text-blue-600">
+                        <div className="pt-0.5 shrink-0 text-iane-600">
                           {isChecked ? (
-                            <CheckSquare className="w-4 h-4 text-blue-600" />
+                            <CheckSquare className="w-4 h-4 text-iane-600" />
                           ) : (
-                            <Square className="w-4 h-4 text-slate-300" />
+                            <Square className="w-4 h-4 text-ink-300" />
                           )}
                         </div>
                         <div className="min-w-0">
-                          <div className="text-xs font-semibold text-slate-900 leading-tight">
+                          <div className="text-xs font-semibold text-ink-900 leading-tight">
                             {perm.label}
                           </div>
-                          <div className="text-[10px] text-slate-500 leading-tight mt-0.5">
+                          <div className="text-[10px] text-ink-500 leading-tight mt-0.5">
                             {perm.description}
                           </div>
                         </div>
@@ -871,26 +873,26 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   id="userActiveCheck"
                   checked={formActive}
                   onChange={(e) => setFormActive(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
+                  className="w-4 h-4 text-iane-600 rounded border-ink-300 focus:ring-iane-500"
                 />
-                <label htmlFor="userActiveCheck" className="text-xs font-semibold text-slate-700 cursor-pointer">
+                <label htmlFor="userActiveCheck" className="text-xs font-semibold text-ink-700 cursor-pointer">
                   Usuário Ativo (permite realizar login no sistema)
                 </label>
               </div>
 
               {/* Footer Buttons */}
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-ink-100">
                 <button
                   type="button"
                   onClick={() => setIsUserModalOpen(false)}
-                  className="px-4 py-2 border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+                  className="px-4 py-2 border border-ink-300 rounded-lg text-xs font-semibold text-ink-700 hover:bg-ink-50 transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingUser}
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                  className="px-5 py-2 bg-iane-600 hover:bg-iane-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
                 >
                   {isSubmittingUser ? 'Salvando...' : userToEdit ? 'Atualizar Usuário' : 'Criar Usuário'}
                 </button>

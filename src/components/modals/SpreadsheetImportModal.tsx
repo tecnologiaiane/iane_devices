@@ -195,18 +195,18 @@ CEL-026;Camila Nogueira;MAT-1310;Comercial;11989008899;2024-05-15;TERMO-ENT-026`
     >
       <div className="space-y-4">
         {/* Step indicator */}
-        <div className="flex items-center justify-between border-b border-slate-200 pb-3 text-xs">
-          <div className={`flex items-center gap-2 ${step >= 1 ? 'text-blue-600 font-semibold' : 'text-slate-400'}`}>
+        <div className="flex items-center justify-between border-b border-ink-200 pb-3 text-xs">
+          <div className={`flex items-center gap-2 ${step >= 1 ? 'text-iane-600 font-semibold' : 'text-ink-400'}`}>
             <span className="w-5 h-5 rounded-full border border-current flex items-center justify-center text-[10px]">1</span>
             <span>Entrada de Dados (CSV)</span>
           </div>
-          <ArrowRight className="w-3.5 h-3.5 text-slate-300" />
-          <div className={`flex items-center gap-2 ${step >= 2 ? 'text-blue-600 font-semibold' : 'text-slate-400'}`}>
+          <ArrowRight className="w-3.5 h-3.5 text-ink-300" />
+          <div className={`flex items-center gap-2 ${step >= 2 ? 'text-iane-600 font-semibold' : 'text-ink-400'}`}>
             <span className="w-5 h-5 rounded-full border border-current flex items-center justify-center text-[10px]">2</span>
             <span>Mapeamento de Colunas</span>
           </div>
-          <ArrowRight className="w-3.5 h-3.5 text-slate-300" />
-          <div className={`flex items-center gap-2 ${step === 3 ? 'text-blue-600 font-semibold' : 'text-slate-400'}`}>
+          <ArrowRight className="w-3.5 h-3.5 text-ink-300" />
+          <div className={`flex items-center gap-2 ${step === 3 ? 'text-iane-600 font-semibold' : 'text-ink-400'}`}>
             <span className="w-5 h-5 rounded-full border border-current flex items-center justify-center text-[10px]">3</span>
             <span>Validação e Conclusão</span>
           </div>
@@ -217,8 +217,8 @@ CEL-026;Camila Nogueira;MAT-1310;Comercial;11989008899;2024-05-15;TERMO-ENT-026`
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-slate-700">Origem da Planilha:</span>
-                <div className="inline-flex rounded-lg border border-slate-200 p-0.5 bg-slate-100">
+                <span className="text-xs font-semibold text-ink-700">Origem da Planilha:</span>
+                <div className="inline-flex rounded-lg border border-ink-200 p-0.5 bg-ink-100">
                   <button
                     type="button"
                     onClick={() => {
@@ -227,8 +227,8 @@ CEL-026;Camila Nogueira;MAT-1310;Comercial;11989008899;2024-05-15;TERMO-ENT-026`
                     }}
                     className={`px-3 py-1 text-xs rounded-md font-medium transition-colors ${
                       activeTabSource === 'base_de_dados'
-                        ? 'bg-white text-slate-900 shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900'
+                        ? 'bg-white text-ink-900 shadow-xs'
+                        : 'text-ink-600 hover:text-ink-900'
                     }`}
                   >
                     Aba: Base de Dados (Ativos & Linhas)
@@ -241,8 +241,8 @@ CEL-026;Camila Nogueira;MAT-1310;Comercial;11989008899;2024-05-15;TERMO-ENT-026`
                     }}
                     className={`px-3 py-1 text-xs rounded-md font-medium transition-colors ${
                       activeTabSource === 'analitico'
-                        ? 'bg-white text-slate-900 shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900'
+                        ? 'bg-white text-ink-900 shadow-xs'
+                        : 'text-ink-600 hover:text-ink-900'
                     }`}
                   >
                     Aba: Analítico (Acompanhamento & Responsáveis)
@@ -253,7 +253,7 @@ CEL-026;Camila Nogueira;MAT-1310;Comercial;11989008899;2024-05-15;TERMO-ENT-026`
               <button
                 type="button"
                 onClick={loadSample}
-                className="text-xs font-medium text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                className="text-xs font-medium text-iane-600 hover:text-iane-800 flex items-center gap-1"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 <span>Carregar Exemplo de Teste</span>
@@ -261,7 +261,7 @@ CEL-026;Camila Nogueira;MAT-1310;Comercial;11989008899;2024-05-15;TERMO-ENT-026`
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">
+              <label className="block text-xs font-medium text-ink-700 mb-1">
                 Cole o conteúdo CSV exportado do Excel (separado por vírgula ou ponto e vírgula):
               </label>
               <textarea
@@ -269,11 +269,11 @@ CEL-026;Camila Nogueira;MAT-1310;Comercial;11989008899;2024-05-15;TERMO-ENT-026`
                 value={csvContent}
                 onChange={(e) => setCsvContent(e.target.value)}
                 placeholder="TAG;MARCA;MODELO;IMEI_1;NUMERO_SERIE;NUMERO_LINHA..."
-                className="w-full text-xs font-mono rounded-lg border border-slate-300 bg-white p-3 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full text-xs font-mono rounded-lg border border-ink-300 bg-white p-3 text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500"
               />
             </div>
 
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-900">
+            <div className="p-3 bg-iane-50 border border-iane-200 rounded-lg text-xs text-iane-800">
               <p className="font-semibold mb-1">Como migrar da planilha existente:</p>
               <p className="text-[11px] leading-relaxed">
                 Abra sua planilha corporativa no Excel ou Google Sheets, clique em <strong>Arquivo &gt; Salvar Como &gt; CSV (separado por ponto e vírgula)</strong>. Em seguida, copie o conteúdo e cole na caixa acima. Na próxima etapa você poderá relacionar as colunas existentes aos campos do sistema.
@@ -284,7 +284,7 @@ CEL-026;Camila Nogueira;MAT-1310;Comercial;11989008899;2024-05-15;TERMO-ENT-026`
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg"
+                className="px-4 py-2 text-xs font-medium text-ink-700 bg-ink-100 hover:bg-ink-200 rounded-lg"
               >
                 Cancelar
               </button>
@@ -292,7 +292,7 @@ CEL-026;Camila Nogueira;MAT-1310;Comercial;11989008899;2024-05-15;TERMO-ENT-026`
                 type="button"
                 disabled={!csvContent.trim()}
                 onClick={handleParseCsv}
-                className="px-5 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-xs disabled:opacity-50 flex items-center gap-1.5"
+                className="px-5 py-2 text-xs font-semibold text-white bg-iane-600 hover:bg-iane-700 rounded-lg shadow-xs disabled:opacity-50 flex items-center gap-1.5"
               >
                 <span>Avançar para Mapeamento</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -304,24 +304,24 @@ CEL-026;Camila Nogueira;MAT-1310;Comercial;11989008899;2024-05-15;TERMO-ENT-026`
         {/* STEP 2: Map Fields */}
         {step === 2 && (
           <div className="space-y-4">
-            <p className="text-xs text-slate-600">
+            <p className="text-xs text-ink-600">
               Foram identificadas <strong>{parsedRows.length} linhas</strong> de dados e <strong>{parsedHeaders.length} colunas</strong>. Relacione cada coluna da sua planilha ao campo correspondente do sistema:
             </p>
 
-            <div className="max-h-72 overflow-y-auto border border-slate-200 rounded-lg">
+            <div className="max-h-72 overflow-y-auto border border-ink-200 rounded-lg">
               <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-slate-50 border-b border-slate-200 sticky top-0">
+                <thead className="bg-ink-50 border-b border-ink-200 sticky top-0">
                   <tr>
-                    <th className="py-2.5 px-3 font-semibold text-slate-700">Coluna na Planilha</th>
-                    <th className="py-2.5 px-3 font-semibold text-slate-700">Exemplo da 1ª Linha</th>
-                    <th className="py-2.5 px-3 font-semibold text-slate-700">Campo no Sistema</th>
+                    <th className="py-2.5 px-3 font-semibold text-ink-700">Coluna na Planilha</th>
+                    <th className="py-2.5 px-3 font-semibold text-ink-700">Exemplo da 1ª Linha</th>
+                    <th className="py-2.5 px-3 font-semibold text-ink-700">Campo no Sistema</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-ink-100">
                   {parsedHeaders.map((header, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50/50">
-                      <td className="py-2 px-3 font-medium text-slate-900">{header}</td>
-                      <td className="py-2 px-3 text-slate-500 font-mono text-[11px] truncate max-w-[150px]">
+                    <tr key={idx} className="hover:bg-ink-50/50">
+                      <td className="py-2 px-3 font-medium text-ink-900">{header}</td>
+                      <td className="py-2 px-3 text-ink-500 font-mono text-[11px] truncate max-w-[150px]">
                         {parsedRows[0]?.[idx] || '-'}
                       </td>
                       <td className="py-2 px-3">
@@ -333,7 +333,7 @@ CEL-026;Camila Nogueira;MAT-1310;Comercial;11989008899;2024-05-15;TERMO-ENT-026`
                               [header]: e.target.value,
                             });
                           }}
-                          className="w-full text-xs rounded-md border border-slate-300 bg-white px-2 py-1.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full text-xs rounded-md border border-ink-300 bg-white px-2 py-1.5 text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500"
                         >
                           <option value="ignore">-- Ignorar Coluna --</option>
                           <optgroup label="Dispositivo">
@@ -366,14 +366,14 @@ CEL-026;Camila Nogueira;MAT-1310;Comercial;11989008899;2024-05-15;TERMO-ENT-026`
               <button
                 type="button"
                 onClick={() => setStep(1)}
-                className="px-4 py-2 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg"
+                className="px-4 py-2 text-xs font-medium text-ink-700 bg-ink-100 hover:bg-ink-200 rounded-lg"
               >
                 Voltar
               </button>
               <button
                 type="button"
                 onClick={handleExecuteImport}
-                className="px-5 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-xs flex items-center gap-1.5"
+                className="px-5 py-2 text-xs font-semibold text-white bg-iane-600 hover:bg-iane-700 rounded-lg shadow-xs flex items-center gap-1.5"
               >
                 <span>Validar e Importar Registros</span>
                 <CheckCircle2 className="w-3.5 h-3.5" />
@@ -396,24 +396,24 @@ CEL-026;Camila Nogueira;MAT-1310;Comercial;11989008899;2024-05-15;TERMO-ENT-026`
             </div>
 
             <div className="grid grid-cols-3 gap-3">
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-center">
-                <div className="text-xs text-slate-500 font-medium">Aparelhos Importados</div>
-                <div className="text-xl font-bold font-mono text-slate-900 mt-1">{importSummary.devicesCount}</div>
+              <div className="p-3 bg-ink-50 border border-ink-200 rounded-lg text-center">
+                <div className="text-xs text-ink-500 font-medium">Aparelhos Importados</div>
+                <div className="text-xl font-bold font-mono text-ink-900 mt-1">{importSummary.devicesCount}</div>
               </div>
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-center">
-                <div className="text-xs text-slate-500 font-medium">Linhas Importadas</div>
-                <div className="text-xl font-bold font-mono text-slate-900 mt-1">{importSummary.linesCount}</div>
+              <div className="p-3 bg-ink-50 border border-ink-200 rounded-lg text-center">
+                <div className="text-xs text-ink-500 font-medium">Linhas Importadas</div>
+                <div className="text-xl font-bold font-mono text-ink-900 mt-1">{importSummary.linesCount}</div>
               </div>
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-center">
-                <div className="text-xs text-slate-500 font-medium">Colaboradores Importados</div>
-                <div className="text-xl font-bold font-mono text-slate-900 mt-1">{importSummary.collabsCount}</div>
+              <div className="p-3 bg-ink-50 border border-ink-200 rounded-lg text-center">
+                <div className="text-xs text-ink-500 font-medium">Colaboradores Importados</div>
+                <div className="text-xl font-bold font-mono text-ink-900 mt-1">{importSummary.collabsCount}</div>
               </div>
             </div>
 
             {importSummary.errors.length > 0 && (
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900">
+              <div className="p-3 bg-sun-50 border border-sun-300 rounded-lg text-xs text-gold-700">
                 <div className="flex items-center gap-1.5 font-semibold mb-1">
-                  <AlertCircle className="w-4 h-4 text-amber-600" />
+                  <AlertCircle className="w-4 h-4 text-gold-700" />
                   <span>Avisos de Validação ({importSummary.errors.length}):</span>
                 </div>
                 <ul className="list-disc pl-4 space-y-0.5 text-[11px] max-h-32 overflow-y-auto">
@@ -428,7 +428,7 @@ CEL-026;Camila Nogueira;MAT-1310;Comercial;11989008899;2024-05-15;TERMO-ENT-026`
               <button
                 type="button"
                 onClick={handleFinish}
-                className="px-6 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-xs"
+                className="px-6 py-2 text-xs font-semibold text-white bg-iane-600 hover:bg-iane-700 rounded-lg shadow-xs"
               >
                 Concluir e Atualizar Visões
               </button>

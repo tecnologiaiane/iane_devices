@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Sidebar, NavTab } from './components/Sidebar';
 import { Header } from './components/Header';
 import { DashboardView } from './views/DashboardView';
@@ -23,9 +24,38 @@ import { authService } from './services/authService';
 import { apiClient, ApiNotification } from './services/apiClient';
 import { LoginView } from './views/LoginView';
 
+const tabToPath: Record<NavTab, string> = {
+  dashboard: '/dashboard',
+  dispositivos: '/dispositivos',
+  linhas: '/linhas',
+  colaboradores: '/colaboradores',
+  movimentacoes: '/movimentacoes',
+  termos: '/termos',
+  relatorios: '/relatorios',
+  configuracoes: '/configuracoes',
+};
+
+const pathToTab: Record<string, NavTab> = {
+  '/': 'dashboard',
+  '/dashboard': 'dashboard',
+  '/dispositivos': 'dispositivos',
+  '/linhas': 'linhas',
+  '/colaboradores': 'colaboradores',
+  '/movimentacoes': 'movimentacoes',
+  '/termos': 'termos',
+  '/relatorios': 'relatorios',
+  '/configuracoes': 'configuracoes',
+};
+
 export default function App() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [currentUser, setCurrentUser] = useState<User | null>(() => authService.getCurrentUser());
-  const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
+  const normalizedPath = location.pathname.replace(/\/+$/, '') || '/';
+  const activeTab = pathToTab[normalizedPath] || 'dashboard';
+  const setActiveTab = (tab: NavTab) => {
+    navigate(tabToPath[tab]);
+  };
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [apiNotifications, setApiNotifications] = useState<ApiNotification[]>([]);
@@ -33,6 +63,12 @@ export default function App() {
   // Notificações globais de erros HTTP e indisponibilidade do backend
   React.useEffect(() => {
     return apiClient.subscribeError((notif) => {
+      // Token inválido/expirado: encerra a sessão para o usuário autenticar novamente
+      if (notif.status === 401 && authService.getCurrentUser()) {
+        authService.logout();
+        setCurrentUser(null);
+        return;
+      }
       setApiNotifications((prev) => [notif, ...prev.slice(0, 2)]);
       setTimeout(() => {
         setApiNotifications((prev) => prev.filter((n) => n.id !== notif.id));
@@ -40,10 +76,38 @@ export default function App() {
     });
   }, []);
 
-  // Sincronização inicial com o banco PostgreSQL
+  // Sincronização inicial com o banco PostgreSQL (somente com sessão autenticada)
   React.useEffect(() => {
+    if (!currentUser) return;
     dataService.syncWithServer().then(() => setRefreshKey(k => k + 1));
-  }, []);
+  }, [currentUser]);
+
+  // Rotas protegidas: sem sessão, manda para /login guardando o caminho de origem
+  React.useEffect(() => {
+    const isLoginPath = normalizedPath === '/login';
+    if (!currentUser && !isLoginPath) {
+      navigate('/login', { replace: true, state: { from: normalizedPath } });
+    }
+  }, [currentUser, normalizedPath, navigate]);
+
+  // Usuário autenticado não deve permanecer na tela de login.
+  // Também é aqui que o retorno ao caminho de origem acontece: navegar no handler
+  // de login competia com este efeito (o redirect para /dashboard vencia a corrida).
+  React.useEffect(() => {
+    if (!currentUser || normalizedPath !== '/login') return;
+    const from = (location.state as { from?: string } | null)?.from;
+    const target = from && from !== '/login' && pathToTab[from] ? from : tabToPath.dashboard;
+    navigate(target, { replace: true });
+  }, [currentUser, normalizedPath, navigate, location.state]);
+
+  // Normaliza a URL: raiz e caminhos desconhecidos redirecionam para a aba inicial
+  React.useEffect(() => {
+    if (!currentUser) return;
+    if (normalizedPath === '/login') return;
+    if (!pathToTab[normalizedPath] || normalizedPath === '/') {
+      navigate(tabToPath.dashboard, { replace: true });
+    }
+  }, [currentUser, normalizedPath, navigate]);
 
   // Guarda de rota / permissão: se usuário não tem permissão para a aba ativa, redireciona para dashboard
   React.useEffect(() => {
@@ -51,10 +115,10 @@ export default function App() {
       const perms = currentUser.permissions || ['all'];
       const hasPerm = currentUser.role === 'admin' || perms.includes('all') || perms.includes(activeTab);
       if (!hasPerm) {
-        setActiveTab('dashboard');
+        navigate(tabToPath.dashboard, { replace: true });
       }
     }
-  }, [currentUser, activeTab]);
+  }, [currentUser, activeTab, navigate]);
 
   // Modal States
   const [isMovementModalOpen, setIsMovementModalOpen] = useState(false);
@@ -124,6 +188,9 @@ export default function App() {
         onLoginSuccess={(user) => {
           setCurrentUser(user);
           triggerRefresh();
+          // O redirecionamento para o caminho de origem é feito pelo efeito de rota acima,
+          // evitando duas navegações concorrentes no mesmo commit.
+          dataService.syncWithServer().then(() => setRefreshKey(k => k + 1));
         }}
       />
     );
@@ -133,7 +200,7 @@ export default function App() {
   const metrics = dataService.getDashboardMetrics();
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex">
+    <div className="min-h-screen bg-ink-50 text-ink-900 flex">
       {/* Sidebar Navigation */}
       <Sidebar
         activeTab={activeTab}
@@ -276,7 +343,7 @@ export default function App() {
             className={`pointer-events-auto p-4 rounded-xl shadow-xl border backdrop-blur-md flex items-start justify-between gap-3 transition-all duration-300 ${
               notif.type === 'error'
                 ? 'bg-rose-950/95 border-rose-700 text-rose-100 shadow-rose-950/40'
-                : 'bg-amber-950/95 border-amber-700 text-amber-100 shadow-amber-950/40'
+                : 'bg-navy-950/95 border-gold-700 text-sun-100 shadow-navy-950/40'
             }`}
           >
             <div className="flex items-start gap-2.5">

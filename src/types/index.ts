@@ -188,6 +188,13 @@ export interface DocumentTerm {
   signedAt?: string;
   notes?: string;
   fileName?: string;
+  /** O termo possui um PDF anexado, armazenado no servidor. */
+  hasFile?: boolean;
+  /**
+   * Conteúdo do PDF em base64. Usado apenas no envio ao servidor
+   * (nunca é mantido no cache local nem devolvido nas listagens).
+   */
+  fileData?: string;
 }
 
 export interface AuditLog {

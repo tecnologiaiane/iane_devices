@@ -98,6 +98,7 @@ CREATE TABLE IF NOT EXISTS terms_documents (
     generation_date DATE NOT NULL,
     signed_status VARCHAR(50) DEFAULT 'Pendente', -- Assinado, Pendente, Não exigido
     file_name VARCHAR(255),
+    file_data TEXT, -- conteúdo do PDF anexado (base64)
     notes TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -182,6 +183,7 @@ ALTER TABLE phone_lines     ADD COLUMN IF NOT EXISTS data JSONB NOT NULL DEFAULT
 ALTER TABLE devices         ADD COLUMN IF NOT EXISTS data JSONB NOT NULL DEFAULT '{}'::jsonb;
 ALTER TABLE movements       ADD COLUMN IF NOT EXISTS data JSONB NOT NULL DEFAULT '{}'::jsonb;
 ALTER TABLE terms_documents ADD COLUMN IF NOT EXISTS data JSONB NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE terms_documents ADD COLUMN IF NOT EXISTS file_data TEXT;
 
 ALTER TABLE devices ALTER COLUMN serial_number DROP NOT NULL;
 ALTER TABLE devices DROP CONSTRAINT IF EXISTS devices_serial_number_key;

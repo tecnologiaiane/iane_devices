@@ -11,8 +11,8 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, type = 'device
   const sizeClasses = size === 'sm' ? 'px-2 py-0.5 text-xs' : 'px-2.5 py-1 text-xs font-medium';
 
   // Cores semânticas profissionais (alto contraste, sem excesso)
-  let badgeStyles = 'bg-slate-100 text-slate-700 border-slate-200';
-  let indicatorColor = 'bg-slate-400';
+  let badgeStyles = 'bg-ink-100 text-ink-700 border-ink-200';
+  let indicatorColor = 'bg-ink-400';
 
   switch (status) {
     // Aparelhos
@@ -23,12 +23,12 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, type = 'device
     case 'Em uso':
     case 'Ativa':
     case 'Ativo':
-      badgeStyles = 'bg-blue-50 text-blue-800 border-blue-200';
-      indicatorColor = 'bg-blue-600';
+      badgeStyles = 'bg-iane-50 text-iane-800 border-iane-200';
+      indicatorColor = 'bg-iane-600';
       break;
     case 'Aguardando avaliação':
-      badgeStyles = 'bg-amber-50 text-amber-900 border-amber-300';
-      indicatorColor = 'bg-amber-600';
+      badgeStyles = 'bg-sun-50 text-gold-700 border-sun-300';
+      indicatorColor = 'bg-sun-500';
       break;
     case 'Em manutenção':
       badgeStyles = 'bg-orange-50 text-orange-800 border-orange-200';
@@ -49,8 +49,8 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, type = 'device
       indicatorColor = 'bg-rose-600';
       break;
     case 'Baixado':
-      badgeStyles = 'bg-slate-100 text-slate-600 border-slate-300';
-      indicatorColor = 'bg-slate-400';
+      badgeStyles = 'bg-ink-100 text-ink-600 border-ink-300';
+      indicatorColor = 'bg-ink-400';
       break;
     case 'Suspensa':
     case 'Em processo de cancelamento':
@@ -63,16 +63,16 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, type = 'device
       indicatorColor = 'bg-indigo-500';
       break;
     case 'Assinado':
-      badgeStyles = 'bg-teal-50 text-teal-800 border-teal-200';
-      indicatorColor = 'bg-teal-600';
+      badgeStyles = 'bg-emerald-50 text-emerald-800 border-emerald-200';
+      indicatorColor = 'bg-emerald-600';
       break;
     case 'Pendente de Assinatura':
-      badgeStyles = 'bg-amber-50 text-amber-900 border-amber-300 font-medium';
-      indicatorColor = 'bg-amber-500';
+      badgeStyles = 'bg-sun-50 text-gold-700 border-sun-300 font-medium';
+      indicatorColor = 'bg-sun-500';
       break;
     case 'Arquivado':
-      badgeStyles = 'bg-slate-100 text-slate-700 border-slate-300';
-      indicatorColor = 'bg-slate-400';
+      badgeStyles = 'bg-ink-100 text-ink-700 border-ink-300';
+      indicatorColor = 'bg-ink-400';
       break;
 
     // Condição
@@ -89,8 +89,8 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, type = 'device
       indicatorColor = 'bg-sky-500';
       break;
     case 'Regular':
-      badgeStyles = 'bg-amber-50 text-amber-800 border-amber-200';
-      indicatorColor = 'bg-amber-500';
+      badgeStyles = 'bg-sun-50 text-gold-700 border-sun-300';
+      indicatorColor = 'bg-sun-500';
       break;
     case 'Danificado':
       badgeStyles = 'bg-rose-50 text-rose-800 border-rose-200';

@@ -6,6 +6,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { randomBytes } from 'crypto';
 import pg from 'pg';
 import dotenv from 'dotenv';
 import bcrypt from 'bcryptjs';
@@ -23,17 +24,20 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const isProduction = process.env.NODE_ENV === 'production';
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
-  if (isProduction) {
-    throw new Error('JWT_SECRET não está definido. Configure uma variável de ambiente segura em produção.');
-  }
-  console.warn('⚠️ [SEGURANÇA] JWT_SECRET não definido. Usando segredo temporário apenas para desenvolvimento.');
+// Segredo JWT: obrigatório e estável em produção. Sem a variável, geramos um segredo aleatório
+// (nunca um valor público conhecido). Sessões são invalidadas a cada reinício, então configure JWT_SECRET.
+const JWT_SECRET = process.env.JWT_SECRET || randomBytes(48).toString('hex');
+if (!process.env.JWT_SECRET) {
+  console.warn(
+    isProduction
+      ? '⚠️ [SEGURANÇA] JWT_SECRET não definido. Gerando segredo efêmero: usuários precisarão entrar novamente após cada reinício. Defina JWT_SECRET no ambiente.'
+      : '⚠️ [SEGURANÇA] JWT_SECRET não definido. Usando segredo temporário apenas para desenvolvimento.'
+  );
 }
 // Por padrão o servidor NÃO finge que gravou quando o PostgreSQL está fora do ar (responde 503).
 // Para desenvolvimento sem banco, defina ALLOW_MEMORY_FALLBACK=true.
 const ALLOW_MEMORY_FALLBACK = process.env.ALLOW_MEMORY_FALLBACK === 'true';
-const EFFECTIVE_JWT_SECRET = JWT_SECRET || 'iane_telecom_dev_insecure_secret_change_me';
+const EFFECTIVE_JWT_SECRET = JWT_SECRET;
 
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
@@ -223,6 +227,7 @@ async function autoMigrateDatabase(client: pg.PoolClient) {
       `ALTER TABLE devices ADD COLUMN IF NOT EXISTS data JSONB NOT NULL DEFAULT '{}'::jsonb`,
       `ALTER TABLE movements ADD COLUMN IF NOT EXISTS data JSONB NOT NULL DEFAULT '{}'::jsonb`,
       `ALTER TABLE terms_documents ADD COLUMN IF NOT EXISTS data JSONB NOT NULL DEFAULT '{}'::jsonb`,
+      `ALTER TABLE terms_documents ADD COLUMN IF NOT EXISTS file_data TEXT`,
       `ALTER TABLE devices ALTER COLUMN serial_number DROP NOT NULL`,
       `ALTER TABLE devices DROP CONSTRAINT IF EXISTS devices_serial_number_key`,
       `ALTER TABLE devices ALTER COLUMN imei_1 DROP NOT NULL`,
@@ -826,16 +831,20 @@ async function upsertMovement(q: Queryable, m: any, overwrite = true) {
 }
 
 async function upsertTerm(q: Queryable, t: any, overwrite = true) {
+  // O PDF (base64) fica na coluna file_data e NUNCA vai para o JSONB "data",
+  // para não trafegar em toda listagem de termos.
+  const { fileData, ...termForJson } = t || {};
   const onConflict = overwrite
     ? `DO UPDATE SET type = EXCLUDED.type, collaborator_id = EXCLUDED.collaborator_id, collaborator_name = EXCLUDED.collaborator_name,
          device_id = EXCLUDED.device_id, device_tag = EXCLUDED.device_tag, device_model = EXCLUDED.device_model,
-         phone_line_number = EXCLUDED.phone_line_number, signed_status = EXCLUDED.signed_status,
-         file_name = EXCLUDED.file_name, notes = EXCLUDED.notes, data = EXCLUDED.data`
+         phone_line_number = EXCLUDED.phone_line_number, generation_date = EXCLUDED.generation_date,
+         signed_status = EXCLUDED.signed_status, file_name = EXCLUDED.file_name, notes = EXCLUDED.notes, data = EXCLUDED.data,
+         file_data = COALESCE(NULLIF(EXCLUDED.file_data, ''), terms_documents.file_data)`
     : 'DO NOTHING';
   await q.query(
     `INSERT INTO terms_documents (id, term_number, type, collaborator_id, collaborator_name, device_id, device_tag, device_model,
-                                  phone_line_number, generation_date, signed_status, file_name, notes, data)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb)
+                                  phone_line_number, generation_date, signed_status, file_name, notes, data, file_data)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb, $15)
      ON CONFLICT (id) ${onConflict}`,
     [
       t.id,
@@ -851,7 +860,8 @@ async function upsertTerm(q: Queryable, t: any, overwrite = true) {
       str(t.status) || 'Pendente',
       str(t.fileName),
       str(t.notes),
-      JSON.stringify(t),
+      JSON.stringify(termForJson),
+      str(fileData),
     ]
   );
 }
@@ -1195,7 +1205,8 @@ app.get('/api/terms', route(async (_req, res) => {
         collaborator_name as "collaboratorName", device_id as "deviceId",
         device_tag as "deviceTag", device_model as "deviceModel",
         phone_line_number as "phoneNumber", generation_date as "date",
-        signed_status as "status", file_name as "fileName", notes, data
+        signed_status as "status", file_name as "fileName", notes, data,
+        (file_data IS NOT NULL AND file_data <> '') as "hasFile"
       FROM terms_documents
       ORDER BY generation_date DESC, created_at DESC
     `);
@@ -1207,20 +1218,98 @@ app.get('/api/terms', route(async (_req, res) => {
     }));
     return res.json({ success: true, data: rows });
   }
-  res.json({ success: true, data: memoryStore.terms });
+  const memoryRows = memoryStore.terms.map((t: any) => {
+    const { fileData, ...rest } = t;
+    return { ...rest, hasFile: !!fileData };
+  });
+  res.json({ success: true, data: memoryRows });
 }));
 
+/** Valida o PDF recebido em base64 (tipo real, tamanho) e devolve somente o conteúdo. */
+function readPdfBase64(input: any): string | null {
+  if (!input || typeof input !== 'string') return null;
+  const base64 = input.includes(',') ? input.slice(input.indexOf(',') + 1) : input;
+  let buffer: Buffer;
+  try {
+    buffer = Buffer.from(base64, 'base64');
+  } catch {
+    throw new HttpError(400, 'O arquivo PDF enviado é inválido.');
+  }
+  if (buffer.length === 0) throw new HttpError(400, 'O arquivo PDF enviado está vazio.');
+  if (buffer.length > 15 * 1024 * 1024) {
+    throw new HttpError(413, 'O PDF excede o limite de 15 MB. Reduza o arquivo antes de anexar.');
+  }
+  if (buffer.subarray(0, 5).toString('latin1') !== '%PDF-') {
+    throw new HttpError(400, 'O arquivo enviado não é um PDF válido.');
+  }
+  return base64;
+}
+
 app.post('/api/terms', route(async (req, res) => {
-  const t = withId(req.body, 'term');
+  const body = req.body || {};
+  const fileData = body.fileData ? readPdfBase64(body.fileData) : null;
+  const t = withId(body, 'term');
+
+  if (fileData) {
+    t.fileData = fileData;
+    t.hasFile = true;
+    if (!str(t.fileName)) t.fileName = `${str(t.code) || t.id}.pdf`;
+  }
 
   if (pool && isDbConnected) {
     await upsertTerm(pool, t);
-    return res.status(201).json({ success: true, data: t });
+    return res.status(201).json({ success: true, data: { ...t, fileData: undefined, hasFile: !!fileData } });
   }
 
-  // Fallback (somente com ALLOW_MEMORY_FALLBACK=true)
-  memoryStore.terms.unshift(t);
-  res.status(201).json({ success: true, data: t });
+  // Fallback (somente com ALLOW_MEMORY_FALLBACK=true).
+  // Mantém a mesma semântica do ON CONFLICT do PostgreSQL: atualiza por id e
+  // preserva o PDF anterior quando a requisição não envia um novo arquivo.
+  const existingIndex = memoryStore.terms.findIndex((x: any) => x.id === t.id);
+  if (existingIndex >= 0) {
+    const previous = memoryStore.terms[existingIndex];
+    const keptFileData = fileData || previous.fileData || null;
+    memoryStore.terms[existingIndex] = {
+      ...previous,
+      ...t,
+      fileData: keptFileData,
+      hasFile: !!keptFileData,
+    };
+  } else {
+    memoryStore.terms.unshift(t);
+  }
+  res.status(201).json({ success: true, data: { ...t, fileData: undefined, hasFile: !!fileData } });
+}));
+
+// Download/visualização do PDF anexado ao termo (protegido pelo middleware global de /api)
+app.get('/api/terms/:id/file', route(async (req, res) => {
+  const { id } = req.params;
+  let fileName = 'termo.pdf';
+  let fileData: string | null = null;
+
+  if (pool && isDbConnected) {
+    const result = await pool.query(
+      'SELECT file_name, file_data FROM terms_documents WHERE id = $1',
+      [id]
+    );
+    if (result.rows.length === 0) throw new HttpError(404, 'Termo não encontrado.');
+    fileName = str(result.rows[0].file_name) || fileName;
+    fileData = result.rows[0].file_data;
+  } else {
+    const term = memoryStore.terms.find((t: any) => t.id === id);
+    if (!term) throw new HttpError(404, 'Termo não encontrado.');
+    fileName = str(term.fileName) || fileName;
+    fileData = term.fileData || null;
+  }
+
+  if (!fileData) throw new HttpError(404, 'Este termo não possui arquivo PDF anexado.');
+
+  const base64 = fileData.includes(',') ? fileData.slice(fileData.indexOf(',') + 1) : fileData;
+  const buffer = Buffer.from(base64, 'base64');
+  const safeName = fileName.replace(/["\r\n]/g, '');
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(safeName)}"`);
+  res.setHeader('Cache-Control', 'private, max-age=300');
+  res.send(buffer);
 }));
 
 // 10. Trilha de Auditoria

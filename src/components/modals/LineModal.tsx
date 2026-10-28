@@ -124,7 +124,7 @@ export const LineModal: React.FC<LineModalProps> = ({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-xs font-semibold text-ink-700 mb-1">
               Número Telefônico *
             </label>
             <input
@@ -133,19 +133,19 @@ export const LineModal: React.FC<LineModalProps> = ({
               onChange={(e) => handlePhoneChange(e.target.value)}
               placeholder="(11) 98765-4321"
               maxLength={15}
-              className="w-full text-xs rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 font-mono focus:outline-none focus:ring-2 focus:ring-iane-500"
               required
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-xs font-semibold text-ink-700 mb-1">
               Operadora *
             </label>
             <select
               value={carrier}
               onChange={(e) => setCarrier(e.target.value as Carrier)}
-              className="w-full text-xs rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500"
             >
               {CARRIERS.map((c) => (
                 <option key={c} value={c}>{c}</option>
@@ -156,7 +156,7 @@ export const LineModal: React.FC<LineModalProps> = ({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-xs font-semibold text-ink-700 mb-1">
               Plano Corporativo Contratado *
             </label>
             <input
@@ -164,13 +164,13 @@ export const LineModal: React.FC<LineModalProps> = ({
               value={planName}
               onChange={(e) => setPlanName(e.target.value)}
               placeholder="Ex: Total 50GB + Voz Ilimitada"
-              className="w-full text-xs rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500"
               required
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">
+            <label className="block text-xs font-medium text-ink-700 mb-1">
               Custo Mensal Contratado (R$)
             </label>
             <input
@@ -179,20 +179,20 @@ export const LineModal: React.FC<LineModalProps> = ({
               value={monthlyCost}
               onChange={(e) => setMonthlyCost(e.target.value)}
               placeholder="Ex: 79.90"
-              className="w-full text-xs rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 font-mono focus:outline-none focus:ring-2 focus:ring-iane-500"
             />
           </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-xs font-semibold text-ink-700 mb-1">
               Status da Linha *
             </label>
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value as LineStatus)}
-              className="w-full text-xs rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+              className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500 font-medium"
             >
               <option value="Disponível">Disponível (Pronta para uso)</option>
               <option value="Ativa">Ativa (Em uso por colaborador)</option>
@@ -203,13 +203,13 @@ export const LineModal: React.FC<LineModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">
+            <label className="block text-xs font-medium text-ink-700 mb-1">
               Departamento
             </label>
             <select
               value={department}
               onChange={(e) => setDepartment(e.target.value)}
-              className="w-full text-xs rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500"
             >
               <option value="">-- Não especificado / Pool --</option>
               {DEPARTMENTS.map((d) => (
@@ -221,19 +221,19 @@ export const LineModal: React.FC<LineModalProps> = ({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">
+            <label className="block text-xs font-medium text-ink-700 mb-1">
               Data de Ativação
             </label>
             <input
               type="date"
               value={activationDate}
               onChange={(e) => setActivationDate(e.target.value)}
-              className="w-full text-xs rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 font-mono focus:outline-none focus:ring-2 focus:ring-iane-500"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">
+            <label className="block text-xs font-medium text-ink-700 mb-1">
               ICCID do Cartão SIM (Chip)
             </label>
             <input
@@ -242,13 +242,13 @@ export const LineModal: React.FC<LineModalProps> = ({
               onChange={(e) => setIccid(e.target.value.replace(/\D/g, ''))}
               placeholder="20 dígitos numéricos do chip"
               maxLength={22}
-              className="w-full text-xs rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 font-mono focus:outline-none focus:ring-2 focus:ring-iane-500"
             />
           </div>
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">
+          <label className="block text-xs font-medium text-ink-700 mb-1">
             Observações
           </label>
           <textarea
@@ -256,21 +256,21 @@ export const LineModal: React.FC<LineModalProps> = ({
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Informações contratuais, franquias especiais, roaming..."
-            className="w-full text-xs rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+            className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500 resize-none"
           />
         </div>
 
-        <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+        <div className="flex items-center justify-end gap-2 pt-3 border-t border-ink-200">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+            className="px-4 py-2 text-xs font-medium text-ink-700 bg-ink-100 hover:bg-ink-200 rounded-lg transition-colors"
           >
             Cancelar
           </button>
           <button
             type="submit"
-            className="px-5 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-xs transition-colors flex items-center gap-1.5"
+            className="px-5 py-2 text-xs font-semibold text-white bg-iane-600 hover:bg-iane-700 rounded-lg shadow-xs transition-colors flex items-center gap-1.5"
           >
             <PhoneCall className="w-3.5 h-3.5" />
             <span>{lineToEdit ? 'Salvar Linha' : 'Cadastrar Linha'}</span>

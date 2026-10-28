@@ -15,6 +15,7 @@ import {
   SystemUserFormData
 } from '../types';
 import { apiClient, ApiResponse } from './apiClient';
+import { authService } from './authService';
 
 const STORAGE_KEYS = {
   DEVICES: 'iane_devices_v3',
@@ -410,6 +411,9 @@ class DataStorageService {
   private async doSync(): Promise<boolean> {
     try {
       if (this.pushing) return false;
+      // As rotas de dados exigem autenticação: sem token, não consulta o servidor
+      // (o App dispara um novo sync logo após o login).
+      if (!authService.getToken()) return false;
 
       // 1) Gravações pendentes saem primeiro; enquanto houver pendência, o cache local NÃO é sobrescrito
       await this.flushOutbox();
@@ -603,7 +607,7 @@ class DataStorageService {
 
     // IMEI 1 duplicado
     if (device.imei1) {
-      const duplicateImei = devices.find(d => d.imei1.trim() === device.imei1?.trim() && d.id !== device.id);
+      const duplicateImei = devices.find(d => (d.imei1 || '').trim() === device.imei1?.trim() && d.id !== device.id);
       if (duplicateImei) {
         return { success: false, message: `O IMEI 1 (${device.imei1}) já está cadastrado no aparelho ${duplicateImei.assetTag} (${duplicateImei.brand} ${duplicateImei.model}).` };
       }
@@ -844,19 +848,92 @@ class DataStorageService {
     return this.getTerms().find(t => t.id === id);
   }
 
+  /** Baixa o PDF anexado ao termo (requer autenticação). */
+  public async getTermFile(termId: string): Promise<ApiResponse<Blob>> {
+    return apiClient.getBlob(`/api/terms/${termId}/file`);
+  }
+
   public updateTermStatus(id: string, status: 'Assinado' | 'Pendente de Assinatura' | 'Arquivado'): boolean {
     const terms = this.getTerms();
     const term = terms.find(t => t.id === id);
     if (!term) return false;
     term.status = status;
-    if (status === 'Assinado' && !term.signedAt) {
+    if (status === 'Assinado') {
+      // Cada assinatura registra seu próprio momento (inclusive ao reassinar após
+      // voltar para pendente).
       const now = new Date();
       term.signedAt = `${now.toISOString().split('T')[0]} ${now.toLocaleTimeString('pt-BR').substring(0, 5)}`;
+    } else {
+      // Pendente/arquivado não tem assinatura vigente.
+      term.signedAt = undefined;
     }
     this.set(STORAGE_KEYS.TERMS, terms);
     this.apiSync('/api/terms', 'POST', term);
     this.logAudit('Termo', id, term.code, `Status do termo alterado para ${status}.`);
     return true;
+  }
+
+  /**
+   * Cadastra um termo que já existe, anexando o PDF original do computador do usuário.
+   * O arquivo NÃO entra na fila (outbox) nem no cache local: o envio é síncrono e,
+   * se o servidor estiver indisponível, o usuário recebe o erro na hora.
+   */
+  public async createTermWithPdf(
+    term: DocumentTerm,
+    fileData: string
+  ): Promise<{ success: boolean; message: string; term?: DocumentTerm }> {
+    const terms = this.getTerms();
+    const normalizedCode = (term.code || '').trim().toLowerCase();
+    if (!normalizedCode) {
+      return { success: false, message: 'Informe o código do termo.' };
+    }
+    if (terms.some(t => (t.code || '').trim().toLowerCase() === normalizedCode)) {
+      return { success: false, message: `Já existe um termo com o código ${term.code}.` };
+    }
+    if (!fileData) {
+      return { success: false, message: 'Anexe o arquivo PDF do termo.' };
+    }
+
+    const res = await apiClient.post<DocumentTerm>(
+      '/api/terms',
+      { ...term, fileData },
+      { timeout: 180000 }
+    );
+    if (!res.success) {
+      return {
+        success: false,
+        message: res.message || 'Não foi possível enviar o PDF do termo para o servidor.',
+      };
+    }
+
+    // O cache local guarda apenas os metadados; o PDF fica no servidor.
+    const cachedTerm: DocumentTerm = { ...term, fileData: undefined, hasFile: true };
+    terms.unshift(cachedTerm);
+    this.set(STORAGE_KEYS.TERMS, terms);
+    this.logAudit('Termo', term.id, term.code, 'Termo já existente cadastrado com PDF anexado.');
+    return { success: true, message: `Termo ${term.code} cadastrado com o PDF anexado.`, term: cachedTerm };
+  }
+
+  /**
+   * Registra um termo/documento gerado fora do aplicativo (físico ou de outro sistema).
+   * Entra imediatamente na lista local e é enviado ao PostgreSQL pela fila persistente.
+   * Mantido para compatibilidade: o fluxo atual com PDF usa createTermWithPdf.
+   */
+  public importExistingTerm(term: DocumentTerm): { success: boolean; message: string } {
+    const terms = this.getTerms();
+    const normalizedCode = term.code.trim().toLowerCase();
+    if (terms.some(t => (t.code || '').trim().toLowerCase() === normalizedCode)) {
+      return { success: false, message: `Já existe um termo com o código ${term.code}.` };
+    }
+    if (terms.some(t => t.id === term.id)) {
+      return { success: false, message: 'Já existe um termo com este identificador.' };
+    }
+
+    terms.unshift(term);
+    this.set(STORAGE_KEYS.TERMS, terms);
+    this.apiSync('/api/terms', 'POST', term);
+    this.logAudit('Termo', term.id, term.code, 'Termo já existente inserido manualmente no sistema.');
+    return { success: true, message: `Termo ${term.code} inserido com sucesso.` };
   }
 
   // =========================================================================
@@ -873,6 +950,7 @@ class DataStorageService {
     observations?: string;
     registeredBy?: string;
     batchOperationId?: string;
+    existingTermId?: string;
   }): { success: boolean; message: string; movement?: Movement } {
     const devices = this.getDevices();
     const lines = this.getLines();
@@ -917,7 +995,10 @@ class DataStorageService {
 
     const now = new Date();
     const movCode = `MOV-${now.getFullYear()}-${String(this.getMovements().length + 1).padStart(3, '0')}`;
-    const termCode = `TERMO-ENT-${now.getFullYear()}-${String(this.getTerms().length + 1).padStart(3, '0')}`;
+    const generatedTermCode = `TERMO-ENT-${now.getFullYear()}-${String(this.getTerms().length + 1).padStart(3, '0')}`;
+    const existingTerms = this.getTerms();
+    const existingTerm = params.existingTermId ? existingTerms.find(t => t.id === params.existingTermId) : undefined;
+    const termCode = existingTerm?.code || generatedTermCode;
 
     // 1. Atualizar Dispositivo: Sai do Estoque -> Em uso
     device.status = 'Em uso';
@@ -943,14 +1024,15 @@ class DataStorageService {
       selectedLine.updatedAt = params.date;
     }
 
-    // 3. Gerar Termo de Entrega
-    const termId = `term-${Date.now()}`;
+    // 3. Gerar Termo de Entrega (ou vincular termo já existente escolhido pelo usuário)
+    const termId = existingTerm?.id || `term-${Date.now()}`;
     const newTerm: DocumentTerm = {
+      ...(existingTerm || {}),
       id: termId,
       code: termCode,
       batchOperationId: params.batchOperationId,
-      type: 'Termo de Entrega',
-      title: 'Termo de Responsabilidade e Guarda de Ativo Telefônico',
+      type: existingTerm?.type || 'Termo de Entrega',
+      title: existingTerm?.title || 'Termo de Responsabilidade e Guarda de Ativo Telefônico',
       date: params.date,
       deviceId: device.id,
       deviceTag: device.assetTag,
@@ -963,17 +1045,17 @@ class DataStorageService {
       collaboratorRegistration: collaborator.registrationNumber,
       collaboratorCpf: collaborator.cpf,
       collaboratorDepartment: collaborator.department,
-      status: 'Pendente de Assinatura',
-      accessoriesList: params.accessories,
-      clauses: [
+      status: existingTerm?.status || 'Pendente de Assinatura',
+      accessoriesList: existingTerm?.accessoriesList?.length ? existingTerm.accessoriesList : params.accessories,
+      clauses: existingTerm?.clauses?.length ? existingTerm.clauses : [
         'O colaborador declara ter recebido o equipamento liberado do Estoque do Gestor de Telefonia em perfeitas condições.',
         'O equipamento e a linha destinam-se exclusivamente ao desempenho das atividades profissionais corporativas.',
         'O colaborador compromete-se a zelar pelo bem, respondendo por dolo ou negligência comprovada.',
         'Em caso de rescisão, férias prolongadas ou solicitação da empresa, o equipamento deverá ser prontamente restituído ao Estoque do Gestor de Telefonia.',
         'Em caso de furto, roubo ou extravio, é obrigatória a formalização de Boletim de Ocorrência Policial e comunicação ao Gestor de Telefonia em até 24 horas.'
       ],
-      notes: params.observations,
-      fileName: `Termo_Entrega_${device.assetTag}_${collaborator.registrationNumber}.pdf`
+      notes: params.observations ?? existingTerm?.notes,
+      fileName: existingTerm?.fileName || `Termo_Entrega_${device.assetTag}_${collaborator.registrationNumber}.pdf`
     };
 
     // 4. Registrar Movimentação: Origem = Estoque do Gestor -> Destino = Colaborador
@@ -1022,7 +1104,12 @@ class DataStorageService {
     this.set(STORAGE_KEYS.MOVEMENTS, movements);
 
     const terms = this.getTerms();
-    terms.unshift(newTerm);
+    const existingTermIndex = terms.findIndex(t => t.id === termId);
+    if (existingTermIndex >= 0) {
+      terms[existingTermIndex] = newTerm;
+    } else {
+      terms.unshift(newTerm);
+    }
     this.set(STORAGE_KEYS.TERMS, terms);
 
     // Persistência direta no PostgreSQL
@@ -1035,7 +1122,7 @@ class DataStorageService {
 
     return { 
       success: true, 
-      message: `Aparelho ${device.assetTag} entregue com sucesso do Estoque para ${collaborator.fullName}. Termo ${termCode} gerado.`, 
+      message: `Aparelho ${device.assetTag} entregue com sucesso do Estoque para ${collaborator.fullName}. ${existingTerm ? `Termo existente ${termCode} vinculado.` : `Termo ${termCode} gerado.`}`, 
       movement: newMovement 
     };
   }
@@ -1056,6 +1143,7 @@ class DataStorageService {
     registeredBy?: string;
     batchOperationId?: string;
     maintenanceProvider?: string;
+    existingTermId?: string;
   }): { success: boolean; message: string; movement?: Movement } {
     const devices = this.getDevices();
     const lines = this.getLines();
@@ -1076,7 +1164,10 @@ class DataStorageService {
 
     const now = new Date();
     const movCode = `MOV-${now.getFullYear()}-${String(this.getMovements().length + 1).padStart(3, '0')}`;
-    const termCode = `TERMO-DEV-${now.getFullYear()}-${String(this.getTerms().length + 1).padStart(3, '0')}`;
+    const generatedTermCode = `TERMO-DEV-${now.getFullYear()}-${String(this.getTerms().length + 1).padStart(3, '0')}`;
+    const existingTerms = this.getTerms();
+    const existingTerm = params.existingTermId ? existingTerms.find(t => t.id === params.existingTermId) : undefined;
+    const termCode = existingTerm?.code || generatedTermCode;
 
     const prevDeviceStatus = device.status;
     const previousLineId = device.associatedLineId;
@@ -1130,14 +1221,15 @@ class DataStorageService {
       }
     }
 
-    // 3. Criar Termo de Devolução
-    const termId = `term-${Date.now()}`;
+    // 3. Criar Termo de Devolução (ou vincular termo já existente escolhido pelo usuário)
+    const termId = existingTerm?.id || `term-${Date.now()}`;
     const newTerm: DocumentTerm = {
+      ...(existingTerm || {}),
       id: termId,
       code: termCode,
       batchOperationId: params.batchOperationId,
-      type: 'Termo de Devolução',
-      title: 'Termo de Devolução ao Estoque do Gestor de Telefonia',
+      type: existingTerm?.type || 'Termo de Devolução',
+      title: existingTerm?.title || 'Termo de Devolução ao Estoque do Gestor de Telefonia',
       date: params.date,
       deviceId: device.id,
       deviceTag: device.assetTag,
@@ -1147,16 +1239,16 @@ class DataStorageService {
       collaboratorName: collaborator.fullName,
       collaboratorRegistration: collaborator.registrationNumber,
       collaboratorDepartment: collaborator.department,
-      status: 'Assinado', // Quitado na entrega no balcão de estoque do gestor
-      accessoriesList: params.accessoriesReturned,
-      clauses: [
+      status: existingTerm?.status || 'Assinado', // Quitado na entrega no balcão de estoque do gestor
+      accessoriesList: existingTerm?.accessoriesList?.length ? existingTerm.accessoriesList : params.accessoriesReturned,
+      clauses: existingTerm?.clauses?.length ? existingTerm.clauses : [
         'A empresa, por intermédio do Gestor de Telefonia, atesta o recebimento e recolhimento do ativo ao estoque central.',
         'O colaborador fica integralmente quitado e desonerado da responsabilidade patrimonial sobre este equipamento.',
         'Os dados corporativos foram formatados e o ativo direcionado ao status operacional: ' + params.nextDeviceStatus + '.'
       ],
-      signedAt: `${params.date} ${now.toLocaleTimeString('pt-BR').substring(0, 5)}`,
-      notes: params.observations,
-      fileName: `Termo_Devolucao_${device.assetTag}_${collaborator.registrationNumber}.pdf`
+      signedAt: existingTerm?.signedAt || `${params.date} ${now.toLocaleTimeString('pt-BR').substring(0, 5)}`,
+      notes: params.observations ?? existingTerm?.notes,
+      fileName: existingTerm?.fileName || `Termo_Devolucao_${device.assetTag}_${collaborator.registrationNumber}.pdf`
     };
 
     // 4. Registrar Movimentação: Origem = Colaborador -> Destino = Estoque do Gestor
@@ -1205,7 +1297,12 @@ class DataStorageService {
     this.set(STORAGE_KEYS.MOVEMENTS, movements);
 
     const terms = this.getTerms();
-    terms.unshift(newTerm);
+    const existingTermIndex = terms.findIndex(t => t.id === termId);
+    if (existingTermIndex >= 0) {
+      terms[existingTermIndex] = newTerm;
+    } else {
+      terms.unshift(newTerm);
+    }
     this.set(STORAGE_KEYS.TERMS, terms);
 
     // Persistência direta no PostgreSQL
@@ -1218,7 +1315,7 @@ class DataStorageService {
 
     return { 
       success: true, 
-      message: `Aparelho ${device.assetTag} devolvido com sucesso ao Estoque do Gestor (${params.nextDeviceStatus}). Termo de quitação ${termCode} gerado.`, 
+      message: `Aparelho ${device.assetTag} devolvido com sucesso ao Estoque do Gestor (${params.nextDeviceStatus}). ${existingTerm ? `Termo existente ${termCode} vinculado.` : `Termo de quitação ${termCode} gerado.`}`, 
       movement: newMovement 
     };
   }
@@ -1239,6 +1336,7 @@ class DataStorageService {
     reason?: string;
     observations?: string;
     registeredBy?: string;
+    existingTermId?: string;
   }): { success: boolean; message: string; batchOperationId?: string } {
     const devices = this.getDevices();
     const collaborators = this.getCollaborators();
@@ -1308,7 +1406,8 @@ class DataStorageService {
       reason: `Transferência patrimonial [${batchId}] - Etapa 2: Entrega do Estoque para novo colaborador.`,
       observations: `Transferido a partir do Estoque após custódia prévia de ${originCollab.fullName}.`,
       registeredBy: params.registeredBy || 'Gestor de Telefonia',
-      batchOperationId: batchId
+      batchOperationId: batchId,
+      existingTermId: params.existingTermId
     });
 
     if (!deliveryResult.success) {
@@ -1347,6 +1446,7 @@ class DataStorageService {
     reason: string;
     observations?: string;
     registeredBy?: string;
+    existingTermId?: string;
   }): { success: boolean; message: string; batchOperationId?: string } {
     const devices = this.getDevices();
     const collaborators = this.getCollaborators();
@@ -1406,7 +1506,8 @@ class DataStorageService {
       reason: `Troca de dispositivo [${batchId}] - Etapa 2: Entrega do novo aparelho (${newDevice.assetTag}) do Estoque.`,
       observations: `Substituição do aparelho anterior ${oldDevice.assetTag}. Motivo: ${params.reason}`,
       registeredBy: params.registeredBy || 'Gestor de Telefonia',
-      batchOperationId: batchId
+      batchOperationId: batchId,
+      existingTermId: params.existingTermId
     });
 
     if (!deliveryResult.success) {

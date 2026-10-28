@@ -55,21 +55,21 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <div className="relative min-h-screen w-full flex items-center justify-center p-4 overflow-hidden bg-slate-900 font-sans select-none">
+    <div className="relative min-h-screen w-full flex items-center justify-center p-4 overflow-hidden bg-navy-950 font-sans select-none">
       {/* 1. Imagem de fundo corporativa logo.jpg com desfoque */}
       <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat transform scale-105 filter blur-sm opacity-35 transition-all duration-700"
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat transform scale-105 filter blur-sm opacity-25 transition-all duration-700"
         style={{
           backgroundImage: "url('/logo.jpg')",
         }}
         aria-hidden="true"
       />
 
-      {/* 2. Camada de gradiente corporativo para contraste ideal */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#061b36]/90 via-[#0a3875]/85 to-[#0b4d9c]/80" />
+      {/* 2. Degradê da marca: marinho → azul IANE */}
+      <div className="absolute inset-0 bg-gradient-to-br from-navy-950 via-navy-900 to-iane-700" />
 
       {/* 3. Card de Login Limpo nas cores da empresa */}
-      <div className="relative z-10 w-full max-w-[390px] bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl p-7 sm:p-8 border border-blue-100/60 transition-all">
+      <div className="relative z-10 w-full max-w-[390px] bg-white/95 backdrop-blur-md rounded-xl shadow-2xl p-7 sm:p-8 border border-iane-100/60 transition-all">
         {/* Ícone Superior Central: icone.png */}
         <div className="flex flex-col items-center mb-6">
           <img
@@ -77,15 +77,15 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
             alt="IANE - Gestão de Dispositivos"
             className="w-32 h-auto max-h-20 object-contain drop-shadow-sm mb-2"
           />
-          <h1 className="text-xs font-bold tracking-wider uppercase text-[#0b4d9c] text-center">
+          <h1 className="text-xs font-bold tracking-wider uppercase text-iane-700 text-center">
             Gestão de Dispositivos
           </h1>
         </div>
 
         {/* Alerta de erro de autenticação */}
         {authError && (
-          <div className="mb-5 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2 animate-shake">
-            <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+          <div className="mb-5 p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2 animate-shake">
+            <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
             <span className="font-medium">{authError}</span>
           </div>
         )}
@@ -96,7 +96,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
           <div>
             <label
               htmlFor="username"
-              className="block text-sm font-semibold text-slate-800 mb-1.5"
+              className="block text-sm font-semibold text-ink-800 mb-1.5"
             >
               Login
             </label>
@@ -113,15 +113,15 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                   }
                 }}
                 placeholder="Digite seu Login"
-                className={`w-full px-3.5 py-2.5 bg-slate-50 hover:bg-white focus:bg-white border rounded-lg text-sm text-slate-800 placeholder-slate-400 outline-none transition-all ${
+                className={`w-full px-3.5 py-2.5 bg-ink-50 hover:bg-white focus:bg-white border rounded-lg text-sm text-ink-800 placeholder-ink-400 outline-none transition-all ${
                   usernameError
-                    ? 'border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-200'
-                    : 'border-slate-300 focus:border-[#0b4d9c] focus:ring-2 focus:ring-[#0b4d9c]/20'
+                    ? 'border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-200'
+                    : 'border-ink-300 focus:border-iane-600 focus:ring-2 focus:ring-iane-600/20'
                 }`}
               />
             </div>
             {usernameError && (
-              <p className="mt-1 text-xs text-red-600 font-medium">
+              <p className="mt-1 text-xs text-rose-600 font-medium">
                 {usernameError}
               </p>
             )}
@@ -131,7 +131,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
           <div>
             <label
               htmlFor="password"
-              className="block text-sm font-semibold text-slate-800 mb-1.5"
+              className="block text-sm font-semibold text-ink-800 mb-1.5"
             >
               Senha
             </label>
@@ -148,16 +148,16 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                   }
                 }}
                 placeholder="Digite sua Senha"
-                className={`w-full pl-3.5 pr-10 py-2.5 bg-slate-50 hover:bg-white focus:bg-white border rounded-lg text-sm text-slate-800 placeholder-slate-400 outline-none transition-all ${
+                className={`w-full pl-3.5 pr-10 py-2.5 bg-ink-50 hover:bg-white focus:bg-white border rounded-lg text-sm text-ink-800 placeholder-ink-400 outline-none transition-all ${
                   passwordError
-                    ? 'border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-200'
-                    : 'border-slate-300 focus:border-[#0b4d9c] focus:ring-2 focus:ring-[#0b4d9c]/20'
+                    ? 'border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-200'
+                    : 'border-ink-300 focus:border-iane-600 focus:ring-2 focus:ring-iane-600/20'
                 }`}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-[#0b4d9c] transition-colors cursor-pointer"
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-ink-400 hover:text-iane-700 transition-colors cursor-pointer"
                 tabIndex={-1}
                 aria-label={showPassword ? 'Ocultar senha' : 'Exibir senha'}
               >
@@ -169,7 +169,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
               </button>
             </div>
             {passwordError && (
-              <p className="mt-1 text-xs text-red-600 font-medium">
+              <p className="mt-1 text-xs text-rose-600 font-medium">
                 {passwordError}
               </p>
             )}
@@ -179,7 +179,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full mt-2 py-3 px-4 bg-[#0b4d9c] hover:bg-[#083e7f] active:bg-[#063166] active:scale-[0.99] text-white font-semibold text-sm tracking-wide rounded-lg shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-[#0b4d9c] focus:ring-offset-2 transition-all duration-150 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
+            className="w-full mt-2 py-3 px-4 bg-iane-600 hover:bg-iane-700 active:bg-iane-800 active:scale-[0.99] text-white font-semibold text-sm tracking-wide rounded-lg shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-sun-500 focus:ring-offset-2 transition-all duration-150 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
           >
             {isLoading ? (
               <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />

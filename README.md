@@ -21,13 +21,18 @@ Desenvolvido para modernizar e substituir controles manuais em planilhas (*Dashb
    - **Troca de Aparelho** (`Colaborador A [Antigo] → Estoque | Estoque [Novo] → Colaborador A`): substituição rápida em lote com histórico auditável.
 
 3. **Gestão de Dispositivos e Linhas**:
-   - Cadastro detalhado com IMEI (validação 15 dígitos), número de série, patrimônio/TAG, valor de compra e conservação.
+   - Cadastro detalhado com IMEI e Número de Série **opcionais** (validados apenas quando informados), patrimônio/TAG, valor de compra e conservação.
    - Linha do tempo (timeline) completa no drawer de detalhes do aparelho registrando cada passagem pelo estoque e períodos de uso por colaborador.
    - Filtros dinâmicos por status, operadora e departamento.
 
 4. **Termos e Documentos**:
    - Geração e impressão de Termos de Entrega, Devolução e Transferência formatados.
-   - Controle de status de assinatura (Pendente, Assinado, Não exigido).
+   - **Cadastro de termo já existente por upload do PDF original** (arquivo do computador do usuário), com vínculo opcional a aparelho e colaborador já cadastrados. Limite de **10 MB no aplicativo** e **15 MB no servidor**.
+   - Na movimentação, escolha entre **gerar o termo pelo aplicativo** ou **vincular um termo já existente** — inclusive com cadastro rápido do termo (com PDF) sem sair da tela.
+   - Visualização do PDF anexado no próprio sistema, com abrir em nova aba, baixar e imprimir.
+   - Controle de status de assinatura (Pendente, Assinado, Arquivado).
+
+   > O PDF é enviado em base64 no corpo JSON e gravado na coluna `terms_documents.file_data`. Ele não entra no cache local do navegador nem na fila offline: o cadastro com PDF é síncrono e, se o servidor estiver indisponível, o erro é exibido na hora.
 
 5. **Relatórios e Migração de Dados**:
    - Exportação em CSV de relatórios de inventário, linhas órfãs e custos.
@@ -75,6 +80,32 @@ npm run build
 ```
 
 Os arquivos estáticos otimizados serão gerados na pasta `dist/`.
+
+### Rotas da aplicação
+
+Cada aba possui URL própria (navegação direta e recarregamento funcionam no servidor Express):
+
+`/login` · `/dashboard` · `/dispositivos` · `/linhas` · `/colaboradores` · `/movimentacoes` · `/termos` · `/relatorios` · `/configuracoes`
+
+`/login` é uma rota real: sem sessão ativa, qualquer caminho protegido redireciona para `/login` guardando a origem; após autenticar, o usuário volta ao caminho solicitado.
+
+### Variáveis de ambiente (segurança)
+
+| Variável | Descrição |
+| --- | --- |
+| `JWT_SECRET` | **Obrigatória em produção.** Segredo longo e aleatório para assinar os tokens (ex.: `openssl rand -hex 48`). Sem ela, o servidor gera um segredo efêmero e as sessões caem a cada reinício. |
+| `DATABASE_URL` | String de conexão do PostgreSQL. |
+| `POSTGRES_PASSWORD` | Senha do banco usada pelo `docker-compose`. |
+| `ALLOW_MEMORY_FALLBACK` | Apenas desenvolvimento. Com `true`, permite operar sem PostgreSQL (sem persistência real). |
+
+Todas as rotas `/api/*` exigem autenticação, exceto `/api/health` e `/api/auth/login`. A gestão de usuários (`/api/users`) exige a permissão `manage_users`.
+
+### Docker
+
+```bash
+# Defina JWT_SECRET no arquivo .env antes de subir em produção
+docker compose up -d --build
+```
 
 ---
 

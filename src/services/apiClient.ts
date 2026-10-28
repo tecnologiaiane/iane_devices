@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig, AxiosResponse } from 'axios';
+import axios, { AxiosInstance, AxiosError, AxiosRequestConfig, InternalAxiosRequestConfig, AxiosResponse } from 'axios';
 import { User, SystemUserFormData } from '../types';
 
 export interface ApiResponse<T = any> {
@@ -214,9 +214,9 @@ class ApiClientService {
     }
   }
 
-  public async post<T>(url: string, data?: any): Promise<ApiResponse<T>> {
+  public async post<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
     try {
-      const res = await this.instance.post<any>(url, data);
+      const res = await this.instance.post<any>(url, data, config);
       const payload = res.data;
       return {
         success: payload?.success !== false,
@@ -256,6 +256,26 @@ class ApiClientService {
       };
     } catch (err: any) {
       return this.handleAxiosError<T>(err);
+    }
+  }
+
+  /** Baixa um arquivo binário autenticado (ex.: PDF de um termo). */
+  public async getBlob(url: string): Promise<ApiResponse<Blob>> {
+    try {
+      const res = await this.instance.get(url, { responseType: 'blob', timeout: 30000 });
+      return { success: true, data: res.data as Blob, status: res.status };
+    } catch (err: any) {
+      const base = this.handleAxiosError<Blob>(err);
+      // Em resposta binária o corpo do erro vem como Blob: tenta extrair a mensagem JSON
+      const data = err?.response?.data;
+      if (data instanceof Blob) {
+        try {
+          const text = await data.text();
+          const parsed = JSON.parse(text);
+          base.message = parsed?.message || parsed?.error || base.message;
+        } catch { /* mantém a mensagem padrão */ }
+      }
+      return base;
     }
   }
 

@@ -85,22 +85,22 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
   return (
     <div className="space-y-5">
       {/* Search and Filters */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-3">
+      <div className="bg-white p-4 rounded-xl border border-ink-200 shadow-xs space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="relative flex-1 max-w-md">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+            <Search className="w-4 h-4 text-ink-400 absolute left-3 top-2.5" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar colaborador por nome, matrícula, cargo ou e-mail..."
-              className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-slate-300 bg-white placeholder-slate-400 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-ink-300 bg-white placeholder-ink-400 text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500"
             />
           </div>
 
           <button
             onClick={() => onOpenCollaboratorModal()}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-xs transition-colors shrink-0"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold text-white bg-iane-600 hover:bg-iane-700 shadow-xs transition-colors shrink-0"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Novo Colaborador</span>
@@ -108,16 +108,16 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
         </div>
 
         {/* Filter chips */}
-        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 text-xs">
-          <span className="text-slate-500 font-medium flex items-center gap-1 mr-1">
-            <Filter className="w-3 h-3 text-slate-400" />
+        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-ink-100 text-xs">
+          <span className="text-ink-500 font-medium flex items-center gap-1 mr-1">
+            <Filter className="w-3 h-3 text-ink-400" />
             Filtros:
           </span>
 
           <select
             value={departmentFilter}
             onChange={(e) => setDepartmentFilter(e.target.value)}
-            className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-slate-700 font-medium"
+            className="rounded-md border border-ink-300 bg-white px-2.5 py-1 text-ink-700 font-medium"
           >
             <option value="todos">Departamento: Todos</option>
             {uniqueDepartments.map((dept) => (
@@ -128,7 +128,7 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-slate-700 font-medium"
+            className="rounded-md border border-ink-300 bg-white px-2.5 py-1 text-ink-700 font-medium"
           >
             <option value="todos">Status: Todos</option>
             <option value="Ativo">Ativo</option>
@@ -137,17 +137,17 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
             <option value="Desligado">Desligado</option>
           </select>
 
-          <div className="ml-auto text-[11px] text-slate-500 tabular-nums">
+          <div className="ml-auto text-[11px] text-ink-500 tabular-nums">
             Exibindo <strong>{filteredCollabs.length}</strong> de <strong>{collaborators.length}</strong> colaboradores
           </div>
         </div>
       </div>
 
       {/* Main Table */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+      <div className="bg-white rounded-xl border border-ink-200 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-semibold tracking-wider text-[11px]">
+            <thead className="bg-ink-50 border-b border-ink-200 text-ink-600 uppercase font-semibold tracking-wider text-[11px]">
               <tr>
                 <th className="py-3 px-4">Nome do Colaborador</th>
                 <th className="py-3 px-4">Matrícula</th>
@@ -158,7 +158,7 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
                 <th className="py-3 px-4 text-right">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-ink-100">
               {filteredCollabs.map((collab) => {
                 const heldDevices = dataService.getDevices().filter(d => d.currentCollaboratorId === collab.id);
                 const heldLines = dataService.getLines().filter(l => l.currentCollaboratorId === collab.id);
@@ -166,26 +166,26 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
                 return (
                   <tr 
                     key={collab.id} 
-                    className="hover:bg-slate-50/80 transition-colors group cursor-pointer"
+                    className="hover:bg-ink-50/80 transition-colors group cursor-pointer"
                     onClick={() => setDetailCollab(collab)}
                   >
                     <td className="py-3 px-4">
-                      <div className="font-semibold text-slate-900">{collab.fullName}</div>
-                      <div className="text-[11px] text-slate-500 flex items-center gap-1.5 mt-0.5">
-                        <Mail className="w-3 h-3 text-slate-400" />
+                      <div className="font-semibold text-ink-900">{collab.fullName}</div>
+                      <div className="text-[11px] text-ink-500 flex items-center gap-1.5 mt-0.5">
+                        <Mail className="w-3 h-3 text-ink-400" />
                         <span>{collab.corporateEmail}</span>
                       </div>
                     </td>
 
-                    <td className="py-3 px-4 font-mono font-bold text-slate-700">
+                    <td className="py-3 px-4 font-mono font-bold text-ink-700">
                       {collab.registrationNumber}
                     </td>
 
-                    <td className="py-3 px-4 font-medium text-slate-800">
+                    <td className="py-3 px-4 font-medium text-ink-800">
                       {collab.department}
                     </td>
 
-                    <td className="py-3 px-4 text-slate-600">
+                    <td className="py-3 px-4 text-ink-600">
                       {collab.position}
                     </td>
 
@@ -197,12 +197,12 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {heldDevices.length > 0 ? (
                           heldDevices.map(d => (
-                            <span key={d.id} className="font-mono text-[11px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                            <span key={d.id} className="font-mono text-[11px] font-semibold text-iane-700 bg-iane-50 px-2 py-0.5 rounded border border-iane-200">
                               {d.assetTag}
                             </span>
                           ))
                         ) : (
-                          <span className="text-slate-400 italic">Nenhum aparelho</span>
+                          <span className="text-ink-400 italic">Nenhum aparelho</span>
                         )}
                         {heldLines.length > 0 && (
                           <span className="font-mono text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
@@ -216,7 +216,7 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
                       <button
                         title="Ver Perfil Completo"
                         onClick={() => setDetailCollab(collab)}
-                        className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                        className="p-1.5 text-ink-500 hover:text-iane-600 hover:bg-iane-50 rounded-md transition-colors"
                       >
                         <Eye className="w-3.5 h-3.5" />
                       </button>
@@ -224,7 +224,7 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
                       <button
                         title="Editar Colaborador"
                         onClick={() => onOpenCollaboratorModal(collab)}
-                        className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition-colors"
+                        className="p-1.5 text-ink-500 hover:text-ink-800 hover:bg-ink-100 rounded-md transition-colors"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
@@ -240,70 +240,70 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
       {/* COLLABORATOR DETAIL MODAL */}
       {detailCollab && (
         <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs" onClick={() => setDetailCollab(null)} />
+          <div className="fixed inset-0 bg-ink-900/60 backdrop-blur-xs" onClick={() => setDetailCollab(null)} />
           <div className="flex min-h-full items-center justify-center p-4">
             <div 
-              className="relative bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-3xl overflow-hidden p-6 space-y-5"
+              className="relative bg-white rounded-xl shadow-2xl border border-ink-200 w-full max-w-3xl overflow-hidden p-6 space-y-5"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+              <div className="flex items-center justify-between border-b border-ink-200 pb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-slate-900 text-white font-bold flex items-center justify-center text-sm shadow-xs">
+                  <div className="w-12 h-12 rounded-full bg-ink-900 text-white font-bold flex items-center justify-center text-sm shadow-xs">
                     {detailCollab.fullName.slice(0, 2).toUpperCase()}
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <h2 className="text-base font-bold text-slate-900">
+                      <h2 className="text-base font-bold text-ink-900">
                         {detailCollab.fullName}
                       </h2>
                       <StatusBadge status={detailCollab.status} type="collaborator" />
                     </div>
-                    <p className="text-xs text-slate-500">
-                      Matrícula: <span className="font-mono font-bold text-slate-700">{detailCollab.registrationNumber}</span> · {detailCollab.department} ({detailCollab.position})
+                    <p className="text-xs text-ink-500">
+                      Matrícula: <span className="font-mono font-bold text-ink-700">{detailCollab.registrationNumber}</span> · {detailCollab.department} ({detailCollab.position})
                     </p>
                   </div>
                 </div>
 
                 <button
                   onClick={() => setDetailCollab(null)}
-                  className="text-slate-400 hover:text-slate-700 p-1 rounded-lg"
+                  className="text-ink-400 hover:text-ink-700 p-1 rounded-lg"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
               {/* Grid 1: Contato e Identificação */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-3.5 bg-slate-50 rounded-lg text-xs">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-3.5 bg-ink-50 rounded-lg text-xs">
                 <div>
-                  <span className="text-slate-400 text-[11px] block">E-mail Corporativo</span>
-                  <span className="font-medium text-slate-900">{detailCollab.corporateEmail}</span>
+                  <span className="text-ink-400 text-[11px] block">E-mail Corporativo</span>
+                  <span className="font-medium text-ink-900">{detailCollab.corporateEmail}</span>
                 </div>
                 <div>
-                  <span className="text-slate-400 text-[11px] block">Telefone de Contato</span>
-                  <span className="font-mono text-slate-900">{detailCollab.contactPhone || 'Não informado'}</span>
+                  <span className="text-ink-400 text-[11px] block">Telefone de Contato</span>
+                  <span className="font-mono text-ink-900">{detailCollab.contactPhone || 'Não informado'}</span>
                 </div>
                 <div>
-                  <span className="text-slate-400 text-[11px] block">CPF</span>
-                  <span className="font-mono text-slate-900">{detailCollab.cpf || 'Não registrado'}</span>
+                  <span className="text-ink-400 text-[11px] block">CPF</span>
+                  <span className="font-mono text-ink-900">{detailCollab.cpf || 'Não registrado'}</span>
                 </div>
               </div>
 
               {/* Grid 2: Aparelhos e Linhas Atuais */}
               <div>
-                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                  <Smartphone className="w-3.5 h-3.5 text-blue-600" />
+                <h3 className="text-xs font-bold text-ink-900 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <Smartphone className="w-3.5 h-3.5 text-iane-600" />
                   <span>Aparelhos Celulares Atualmente Vinculados ({collabDevices.length})</span>
                 </h3>
                 {collabDevices.length > 0 ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {collabDevices.map(d => (
-                      <div key={d.id} className="p-3 bg-white border border-slate-200 rounded-lg text-xs space-y-1 shadow-2xs">
+                      <div key={d.id} className="p-3 bg-white border border-ink-200 rounded-lg text-xs space-y-1 shadow-2xs">
                         <div className="flex items-center justify-between">
-                          <span className="font-mono font-bold text-blue-700">{d.assetTag}</span>
+                          <span className="font-mono font-bold text-iane-700">{d.assetTag}</span>
                           <StatusBadge status={d.condition} type="condition" size="sm" />
                         </div>
-                        <p className="font-semibold text-slate-900">{d.brand} {d.model}</p>
-                        <p className="text-[11px] text-slate-500 font-mono">IMEI: {d.imei1}</p>
+                        <p className="font-semibold text-ink-900">{d.brand} {d.model}</p>
+                        <p className="text-[11px] text-ink-500 font-mono">IMEI: {d.imei1}</p>
                         {d.associatedPhoneNumber && (
                           <p className="text-[11px] text-emerald-700 font-mono font-medium">Linha: {d.associatedPhoneNumber}</p>
                         )}
@@ -311,7 +311,7 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs text-slate-400 italic bg-slate-50 p-3 rounded-lg">
+                  <p className="text-xs text-ink-400 italic bg-ink-50 p-3 rounded-lg">
                     Nenhum aparelho celular está sob posse deste colaborador no momento.
                   </p>
                 )}
@@ -319,27 +319,27 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
 
               {/* Grid 3: Termos de Responsabilidade Assinados / Pendentes */}
               <div>
-                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                  <FileText className="w-3.5 h-3.5 text-blue-600" />
+                <h3 className="text-xs font-bold text-ink-900 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <FileText className="w-3.5 h-3.5 text-iane-600" />
                   <span>Termos e Documentos de Guarda ({collabTerms.length})</span>
                 </h3>
                 {collabTerms.length > 0 ? (
                   <div className="space-y-2">
                     {collabTerms.map(t => (
-                      <div key={t.id} className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between text-xs">
+                      <div key={t.id} className="p-2.5 bg-ink-50 border border-ink-200 rounded-lg flex items-center justify-between text-xs">
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="font-mono font-bold text-slate-900">{t.code}</span>
+                            <span className="font-mono font-bold text-ink-900">{t.code}</span>
                             <StatusBadge status={t.status} type="term" size="sm" />
                           </div>
-                          <span className="text-[11px] text-slate-500">{t.type} · Data: {formatDate(t.date)}</span>
+                          <span className="text-[11px] text-ink-500">{t.type} · Data: {formatDate(t.date)}</span>
                         </div>
                         <button
                           onClick={() => {
                             setDetailCollab(null);
                             onViewTerm(t);
                           }}
-                          className="px-2.5 py-1 bg-white border border-slate-300 hover:bg-slate-100 rounded text-xs font-semibold text-slate-700"
+                          className="px-2.5 py-1 bg-white border border-ink-300 hover:bg-ink-100 rounded text-xs font-semibold text-ink-700"
                         >
                           Ver Termo
                         </button>
@@ -347,7 +347,7 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs text-slate-400 italic bg-slate-50 p-3 rounded-lg">
+                  <p className="text-xs text-ink-400 italic bg-ink-50 p-3 rounded-lg">
                     Nenhum termo de responsabilidade registrado para este colaborador.
                   </p>
                 )}
@@ -355,32 +355,32 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
 
               {/* Grid 4: Histórico de Movimentações */}
               <div>
-                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                  <History className="w-3.5 h-3.5 text-slate-500" />
+                <h3 className="text-xs font-bold text-ink-900 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <History className="w-3.5 h-3.5 text-ink-500" />
                   <span>Histórico de Entregas e Devoluções ({collabMovements.length})</span>
                 </h3>
-                <div className="max-h-36 overflow-y-auto divide-y divide-slate-100 text-xs">
+                <div className="max-h-36 overflow-y-auto divide-y divide-ink-100 text-xs">
                   {collabMovements.map(m => (
                     <div key={m.id} className="py-2 flex justify-between items-start">
                       <div>
-                        <span className="font-semibold text-slate-900">{m.type}</span>
-                        <span className="text-slate-400"> · </span>
-                        <span className="font-mono text-slate-600">{m.deviceTag || m.phoneNumber}</span>
-                        <p className="text-[11px] text-slate-500">{m.reason || 'Movimentação patrimonial regular'}</p>
+                        <span className="font-semibold text-ink-900">{m.type}</span>
+                        <span className="text-ink-400"> · </span>
+                        <span className="font-mono text-ink-600">{m.deviceTag || m.phoneNumber}</span>
+                        <p className="text-[11px] text-ink-500">{m.reason || 'Movimentação patrimonial regular'}</p>
                       </div>
-                      <span className="font-mono text-[11px] text-slate-500">{formatDate(m.date)}</span>
+                      <span className="font-mono text-[11px] text-ink-500">{formatDate(m.date)}</span>
                     </div>
                   ))}
                   {collabMovements.length === 0 && (
-                    <p className="text-xs text-slate-400 italic py-2">Sem movimentações anteriores.</p>
+                    <p className="text-xs text-ink-400 italic py-2">Sem movimentações anteriores.</p>
                   )}
                 </div>
               </div>
 
-              <div className="flex justify-end pt-3 border-t border-slate-200">
+              <div className="flex justify-end pt-3 border-t border-ink-200">
                 <button
                   onClick={() => setDetailCollab(null)}
-                  className="px-4 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg"
+                  className="px-4 py-1.5 text-xs font-semibold text-ink-700 bg-ink-100 hover:bg-ink-200 rounded-lg"
                 >
                   Fechar
                 </button>
