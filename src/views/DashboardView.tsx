@@ -1,487 +1,682 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { dataService } from '../services/dataStorage';
-import { formatDate } from '../utils/formatters';
+import { formatDate, formatCurrency } from '../utils/formatters';
 import { StatusBadge } from '../components/StatusBadge';
+import { Modal } from '../components/Modal';
+import { NavTab } from '../components/Sidebar';
+import { User } from '../types';
 import {
   Smartphone,
   PhoneCall,
   Users,
-  AlertTriangle,
-  ArrowLeftRight,
-  FileCheck2,
-  Clock,
-  Wrench,
-  CheckCircle2,
-  TrendingUp,
-  Building2,
-  ShieldAlert,
-  ArrowRight,
   Package,
-  Layers,
-  HelpCircle
+  CheckCircle2,
+  Wrench,
+  Clock,
+  AlertTriangle,
+  ArrowRight,
+  ArrowLeftRight,
+  Building2,
+  Tag,
+  Wallet,
+  FileText,
+  FileWarning,
 } from 'lucide-react';
-import { NavTab } from '../components/Sidebar';
 
 interface DashboardViewProps {
   onNavigate: (tab: NavTab) => void;
-  onOpenMovementModal: () => void;
+  currentUser: User | null;
 }
 
-export const DashboardView: React.FC<DashboardViewProps> = ({
-  onNavigate,
-  onOpenMovementModal,
-}) => {
+const PENDING_TERMS_STORAGE_KEY = 'iane_pending_terms_notice_count';
+const DONUT_RADIUS = 54;
+const DONUT_CIRCUMFERENCE = 2 * Math.PI * DONUT_RADIUS;
+
+export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, currentUser }) => {
   const metrics = dataService.getDashboardMetrics();
   const devices = dataService.getDevices();
   const lines = dataService.getLines();
   const movements = dataService.getMovements();
   const terms = dataService.getTerms();
+  const collaborators = dataService.getCollaborators();
 
-  // Dynamic calculations for charts
-  const devicesByBrand: Record<string, number> = {};
-  devices.forEach(d => {
-    devicesByBrand[d.brand] = (devicesByBrand[d.brand] || 0) + 1;
+  const permissions = currentUser?.permissions || ['all'];
+  const isAdmin = currentUser?.role === 'admin' || permissions.includes('all');
+
+  const pendingTerms = terms.filter((t) => t.status === 'Pendente de Assinatura');
+  const signedTerms = terms.filter((t) => t.status === 'Assinado');
+  const archivedTerms = terms.filter((t) => t.status === 'Arquivado');
+
+  const [isPendingTermsModalOpen, setIsPendingTermsModalOpen] = useState(false);
+
+  // Aviso de termos pendentes: somente para administradores e uma vez por sessão.
+  // Se a quantidade mudar (novos termos), o aviso volta a aparecer.
+  useEffect(() => {
+    if (!isAdmin || pendingTerms.length === 0) return;
+    try {
+      if (sessionStorage.getItem(PENDING_TERMS_STORAGE_KEY) === String(pendingTerms.length)) return;
+    } catch {
+      // sessionStorage indisponível: segue com o aviso nesta renderização
+    }
+    setIsPendingTermsModalOpen(true);
+  }, [isAdmin, pendingTerms.length]);
+
+  const closePendingTermsModal = () => {
+    setIsPendingTermsModalOpen(false);
+    try {
+      sessionStorage.setItem(PENDING_TERMS_STORAGE_KEY, String(pendingTerms.length));
+    } catch {
+      // sessionStorage indisponível: o aviso pode reaparecer na próxima visita
+    }
+  };
+
+  // --- Indicadores derivados ---
+  const statusSegments = [
+    { label: 'Em uso', count: metrics.inUseDevices, color: '#0178C8' },
+    { label: 'Disponíveis', count: metrics.stockAvailable, color: '#10B981' },
+    { label: 'Aguardando avaliação', count: metrics.stockAwaitingEvaluation, color: '#E7C800' },
+    { label: 'Em manutenção', count: metrics.stockMaintenance, color: '#F97316' },
+    { label: 'Reservados', count: metrics.stockReserved, color: '#A855F7' },
+    { label: 'Aguardando baixa', count: metrics.stockAwaitingDisposal, color: '#6B7494' },
+    { label: 'Baixados', count: metrics.stockDisposed, color: '#C5CCDD' },
+    { label: 'Extraviados', count: metrics.lostDevices, color: '#E11D48' },
+  ].filter((segment) => segment.count > 0);
+
+  const totalSegments = statusSegments.reduce((sum, segment) => sum + segment.count, 0);
+
+  let donutCursor = 0;
+  const donutArcs = statusSegments.map((segment) => {
+    const dash = totalSegments > 0 ? (segment.count / totalSegments) * DONUT_CIRCUMFERENCE : 0;
+    const arc = { ...segment, dash, offset: donutCursor };
+    donutCursor += dash;
+    return arc;
   });
 
-  const devicesByDepartment: Record<string, number> = {};
-  devices.forEach(d => {
-    const dept = d.currentDepartment || 'Estoque do Gestor de Telefonia';
-    devicesByDepartment[dept] = (devicesByDepartment[dept] || 0) + 1;
-  });
+  const devicesByDepartment = Object.entries(
+    devices.reduce<Record<string, number>>((acc, device) => {
+      const department = device.currentDepartment?.trim() || 'Estoque de TI';
+      acc[department] = (acc[department] || 0) + 1;
+      return acc;
+    }, {})
+  ).sort((a, b) => b[1] - a[1]);
 
-  const linesByCarrier: Record<string, number> = {};
-  lines.forEach(l => {
-    linesByCarrier[l.carrier] = (linesByCarrier[l.carrier] || 0) + 1;
-  });
+  const devicesByBrand = Object.entries(
+    devices.reduce<Record<string, number>>((acc, device) => {
+      acc[device.brand] = (acc[device.brand] || 0) + 1;
+      return acc;
+    }, {})
+  ).sort((a, b) => b[1] - a[1]);
 
-  // Attention lists
-  const maintenanceDevices = devices.filter(d => d.status === 'Em manutenção');
-  const evaluatingDevices = devices.filter(d => d.status === 'Aguardando avaliação');
-  const pendingTerms = terms.filter(t => t.status === 'Pendente de Assinatura');
-  const orphanActiveLines = lines.filter(l => l.status === 'Ativa' && !l.currentCollaboratorId);
+  const linesByCarrier = Object.entries(
+    lines.reduce<Record<string, number>>((acc, line) => {
+      acc[line.carrier] = (acc[line.carrier] || 0) + 1;
+      return acc;
+    }, {})
+  ).sort((a, b) => b[1] - a[1]);
+
+  const maxDepartmentCount = devicesByDepartment[0]?.[1] || 1;
+  const maxCarrierCount = linesByCarrier[0]?.[1] || 1;
+
+  const evaluatingDevices = devices.filter((d) => d.status === 'Aguardando avaliação');
+  const maintenanceDevices = devices.filter((d) => d.status === 'Em manutenção');
+  const attentionDevices = [...evaluatingDevices, ...maintenanceDevices];
+  const orphanActiveLines = lines.filter((l) => l.status === 'Ativa' && !l.currentCollaboratorId);
+
+  const fleetValue = devices.reduce((sum, d) => sum + (d.purchaseValue || 0), 0);
+  const monthlyLineCost = lines.reduce((sum, l) => sum + (l.monthlyCost || 0), 0);
+  const activeCollaborators = collaborators.filter((c) => c.status === 'Ativo').length;
+  const signedTermsPercent = terms.length > 0 ? Math.round((signedTerms.length / terms.length) * 100) : 0;
+
+  const percent = (value: number) =>
+    metrics.totalDevices > 0 ? Math.round((value / metrics.totalDevices) * 100) : 0;
+
+  const firstName = (currentUser?.fullName || currentUser?.username || '').split(' ')[0];
 
   return (
     <div className="space-y-6">
-      {/* Top Banner Alert Bar if any issues */}
-      {(pendingTerms.length > 0 || maintenanceDevices.length > 0 || evaluatingDevices.length > 0) && (
-        <div className="bg-sun-50 border border-sun-300/80 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-gold-700 shadow-xs">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-sun-100 flex items-center justify-center shrink-0">
-              <ShieldAlert className="w-4 h-4 text-gold-700" />
-            </div>
-            <div>
-              <span className="font-semibold text-ink-900">Pendências e Gestão de Estoque: </span>
-              <span>
-                {evaluatingDevices.length} aparelho(s) aguardando avaliação no estoque · {maintenanceDevices.length} em manutenção · {pendingTerms.length} termo(s) pendente(s) de assinatura.
-              </span>
-            </div>
-          </div>
-          <button
-            onClick={() => onNavigate('dispositivos')}
-            className="px-3 py-1.5 bg-sun-400 hover:bg-sun-500 text-navy-900 rounded-lg font-semibold transition-colors shrink-0 flex items-center gap-1.5 self-start sm:self-auto"
-          >
-            <span>Gerenciar Estoque</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
-
-      {/* Primary KPI Grid (Tabular Numerals) */}
+      {/* Cards principais */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        {/* Total Aparelhos */}
-        <div 
+        <button
+          type="button"
           onClick={() => onNavigate('dispositivos')}
-          className="p-4 bg-white rounded-xl border border-ink-200 border-t-[3px] border-t-iane-500 hover:border-ink-300 transition-all cursor-pointer shadow-xs"
+          className="text-left p-4 bg-white rounded-xl border border-ink-200 border-t-[3px] border-t-iane-500 hover:border-ink-300 transition-all cursor-pointer shadow-xs"
         >
           <div className="flex items-center justify-between text-ink-500 mb-1">
-            <span className="text-xs font-medium">Frota Total</span>
+            <span className="text-xs font-medium">Aparelhos</span>
             <Smartphone className="w-4 h-4 text-iane-600" />
           </div>
           <div className="text-2xl font-bold font-mono tabular-nums text-ink-900">
             {metrics.totalDevices}
           </div>
-          <div className="mt-1.5 text-[11px] text-ink-500">
-            Aparelhos cadastrados
-          </div>
-        </div>
+          <div className="mt-1.5 text-[11px] text-ink-500">Cadastrados na frota</div>
+        </button>
 
-        {/* Em Uso (Com Colaborador) */}
-        <div 
+        <button
+          type="button"
           onClick={() => onNavigate('dispositivos')}
-          className="p-4 bg-white rounded-xl border border-ink-200 border-t-[3px] border-t-iane-500 hover:border-ink-300 transition-all cursor-pointer shadow-xs"
+          className="text-left p-4 bg-white rounded-xl border border-ink-200 border-t-[3px] border-t-iane-500 hover:border-ink-300 transition-all cursor-pointer shadow-xs"
         >
           <div className="flex items-center justify-between text-ink-500 mb-1">
-            <span className="text-xs font-medium">Em Uso (Ativos)</span>
+            <span className="text-xs font-medium">Em uso</span>
             <Users className="w-4 h-4 text-iane-600" />
           </div>
           <div className="text-2xl font-bold font-mono tabular-nums text-ink-900">
             {metrics.inUseDevices}
           </div>
           <div className="mt-1.5 text-[11px] text-iane-700 font-medium">
-            Com colaboradores
+            {percent(metrics.inUseDevices)}% com colaboradores
           </div>
-        </div>
+        </button>
 
-        {/* Total Estoque do Gestor */}
-        <div 
+        <button
+          type="button"
           onClick={() => onNavigate('dispositivos')}
-          className="p-4 bg-white rounded-xl border border-ink-200 border-t-[3px] border-t-iane-500 hover:border-ink-300 transition-all cursor-pointer shadow-xs"
+          className="text-left p-4 bg-white rounded-xl border border-ink-200 border-t-[3px] border-t-iane-500 hover:border-ink-300 transition-all cursor-pointer shadow-xs"
         >
           <div className="flex items-center justify-between text-ink-500 mb-1">
-            <span className="text-xs font-medium">Estoque do Gestor</span>
+            <span className="text-xs font-medium">No estoque</span>
             <Package className="w-4 h-4 text-indigo-600" />
           </div>
           <div className="text-2xl font-bold font-mono tabular-nums text-ink-900">
             {metrics.stockTotal}
           </div>
-          <div className="mt-1.5 text-[11px] text-ink-500">
-            Total sob custódia de TI
-          </div>
-        </div>
+          <div className="mt-1.5 text-[11px] text-ink-500">Sob custódia de TI</div>
+        </button>
 
-        {/* Disponíveis no Estoque (Prontos para Entrega) */}
-        <div 
+        <button
+          type="button"
           onClick={() => onNavigate('dispositivos')}
-          className="p-4 bg-emerald-50/60 rounded-xl border border-emerald-200 border-t-[3px] border-t-emerald-500 hover:border-emerald-300 transition-all cursor-pointer shadow-xs"
+          className="text-left p-4 bg-emerald-50/60 rounded-xl border border-emerald-200 border-t-[3px] border-t-emerald-500 hover:border-emerald-300 transition-all cursor-pointer shadow-xs"
         >
           <div className="flex items-center justify-between text-emerald-800 mb-1">
-            <span className="text-xs font-bold">Estoque Disponível</span>
+            <span className="text-xs font-bold">Disponíveis</span>
             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
           </div>
           <div className="text-2xl font-bold font-mono tabular-nums text-emerald-900">
             {metrics.stockAvailable}
           </div>
-          <div className="mt-1.5 text-[11px] text-emerald-700 font-medium">
-            Prontos para entrega
-          </div>
-        </div>
+          <div className="mt-1.5 text-[11px] text-emerald-700 font-medium">Prontos para entrega</div>
+        </button>
 
-        {/* Estoque Indisponível (Avaliação / Manutenção / Reserva) */}
-        <div 
+        <button
+          type="button"
           onClick={() => onNavigate('dispositivos')}
-          className="p-4 bg-white rounded-xl border border-ink-200 border-t-[3px] border-t-sun-400 hover:border-ink-300 transition-all cursor-pointer shadow-xs"
+          className="text-left p-4 bg-white rounded-xl border border-ink-200 border-t-[3px] border-t-orange-400 hover:border-ink-300 transition-all cursor-pointer shadow-xs"
         >
           <div className="flex items-center justify-between text-ink-500 mb-1">
-            <span className="text-xs font-medium">Estoque Retido</span>
-            <Layers className="w-4 h-4 text-gold-700" />
+            <span className="text-xs font-medium">Em manutenção</span>
+            <Wrench className="w-4 h-4 text-orange-600" />
           </div>
-          <div className="text-2xl font-bold font-mono tabular-nums text-gold-700">
-            {metrics.stockAwaitingEvaluation + metrics.stockMaintenance + metrics.stockReserved + metrics.stockAwaitingDisposal}
+          <div className="text-2xl font-bold font-mono tabular-nums text-orange-700">
+            {metrics.stockMaintenance}
           </div>
-          <div className="mt-1.5 text-[11px] text-ink-500">
-            Avaliação, reparo ou reserva
-          </div>
-        </div>
+          <div className="mt-1.5 text-[11px] text-ink-500">Em assistência técnica</div>
+        </button>
 
-        {/* Total Linhas */}
-        <div 
+        <button
+          type="button"
           onClick={() => onNavigate('linhas')}
-          className="p-4 bg-white rounded-xl border border-ink-200 border-t-[3px] border-t-iane-500 hover:border-ink-300 transition-all cursor-pointer shadow-xs"
+          className="text-left p-4 bg-white rounded-xl border border-ink-200 border-t-[3px] border-t-iane-500 hover:border-ink-300 transition-all cursor-pointer shadow-xs"
         >
           <div className="flex items-center justify-between text-ink-500 mb-1">
-            <span className="text-xs font-medium">Linhas Telefônicas</span>
+            <span className="text-xs font-medium">Linhas ativas</span>
             <PhoneCall className="w-4 h-4 text-iane-600" />
           </div>
           <div className="text-2xl font-bold font-mono tabular-nums text-ink-900">
-            {metrics.totalLines}
+            {metrics.activeLines}
           </div>
           <div className="mt-1.5 text-[11px] text-ink-500">
-            <span className="text-iane-700 font-semibold tabular-nums">{metrics.activeLines}</span> ativas · <span className="text-emerald-700 font-semibold tabular-nums">{metrics.availableLines}</span> livres
+            <span className="text-emerald-700 font-semibold tabular-nums">{metrics.availableLines}</span> livres
+            {' · '}
+            {metrics.totalLines} no total
           </div>
-        </div>
+        </button>
       </div>
 
-      {/* Panorama Detalhado do Estoque do Gestor de Telefonia */}
-      <div className="bg-white p-5 rounded-xl border border-ink-200 shadow-xs">
-        <div className="flex items-center justify-between mb-3 pb-2 border-b border-ink-100">
-          <div className="flex items-center gap-2">
-            <Package className="w-4 h-4 text-iane-600" />
-            <h3 className="text-sm font-bold text-ink-900">
-              Controle Operacional do Estoque do Gestor de Telefonia ({metrics.stockTotal} ativos sem colaborador)
-            </h3>
-          </div>
-          <span className="text-[11px] text-ink-500 italic">
-            Somente aparelhos "Disponíveis" podem ser entregues a colaboradores
-          </span>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-1">
-          <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs">
-            <span className="text-emerald-800 font-semibold block">Disponível</span>
-            <span className="text-xl font-bold font-mono text-emerald-900 tabular-nums mt-0.5 block">{metrics.stockAvailable}</span>
-            <span className="text-[10px] text-emerald-700">Liberados para nova entrega</span>
-          </div>
-
-          <div className="p-3 bg-sun-50 border border-sun-300 rounded-lg text-xs">
-            <span className="text-gold-700 font-semibold block">Aguardando Avaliação</span>
-            <span className="text-xl font-bold font-mono text-gold-700 tabular-nums mt-0.5 block">{metrics.stockAwaitingEvaluation}</span>
-            <span className="text-[10px] text-gold-700">Vistoria e higienização</span>
-          </div>
-
-          <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg text-xs">
-            <span className="text-orange-800 font-semibold block">Em Manutenção</span>
-            <span className="text-xl font-bold font-mono text-orange-900 tabular-nums mt-0.5 block">{metrics.stockMaintenance}</span>
-            <span className="text-[10px] text-orange-700">Em assistência técnica</span>
-          </div>
-
-          <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg text-xs">
-            <span className="text-purple-800 font-semibold block">Reservado</span>
-            <span className="text-xl font-bold font-mono text-purple-900 tabular-nums mt-0.5 block">{metrics.stockReserved}</span>
-            <span className="text-[10px] text-purple-700">Admissão programada</span>
-          </div>
-
-          <div className="p-3 bg-ink-50 border border-ink-200 rounded-lg text-xs">
-            <span className="text-ink-700 font-semibold block">Aguardando Baixa</span>
-            <span className="text-xl font-bold font-mono text-ink-900 tabular-nums mt-0.5 block">{metrics.stockAwaitingDisposal}</span>
-            <span className="text-[10px] text-ink-500">Inutilizado / Perda total</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Visual Analytics Grid: SVG Charts & Distributions */}
+      {/* Gráficos e resumos */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Chart 1: Status Geral dos Aparelhos */}
+        {/* Status dos aparelhos (donut) */}
         <div className="bg-white p-5 rounded-xl border border-ink-200 shadow-xs">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-start justify-between mb-4">
             <div>
-              <h2 className="text-sm font-bold text-ink-900">Distribuição por Status</h2>
-              <p className="text-xs text-ink-500">Situação operacional de toda a base</p>
+              <h2 className="text-sm font-bold text-ink-900">Status dos aparelhos</h2>
+              <p className="text-xs text-ink-500">Como a frota está distribuída hoje</p>
             </div>
-            <span className="text-xs font-mono font-semibold px-2 py-0.5 bg-ink-100 rounded text-ink-700">
-              {metrics.totalDevices} total
-            </span>
+            <Smartphone className="w-4 h-4 text-ink-400" />
           </div>
 
-          <div className="space-y-2.5 pt-1">
-            {[
-              { label: 'Em uso (com colaborador)', count: metrics.inUseDevices, color: 'bg-iane-600' },
-              { label: 'Disponível em estoque', count: metrics.stockAvailable, color: 'bg-emerald-500' },
-              { label: 'Aguardando avaliação', count: metrics.stockAwaitingEvaluation, color: 'bg-sun-500' },
-              { label: 'Em manutenção', count: metrics.stockMaintenance, color: 'bg-orange-500' },
-              { label: 'Reservado', count: metrics.stockReserved, color: 'bg-purple-500' },
-              { label: 'Aguardando baixa / Baixado', count: metrics.stockAwaitingDisposal + metrics.stockDisposed, color: 'bg-ink-400' },
-            ].map((st) => {
-              const pct = metrics.totalDevices > 0 ? Math.round((st.count / metrics.totalDevices) * 100) : 0;
-              return (
-                <div key={st.label} className="space-y-1">
-                  <div className="flex justify-between text-xs">
-                    <span className="font-medium text-ink-700 truncate max-w-[200px]">{st.label}</span>
-                    <span className="font-mono text-ink-600 tabular-nums">
-                      {st.count} ({pct}%)
-                    </span>
+          <div className="flex flex-col sm:flex-row items-center gap-5">
+            <div className="relative w-40 h-40 shrink-0">
+              <svg viewBox="0 0 140 140" className="w-40 h-40 -rotate-90" role="img" aria-label="Distribuição dos aparelhos por status">
+                <circle cx="70" cy="70" r={DONUT_RADIUS} fill="none" stroke="#ECEFF6" strokeWidth="16" />
+                {donutArcs.map((arc) => (
+                  <circle
+                    key={arc.label}
+                    cx="70"
+                    cy="70"
+                    r={DONUT_RADIUS}
+                    fill="none"
+                    stroke={arc.color}
+                    strokeWidth="16"
+                    strokeDasharray={`${arc.dash} ${DONUT_CIRCUMFERENCE - arc.dash}`}
+                    strokeDashoffset={-arc.offset}
+                  />
+                ))}
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-2xl font-bold font-mono tabular-nums text-ink-900">
+                  {metrics.totalDevices}
+                </span>
+                <span className="text-[10px] text-ink-500 uppercase tracking-wider">aparelhos</span>
+              </div>
+            </div>
+
+            <div className="flex-1 w-full space-y-2">
+              {statusSegments.map((segment) => (
+                <div key={segment.label} className="flex items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: segment.color }} />
+                    <span className="text-ink-700 truncate">{segment.label}</span>
                   </div>
-                  <div className="w-full h-2 bg-ink-100 rounded-full overflow-hidden">
-                    <div 
-                      className={`h-full ${st.color} rounded-full transition-all duration-300`} 
-                      style={{ width: `${pct}%` }} 
-                    />
-                  </div>
+                  <span className="font-mono text-ink-600 tabular-nums shrink-0">
+                    {segment.count} <span className="text-ink-400">({percent(segment.count)}%)</span>
+                  </span>
                 </div>
-              );
-            })}
+              ))}
+              {statusSegments.length === 0 && (
+                <p className="text-xs text-ink-500">Nenhum aparelho cadastrado ainda.</p>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Chart 2: Alocação por Departamento */}
-        <div className="bg-white p-5 rounded-xl border border-ink-200 shadow-xs">
-          <div className="flex items-center justify-between mb-4">
+        {/* Linhas por operadora */}
+        <div className="bg-white p-5 rounded-xl border border-ink-200 shadow-xs flex flex-col">
+          <div className="flex items-start justify-between mb-4">
             <div>
-              <h2 className="text-sm font-bold text-ink-900">Alocação por Departamento</h2>
-              <p className="text-xs text-ink-500">Distribuição setorial e estoque</p>
+              <h2 className="text-sm font-bold text-ink-900">Linhas por operadora</h2>
+              <p className="text-xs text-ink-500">Distribuição dos números corporativos</p>
+            </div>
+            <PhoneCall className="w-4 h-4 text-ink-400" />
+          </div>
+
+          <div className="space-y-3 flex-1">
+            {linesByCarrier.map(([carrier, count]) => (
+              <div key={carrier} className="space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-medium text-ink-700">{carrier}</span>
+                  <span className="font-mono text-ink-600 tabular-nums">{count}</span>
+                </div>
+                <div className="w-full h-2 bg-ink-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-iane-600 rounded-full"
+                    style={{ width: `${Math.round((count / maxCarrierCount) * 100)}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+            {linesByCarrier.length === 0 && (
+              <p className="text-xs text-ink-500">Nenhuma linha cadastrada ainda.</p>
+            )}
+          </div>
+
+          <div className="pt-3 mt-3 border-t border-ink-100 flex items-center justify-between text-[11px] text-ink-500">
+            <span>
+              <strong className="text-iane-700 tabular-nums">{metrics.activeLines}</strong> ativas ·{' '}
+              <strong className="text-emerald-700 tabular-nums">{metrics.availableLines}</strong> livres
+            </span>
+            <button
+              type="button"
+              onClick={() => onNavigate('linhas')}
+              className="font-semibold text-iane-600 hover:text-iane-800 inline-flex items-center gap-1"
+            >
+              Ver linhas
+              <ArrowRight className="w-3 h-3" />
+            </button>
+          </div>
+        </div>
+
+        {/* Termos e documentos */}
+        <div className="bg-white p-5 rounded-xl border border-ink-200 shadow-xs flex flex-col">
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <h2 className="text-sm font-bold text-ink-900">Termos e documentos</h2>
+              <p className="text-xs text-ink-500">Assinaturas e arquivos de guarda</p>
+            </div>
+            <FileText className="w-4 h-4 text-ink-400" />
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="p-2.5 bg-sun-50 border border-sun-300 rounded-lg">
+              <div className="text-lg font-bold font-mono tabular-nums text-gold-700">{pendingTerms.length}</div>
+              <div className="text-[10px] font-medium text-gold-700">Pendentes</div>
+            </div>
+            <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg">
+              <div className="text-lg font-bold font-mono tabular-nums text-emerald-800">{signedTerms.length}</div>
+              <div className="text-[10px] font-medium text-emerald-800">Assinados</div>
+            </div>
+            <div className="p-2.5 bg-ink-50 border border-ink-200 rounded-lg">
+              <div className="text-lg font-bold font-mono tabular-nums text-ink-700">{archivedTerms.length}</div>
+              <div className="text-[10px] font-medium text-ink-600">Arquivados</div>
+            </div>
+          </div>
+
+          <div className="mt-4 space-y-1.5 flex-1">
+            <div className="flex items-center justify-between text-[11px] text-ink-500">
+              <span>Documentos assinados</span>
+              <span className="font-mono tabular-nums">{signedTermsPercent}%</span>
+            </div>
+            <div className="w-full h-2 bg-ink-100 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-emerald-500 rounded-full transition-all duration-300"
+                style={{ width: `${signedTermsPercent}%` }}
+              />
+            </div>
+            <p className="text-[11px] text-ink-500 pt-1">
+              {signedTerms.length} de {terms.length} documentos concluídos.
+            </p>
+          </div>
+
+          <div className="pt-3 mt-3 border-t border-ink-100 flex items-center justify-between">
+            <span className="text-[11px] text-ink-500">{pendingTerms.length} aguardando assinatura</span>
+            <button
+              type="button"
+              onClick={() => onNavigate('termos')}
+              className="text-[11px] font-semibold text-iane-600 hover:text-iane-800 inline-flex items-center gap-1"
+            >
+              Abrir termos
+              <ArrowRight className="w-3 h-3" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Departamentos, fabricantes e resumo financeiro */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="bg-white p-5 rounded-xl border border-ink-200 shadow-xs">
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <h2 className="text-sm font-bold text-ink-900">Aparelhos por departamento</h2>
+              <p className="text-xs text-ink-500">Onde a frota está alocada</p>
             </div>
             <Building2 className="w-4 h-4 text-ink-400" />
           </div>
 
-          <div className="space-y-3 pt-1">
-            {Object.entries(devicesByDepartment).map(([dept, count]) => {
-              const pct = metrics.totalDevices > 0 ? Math.round((count / metrics.totalDevices) * 100) : 0;
-              return (
-                <div key={dept} className="space-y-1">
-                  <div className="flex justify-between text-xs">
-                    <span className="font-medium text-ink-700 truncate max-w-[180px]">{dept}</span>
-                    <span className="font-mono text-ink-600 tabular-nums">
-                      {count} ({pct}%)
-                    </span>
-                  </div>
-                  <div className="w-full h-2 bg-ink-100 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-ink-700 rounded-full transition-all duration-300" 
-                      style={{ width: `${pct}%` }} 
-                    />
-                  </div>
+          <div className="space-y-3">
+            {devicesByDepartment.slice(0, 6).map(([department, count]) => (
+              <div key={department} className="space-y-1">
+                <div className="flex items-center justify-between text-xs gap-2">
+                  <span className="font-medium text-ink-700 truncate">{department}</span>
+                  <span className="font-mono text-ink-600 tabular-nums shrink-0">{count}</span>
                 </div>
-              );
-            })}
+                <div className="w-full h-2 bg-ink-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-navy-700 rounded-full"
+                    style={{ width: `${Math.round((count / maxDepartmentCount) * 100)}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+            {devicesByDepartment.length === 0 && (
+              <p className="text-xs text-ink-500">Nenhum aparelho alocado.</p>
+            )}
           </div>
         </div>
 
-        {/* Chart 3: Operadoras e Ação Rápida */}
-        <div className="bg-white p-5 rounded-xl border border-ink-200 shadow-xs flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-sm font-bold text-ink-900">Linhas por Operadora</h2>
-                <p className="text-xs text-ink-500">Ecossistema de telecomunicações</p>
-              </div>
-              <TrendingUp className="w-4 h-4 text-ink-400" />
-            </div>
-
-            <div className="grid grid-cols-3 gap-2 mb-4">
-              {Object.entries(linesByCarrier).map(([carrier, count]) => (
-                <div key={carrier} className="p-2.5 bg-ink-50 border border-ink-200 rounded-lg text-center">
-                  <div className="text-[11px] font-bold text-ink-700">{carrier}</div>
-                  <div className="text-base font-bold font-mono tabular-nums text-ink-900 mt-0.5">
-                    {count}
-                  </div>
-                </div>
-              ))}
-            </div>
-
+        <div className="bg-white p-5 rounded-xl border border-ink-200 shadow-xs">
+          <div className="flex items-start justify-between mb-4">
             <div>
-              <span className="text-[11px] font-semibold text-ink-500 uppercase tracking-wider block mb-2">
-                Aparelhos por Fabricante:
-              </span>
-              <div className="flex flex-wrap gap-2">
-                {Object.entries(devicesByBrand).map(([brand, count]) => (
-                  <span key={brand} className="text-xs px-2.5 py-1 bg-ink-100 border border-ink-200 rounded-md font-medium text-ink-800">
-                    {brand}: <span className="font-bold font-mono">{count}</span>
-                  </span>
-                ))}
-              </div>
+              <h2 className="text-sm font-bold text-ink-900">Aparelhos por fabricante</h2>
+              <p className="text-xs text-ink-500">Marcas presentes na frota</p>
             </div>
+            <Tag className="w-4 h-4 text-ink-400" />
           </div>
 
-          <div className="pt-4 border-t border-ink-100 mt-4">
-            <button
-              onClick={onOpenMovementModal}
-              className="w-full py-2.5 px-3 bg-iane-600 hover:bg-iane-700 text-white rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-2 shadow-xs"
-            >
-              <ArrowLeftRight className="w-3.5 h-3.5" />
-              <span>Iniciar Movimentação Oficial</span>
-            </button>
+          <div className="flex flex-wrap gap-2">
+            {devicesByBrand.slice(0, 10).map(([brand, count]) => (
+              <span
+                key={brand}
+                className="text-xs px-2.5 py-1.5 bg-ink-50 border border-ink-200 rounded-lg font-medium text-ink-800"
+              >
+                {brand}
+                <span className="ml-1.5 font-mono font-bold text-iane-700 tabular-nums">{count}</span>
+              </span>
+            ))}
+            {devicesByBrand.length === 0 && (
+              <p className="text-xs text-ink-500">Nenhum fabricante registrado.</p>
+            )}
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-ink-100 grid grid-cols-2 gap-3">
+            <div>
+              <span className="text-[10px] uppercase tracking-wider text-ink-500 block">Colaboradores ativos</span>
+              <span className="text-base font-bold font-mono tabular-nums text-ink-900">{activeCollaborators}</span>
+            </div>
+            <div>
+              <span className="text-[10px] uppercase tracking-wider text-ink-500 block">Sem aparelho</span>
+              <span className="text-base font-bold font-mono tabular-nums text-ink-900">{metrics.devicesWithoutCollaborator}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-xl border border-ink-200 shadow-xs">
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <h2 className="text-sm font-bold text-ink-900">Resumo financeiro</h2>
+              <p className="text-xs text-ink-500">Valores patrimoniais e custos de telefonia</p>
+            </div>
+            <Wallet className="w-4 h-4 text-ink-400" />
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-3 p-3 bg-ink-50 border border-ink-200 rounded-lg">
+              <span className="text-xs text-ink-600">Valor da frota</span>
+              <span className="text-sm font-bold font-mono tabular-nums text-ink-900">
+                {formatCurrency(fleetValue)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-3 p-3 bg-ink-50 border border-ink-200 rounded-lg">
+              <span className="text-xs text-ink-600">Custo mensal das linhas</span>
+              <span className="text-sm font-bold font-mono tabular-nums text-ink-900">
+                {formatCurrency(monthlyLineCost)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-3 p-3 bg-ink-50 border border-ink-200 rounded-lg">
+              <span className="text-xs text-ink-600">Linhas ativas sem responsável</span>
+              <span className="text-sm font-bold font-mono tabular-nums text-gold-700">
+                {orphanActiveLines.length}
+              </span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Operational Alerts & Recent Activity Split */}
+      {/* Listas operacionais */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left: Alertas e Prazos */}
         <div className="bg-white p-5 rounded-xl border border-ink-200 shadow-xs">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-gold-700" />
-              <h2 className="text-sm font-bold text-ink-900">Aparelhos Retidos no Estoque & Pendências</h2>
+              <h2 className="text-sm font-bold text-ink-900">Atenção necessária</h2>
             </div>
-            <span className="text-[11px] text-ink-500 font-medium">Controle de Estoque</span>
+            <span className="text-[11px] text-ink-500 font-medium">
+              {attentionDevices.length} aparelho(s)
+            </span>
           </div>
 
-          <div className="space-y-3 text-xs">
-            {evaluatingDevices.map((d) => (
-              <div key={d.id} className="p-3 bg-sun-50/70 border border-sun-300 rounded-lg flex items-start justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-navy-950 font-mono">{d.assetTag} - {d.brand} {d.model}</span>
-                    <StatusBadge status="Aguardando avaliação" type="device" size="sm" />
+          <div className="space-y-2.5">
+            {attentionDevices.slice(0, 6).map((device) => (
+              <div
+                key={device.id}
+                className={`p-3 rounded-lg border flex items-start justify-between gap-3 ${
+                  device.status === 'Em manutenção'
+                    ? 'bg-orange-50/70 border-orange-200'
+                    : 'bg-sun-50/70 border-sun-300'
+                }`}
+              >
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-ink-900 font-mono text-xs">{device.assetTag}</span>
+                    <StatusBadge status={device.status} type="device" size="sm" />
                   </div>
-                  <p className="text-[11px] text-gold-700 mt-0.5">
-                    {d.notes || 'Equipamento devolvido ao estoque do gestor, pendente de vistoria para liberação.'}
+                  <p className="text-[11px] text-ink-600 truncate">
+                    {device.brand} {device.model}
+                    {device.notes ? ` · ${device.notes}` : ''}
                   </p>
                 </div>
                 <button
+                  type="button"
                   onClick={() => onNavigate('dispositivos')}
-                  className="text-xs font-semibold text-gold-700 hover:underline shrink-0"
+                  className="text-[11px] font-semibold text-iane-700 hover:text-iane-900 hover:underline shrink-0"
                 >
-                  Liberar Estoque
+                  Abrir
                 </button>
               </div>
             ))}
 
-            {maintenanceDevices.map((d) => (
-              <div key={d.id} className="p-3 bg-orange-50/70 border border-orange-200 rounded-lg flex items-start justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-orange-950 font-mono">{d.assetTag} - {d.brand} {d.model}</span>
-                    <StatusBadge status="Em manutenção" type="device" size="sm" />
-                  </div>
-                  <p className="text-[11px] text-orange-800 mt-0.5">
-                    {d.notes}
-                  </p>
-                </div>
-                <button
-                  onClick={() => onNavigate('dispositivos')}
-                  className="text-xs font-semibold text-orange-900 hover:underline shrink-0"
-                >
-                  Retorno Manutenção
-                </button>
+            {attentionDevices.length === 0 && (
+              <div className="py-6 text-center">
+                <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
+                <p className="text-xs font-semibold text-ink-700">Nenhuma pendência no estoque</p>
+                <p className="text-[11px] text-ink-500 mt-0.5">
+                  Não há aparelhos aguardando avaliação ou em manutenção.
+                </p>
               </div>
-            ))}
-
-            {pendingTerms.map((t) => (
-              <div key={t.id} className="p-3 bg-iane-50/70 border border-iane-200 rounded-lg flex items-start justify-between gap-3">
-                <div>
-                  <span className="font-bold text-iane-800 font-mono">{t.code}</span>
-                  <span className="text-ink-600"> · {t.collaboratorName}</span>
-                  <p className="text-[11px] text-iane-800 mt-0.5">
-                    Termo oficial gerado, aguardando assinatura formal.
-                  </p>
-                </div>
-                <button
-                  onClick={() => onNavigate('termos')}
-                  className="text-xs font-semibold text-iane-700 hover:underline shrink-0"
-                >
-                  Assinar Termo
-                </button>
-              </div>
-            ))}
+            )}
           </div>
+
+          {attentionDevices.length > 6 && (
+            <button
+              type="button"
+              onClick={() => onNavigate('dispositivos')}
+              className="mt-3 w-full py-2 text-[11px] font-semibold text-iane-600 bg-iane-50 hover:bg-iane-100 rounded-lg transition-colors"
+            >
+              Ver todos os {attentionDevices.length} aparelhos
+            </button>
+          )}
         </div>
 
-        {/* Right: Últimas Movimentações */}
         <div className="bg-white p-5 rounded-xl border border-ink-200 shadow-xs">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4 text-ink-500" />
-              <h2 className="text-sm font-bold text-ink-900">Histórico de Passagem por Estoque</h2>
+              <h2 className="text-sm font-bold text-ink-900">Últimas movimentações</h2>
             </div>
             <button
+              type="button"
               onClick={() => onNavigate('movimentacoes')}
-              className="text-xs font-semibold text-iane-600 hover:text-iane-800"
+              className="text-[11px] font-semibold text-iane-600 hover:text-iane-800 inline-flex items-center gap-1"
             >
-              Ver Todas ({movements.length})
+              Ver todas ({movements.length})
+              <ArrowRight className="w-3 h-3" />
             </button>
           </div>
 
           <div className="divide-y divide-ink-100">
-            {movements.slice(0, 6).map((m) => (
-              <div key={m.id} className="py-2.5 flex items-start justify-between gap-3 text-xs">
-                <div className="space-y-0.5 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-ink-900">{m.type}</span>
-                    <span className="text-ink-400">·</span>
-                    <span className="font-mono text-iane-700 font-bold">{m.deviceTag || 'Ativo'}</span>
-                    {m.batchOperationId && (
-                      <span className="text-[10px] bg-ink-100 text-ink-600 px-1.5 py-0.2 rounded font-mono">
-                        {m.batchOperationId}
+            {movements.slice(0, 6).map((movement) => (
+              <div key={movement.id} className="py-2.5 flex items-start justify-between gap-3">
+                <div className="flex items-start gap-2.5 min-w-0">
+                  <span
+                    className={`mt-0.5 w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                      movement.type === 'Entrega'
+                        ? 'bg-emerald-50 text-emerald-600'
+                        : movement.type === 'Devolução'
+                          ? 'bg-sun-50 text-gold-700'
+                          : 'bg-iane-50 text-iane-600'
+                    }`}
+                  >
+                    <ArrowLeftRight className="w-3.5 h-3.5" />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-xs font-semibold text-ink-900">{movement.type}</span>
+                      <span className="text-[11px] font-mono font-bold text-iane-700">
+                        {movement.deviceTag || movement.phoneNumber || 'Ativo'}
                       </span>
-                    )}
+                    </div>
+                    <p className="text-[11px] text-ink-500 truncate">
+                      {movement.originCollaboratorName || 'Estoque'} →{' '}
+                      {movement.destinationCollaboratorName || 'Estoque'}
+                    </p>
                   </div>
-                  <p className="text-ink-600 truncate text-[11px]">
-                    <span className="text-ink-400">Origem:</span> {m.originCollaboratorName || 'Estoque'} → <span className="text-ink-400">Destino:</span> {m.destinationCollaboratorName || 'Estoque'}
-                  </p>
                 </div>
-                <div className="text-right shrink-0">
-                  <span className="text-[11px] font-mono text-ink-500">{formatDate(m.date)}</span>
-                  {m.stockTransit?.stage && (
-                    <span className="block text-[10px] text-indigo-700 font-medium">
-                      {m.stockTransit.stage}
-                    </span>
-                  )}
-                </div>
+                <span className="text-[11px] font-mono text-ink-500 shrink-0">{formatDate(movement.date)}</span>
               </div>
             ))}
+
+            {movements.length === 0 && (
+              <div className="py-6 text-center">
+                <ArrowLeftRight className="w-8 h-8 text-ink-300 mx-auto mb-2" />
+                <p className="text-xs font-semibold text-ink-700">Nenhuma movimentação registrada</p>
+                <p className="text-[11px] text-ink-500 mt-0.5">
+                  As entregas, devoluções e transferências aparecerão aqui.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Aviso de termos pendentes para administradores */}
+      <Modal
+        isOpen={isPendingTermsModalOpen}
+        onClose={closePendingTermsModal}
+        title="Existem termos pendentes de assinatura"
+        subtitle={`${pendingTerms.length} documento(s) aguardando assinatura`}
+        maxWidth="md"
+      >
+        <div className="space-y-4">
+          <div className="flex items-start gap-3 p-4 rounded-xl bg-sun-50 border border-sun-300">
+            <FileWarning className="w-5 h-5 text-gold-700 shrink-0 mt-0.5" />
+            <p className="text-xs text-gold-700 leading-relaxed">
+              {firstName ? `${firstName}, existem` : 'Existem'}{' '}
+              <strong className="text-ink-900">{pendingTerms.length} termo(s)</strong> gerados e ainda
+              não assinados. Regularize com o gestor responsável para manter a documentação patrimonial
+              em dia.
+            </p>
+          </div>
+
+          <div className="divide-y divide-ink-100 border border-ink-200 rounded-lg overflow-hidden">
+            {pendingTerms.slice(0, 5).map((term) => (
+              <div key={term.id} className="px-3 py-2.5 flex items-center justify-between gap-3 bg-white">
+                <div className="min-w-0">
+                  <span className="text-xs font-mono font-bold text-ink-900">{term.code}</span>
+                  <p className="text-[11px] text-ink-500 truncate">
+                    {term.collaboratorName || 'Sem colaborador'} · {formatDate(term.date)}
+                  </p>
+                </div>
+                <StatusBadge status={term.status} type="term" size="sm" />
+              </div>
+            ))}
+          </div>
+
+          {pendingTerms.length > 5 && (
+            <p className="text-[11px] text-ink-500 text-center">
+              e mais {pendingTerms.length - 5} termo(s) pendente(s).
+            </p>
+          )}
+
+          <div className="flex justify-end gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => {
+                closePendingTermsModal();
+                onNavigate('termos');
+              }}
+              className="px-4 py-2 text-xs font-semibold text-iane-700 bg-iane-50 hover:bg-iane-100 border border-iane-200 rounded-lg transition-colors"
+            >
+              Ver termos
+            </button>
+            <button
+              type="button"
+              onClick={closePendingTermsModal}
+              className="px-5 py-2 text-xs font-semibold text-white bg-iane-600 hover:bg-iane-700 rounded-lg shadow-xs transition-colors"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

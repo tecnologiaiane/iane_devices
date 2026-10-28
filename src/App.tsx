@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { Sidebar, NavTab } from './components/Sidebar';
-import { Header } from './components/Header';
 import { Device, PhoneLine, Collaborator, DocumentTerm, MovementType, User } from './types';
 import { dataService } from './services/dataStorage';
 import { authService } from './services/authService';
@@ -68,6 +67,18 @@ const tabToPath: Record<NavTab, string> = {
   termos: '/termos',
   relatorios: '/relatorios',
   configuracoes: '/configuracoes',
+};
+
+// Título exibido no topo de cada tela (sem barra fixa, apenas o nome da área)
+const PAGE_TITLES: Record<NavTab, string> = {
+  dashboard: 'Dashboard',
+  dispositivos: 'Dispositivos',
+  linhas: 'Linhas telefônicas',
+  colaboradores: 'Colaboradores',
+  movimentacoes: 'Movimentações',
+  termos: 'Termos e documentos',
+  relatorios: 'Relatórios',
+  configuracoes: 'Configurações',
 };
 
 const pathToTab: Record<string, NavTab> = {
@@ -288,19 +299,16 @@ export default function App() {
           isSidebarCollapsed ? 'pl-[76px]' : 'pl-64'
         }`}
       >
-        <Header
-          activeTab={activeTab}
-          onOpenMovementModal={() => handleOpenMovementModal()}
-          onOpenDeviceModal={() => handleOpenDeviceModal()}
-        />
-
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+          <h1 className="text-2xl sm:text-3xl font-bold text-ink-900 tracking-tight mb-5">
+            {PAGE_TITLES[activeTab]}
+          </h1>
           <React.Suspense fallback={<ViewFallback />}>
           {activeTab === 'dashboard' && (
             <DashboardView
               key={refreshKey}
               onNavigate={setActiveTab}
-              onOpenMovementModal={() => handleOpenMovementModal()}
+              currentUser={currentUser}
             />
           )}
 

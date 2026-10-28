@@ -146,7 +146,7 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-iane-700 bg-iane-50 hover:bg-iane-100 border border-iane-200 transition-colors shrink-0"
             >
               <ArrowLeftRight className="w-3.5 h-3.5" />
-              <span>Nova Movimentação</span>
+              <span>Movimentação</span>
             </button>
 
             <button
