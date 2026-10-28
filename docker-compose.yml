@@ -9,7 +9,7 @@ services:
     environment:
       POSTGRES_DB: telecom_assets
       POSTGRES_USER: iane_admin
-      POSTGRES_PASSWORD: SuaSenhaForteAqui123!
+      POSTGRES_PASSWORD: Iane@admin
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
@@ -36,7 +36,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
-      DATABASE_URL: postgres://iane_admin:SuaSenhaForteAqui123!@postgres:5432/telecom_assets
+      DATABASE_URL: postgres://iane_admin:Iane@admin!@postgres:5432/telecom_assets
     ports:
       # Acesso web via rede local ou externa
       - "3000:3000"
