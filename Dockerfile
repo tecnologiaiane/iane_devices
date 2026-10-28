@@ -28,6 +28,7 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=3000
+ENV BACKUP_DIR=/app/backups
 
 # Copia manifestos e instala apenas dependências de produção
 COPY package*.json ./
@@ -37,6 +38,9 @@ RUN npm install --omit=dev --legacy-peer-deps && npm install -g tsx
 COPY --from=builder /app/dist ./dist
 COPY server.ts ./
 COPY init-db.sql ./
+
+# Pasta das cópias de segurança (montada como volume no docker-compose)
+RUN mkdir -p /app/backups
 
 # Porta padrão de atendimento
 EXPOSE 3000

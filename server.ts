@@ -11,6 +11,7 @@ import pg from 'pg';
 import dotenv from 'dotenv';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { promises as fs } from 'fs';
 
 dotenv.config();
 
@@ -47,6 +48,41 @@ app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 // ----------------------------------------------------------------------------
 const { Pool } = pg;
 const databaseUrl = process.env.DATABASE_URL;
+
+// ----------------------------------------------------------------------------
+// Rotina de backup do PostgreSQL (arquivos JSON no servidor)
+// ----------------------------------------------------------------------------
+const BACKUP_DIR = process.env.BACKUP_DIR || path.resolve(__dirname, 'backups');
+const BACKUP_INTERVAL_HOURS = Math.max(
+  1,
+  Number.parseInt(process.env.BACKUP_INTERVAL_HOURS || '24', 10) || 24
+);
+const BACKUP_RETENTION = Math.max(
+  1,
+  Number.parseInt(process.env.BACKUP_RETENTION || '14', 10) || 14
+);
+const BACKUP_TABLES = [
+  'collaborators',
+  'phone_lines',
+  'devices',
+  'movements',
+  'terms_documents',
+  'system_users',
+  'audit_logs',
+] as const;
+
+type BackupOrigin = 'manual' | 'scheduled';
+
+interface BackupFileInfo {
+  fileName: string;
+  createdAt: string;
+  size: number;
+  origin: BackupOrigin | string;
+}
+
+let backupInProgress = false;
+let backupSchedulerStarted = false;
+let backupTimer: NodeJS.Timeout | null = null;
 
 let pool: pg.Pool | null = null;
 let isDbConnected = false;
@@ -278,6 +314,138 @@ async function autoMigrateDatabase(client: pg.PoolClient) {
   }
 }
 
+async function listBackups(): Promise<BackupFileInfo[]> {
+  try {
+    await fs.mkdir(BACKUP_DIR, { recursive: true });
+    const entries = await fs.readdir(BACKUP_DIR, { withFileTypes: true });
+    const files = entries.filter(
+      (entry) =>
+        entry.isFile() &&
+        entry.name.startsWith('iane-backup-') &&
+        entry.name.endsWith('.json')
+    );
+
+    const infos = await Promise.all(
+      files.map(async (entry) => {
+        const fullPath = path.join(BACKUP_DIR, entry.name);
+        const stat = await fs.stat(fullPath);
+        const origin = entry.name.match(/^iane-backup-(manual|scheduled)-/)?.[1] || 'manual';
+        return {
+          fileName: entry.name,
+          createdAt: stat.mtime.toISOString(),
+          size: stat.size,
+          origin,
+        };
+      })
+    );
+
+    return infos.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  } catch (err: any) {
+    if (err?.code !== 'ENOENT') {
+      console.warn('⚠️ [Backup] Não foi possível listar os backups:', err?.message || err);
+    }
+    return [];
+  }
+}
+
+async function pruneOldBackups(): Promise<void> {
+  const backups = await listBackups();
+  const expired = backups.slice(BACKUP_RETENTION);
+  await Promise.all(
+    expired.map((backup) =>
+      fs.unlink(path.join(BACKUP_DIR, backup.fileName)).catch(() => undefined)
+    )
+  );
+  if (expired.length > 0) {
+    console.log(`🧹 [Backup] ${expired.length} cópia(s) antiga(s) removida(s) pela retenção de ${BACKUP_RETENTION}.`);
+  }
+}
+
+async function createDatabaseBackup(origin: BackupOrigin): Promise<BackupFileInfo> {
+  if (!pool || !isDbConnected) {
+    throw new Error('PostgreSQL indisponível. Conecte o banco para gerar o backup.');
+  }
+  if (backupInProgress) {
+    throw Object.assign(new Error('Já existe um backup em andamento. Tente novamente em instantes.'), {
+      status: 409,
+    });
+  }
+
+  backupInProgress = true;
+  try {
+    const tables: Record<string, unknown[]> = {};
+    for (const table of BACKUP_TABLES) {
+      const result = await pool.query(`SELECT * FROM ${table}`);
+      tables[table] = result.rows;
+    }
+
+    const createdAt = new Date().toISOString();
+    const stamp = createdAt.replace(/[:.]/g, '-');
+    const fileName = `iane-backup-${origin}-${stamp}.json`;
+    const payload = {
+      format: 'iane-postgres-backup',
+      version: 1,
+      createdAt,
+      origin,
+      tables,
+    };
+
+    await fs.mkdir(BACKUP_DIR, { recursive: true });
+    const fullPath = path.join(BACKUP_DIR, fileName);
+    const tempPath = `${fullPath}.tmp`;
+    const serialized = JSON.stringify(payload);
+    await fs.writeFile(tempPath, serialized, 'utf8');
+    await fs.rename(tempPath, fullPath);
+
+    await pruneOldBackups();
+    console.log(`💾 [Backup] Cópia ${origin} criada: ${fileName} (${serialized.length} bytes)`);
+
+    return {
+      fileName,
+      createdAt,
+      size: Buffer.byteLength(serialized, 'utf8'),
+      origin,
+    };
+  } finally {
+    backupInProgress = false;
+  }
+}
+
+async function runScheduledBackupIfDue(): Promise<void> {
+  if (!pool || !isDbConnected) return;
+
+  try {
+    const backups = await listBackups();
+    const newest = backups[0];
+    const ageMs = newest ? Date.now() - new Date(newest.createdAt).getTime() : Infinity;
+    const intervalMs = BACKUP_INTERVAL_HOURS * 60 * 60 * 1000;
+
+    if (ageMs < intervalMs) return;
+    await createDatabaseBackup('scheduled');
+  } catch (err: any) {
+    console.warn('⚠️ [Backup] Rotina automática falhou:', err?.message || err);
+  }
+}
+
+function startBackupScheduler(): void {
+  if (backupSchedulerStarted) return;
+  backupSchedulerStarted = true;
+
+  // Aguarda a estabilização da migração antes da primeira verificação
+  setTimeout(() => {
+    void runScheduledBackupIfDue();
+  }, 30_000).unref?.();
+
+  backupTimer = setInterval(() => {
+    void runScheduledBackupIfDue();
+  }, 60 * 60 * 1000);
+  backupTimer.unref?.();
+
+  console.log(
+    `💾 [Backup] Rotina automática ativa: a cada ${BACKUP_INTERVAL_HOURS}h, retenção de ${BACKUP_RETENTION} arquivo(s) em ${BACKUP_DIR}`
+  );
+}
+
 async function connectDatabase(attempt = 1): Promise<void> {
   if (!pool) return;
   try {
@@ -289,6 +457,7 @@ async function connectDatabase(attempt = 1): Promise<void> {
     }
     isDbConnected = true;
     console.log('✅ [PostgreSQL] Conexão com o banco de dados corporativo estabelecida com sucesso!');
+    startBackupScheduler();
   } catch (err: any) {
     isDbConnected = false;
     console.warn(`⚠️ [PostgreSQL] Tentativa ${attempt} de conexão falhou: ${err.message}. Nova tentativa em 5s...`);
@@ -355,6 +524,18 @@ function requirePermission(permission: string) {
   };
 }
 
+// Operações que expõem a base inteira (backup/restauração) são exclusivas do super administrador.
+function requireAdmin(req: Request, res: Response, next: NextFunction) {
+  const user = (req as any).user;
+  if (!user) {
+    return res.status(401).json({ success: false, message: 'Não autorizado. Faça login para continuar.' });
+  }
+  if (user.role !== 'admin') {
+    return res.status(403).json({ success: false, message: 'Acesso restrito ao administrador do sistema.' });
+  }
+  next();
+}
+
 // Rotas públicas
 const PUBLIC_PATHS = ['/api/health', '/api/auth/login'];
 app.use((req, res, next) => {
@@ -368,7 +549,7 @@ app.use((req, res, next) => {
 
 // Rotas de dados exigem o PostgreSQL. Sem banco, respondem 503 para que o front-end mantenha a gravação
 // na fila e tente de novo (antes o servidor respondia "sucesso" gravando só em memória).
-const DB_REQUIRED_PREFIXES = ['/api/devices', '/api/lines', '/api/collaborators', '/api/movements', '/api/terms', '/api/audit-logs', '/api/sync', '/api/database'];
+const DB_REQUIRED_PREFIXES = ['/api/devices', '/api/lines', '/api/collaborators', '/api/movements', '/api/terms', '/api/audit-logs', '/api/sync', '/api/database', '/api/backup'];
 app.use((req, res, next) => {
   if (!ALLOW_MEMORY_FALLBACK && !isDbConnected && DB_REQUIRED_PREFIXES.some(p => req.path.startsWith(p))) {
     return res.status(503).json({
@@ -1452,6 +1633,57 @@ app.post('/api/database/reset', async (req, res) => {
   memoryStore.terms = [];
   memoryStore.auditLogs = [];
   res.json({ success: true, message: 'Base de dados local zerada com sucesso.' });
+});
+
+// 13. Backup do PostgreSQL (cópias completas em arquivo JSON no servidor)
+app.get('/api/backup', requireAdmin, async (_req, res) => {
+  const backups = await listBackups();
+  res.json({
+    success: true,
+    data: {
+      backups,
+      intervalHours: BACKUP_INTERVAL_HOURS,
+      retention: BACKUP_RETENTION,
+    },
+  });
+});
+
+app.post('/api/backup', requireAdmin, async (_req, res) => {
+  try {
+    const info = await createDatabaseBackup('manual');
+    return res.status(201).json({
+      success: true,
+      data: info,
+      message: `Backup ${info.fileName} criado com sucesso.`,
+    });
+  } catch (err: any) {
+    return res.status(err?.status || 503).json({
+      success: false,
+      message: err?.message || 'Não foi possível gerar o backup no servidor.',
+    });
+  }
+});
+
+app.get('/api/backup/:fileName', requireAdmin, async (req, res) => {
+  const rawName = req.params.fileName || '';
+  const fileName = path.basename(rawName);
+
+  if (
+    fileName !== rawName ||
+    !/^iane-backup-(manual|scheduled)-[A-Za-z0-9._-]+\.json$/.test(fileName)
+  ) {
+    return res.status(400).json({ success: false, message: 'Nome de backup inválido.' });
+  }
+
+  const fullPath = path.join(BACKUP_DIR, fileName);
+  try {
+    const stat = await fs.stat(fullPath);
+    if (!stat.isFile()) throw Object.assign(new Error('not a file'), { code: 'ENOENT' });
+  } catch {
+    return res.status(404).json({ success: false, message: 'Backup não encontrado.' });
+  }
+
+  return res.download(fullPath, fileName);
 });
 
 // ----------------------------------------------------------------------------

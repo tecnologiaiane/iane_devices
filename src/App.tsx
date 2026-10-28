@@ -16,7 +16,6 @@ import { DeviceModal } from './components/modals/DeviceModal';
 import { LineModal } from './components/modals/LineModal';
 import { CollaboratorModal } from './components/modals/CollaboratorModal';
 import { TermViewerModal } from './components/modals/TermViewerModal';
-import { SpreadsheetImportModal } from './components/modals/SpreadsheetImportModal';
 
 import { Device, PhoneLine, Collaborator, DocumentTerm, MovementType, User } from './types';
 import { dataService } from './services/dataStorage';
@@ -47,6 +46,16 @@ const pathToTab: Record<string, NavTab> = {
   '/configuracoes': 'configuracoes',
 };
 
+const SIDEBAR_COLLAPSED_KEY = 'iane_sidebar_collapsed_v1';
+
+const readSidebarCollapsed = (): boolean => {
+  try {
+    return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true';
+  } catch {
+    return false;
+  }
+};
+
 export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -57,8 +66,21 @@ export default function App() {
     navigate(tabToPath[tab]);
   };
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(readSidebarCollapsed);
   const [refreshKey, setRefreshKey] = useState(0);
   const [apiNotifications, setApiNotifications] = useState<ApiNotification[]>([]);
+
+  const handleToggleSidebarCollapse = () => {
+    setIsSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(next));
+      } catch {
+        // Armazenamento indisponível: o estado continua válido apenas nesta sessão
+      }
+      return next;
+    });
+  };
 
   // Notificações globais de erros HTTP e indisponibilidade do backend
   React.useEffect(() => {
@@ -138,8 +160,6 @@ export default function App() {
   const [isTermViewerOpen, setIsTermViewerOpen] = useState(false);
   const [selectedTerm, setSelectedTerm] = useState<DocumentTerm | null>(null);
 
-  const [isSpreadsheetModalOpen, setIsSpreadsheetModalOpen] = useState(false);
-
   const triggerRefresh = () => {
     setRefreshKey(prev => prev + 1);
   };
@@ -211,17 +231,21 @@ export default function App() {
         maintenanceCount={metrics.stockMaintenance}
         currentUser={currentUser}
         onLogout={handleLogout}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={handleToggleSidebarCollapse}
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 lg:pl-64 flex flex-col min-w-0">
+      <div
+        className={`flex-1 flex flex-col min-w-0 transition-[padding] duration-200 ${
+          isSidebarCollapsed ? 'lg:pl-[76px]' : 'lg:pl-64'
+        }`}
+      >
         <Header
           activeTab={activeTab}
           onToggleMobile={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           onOpenMovementModal={() => handleOpenMovementModal()}
           onOpenDeviceModal={() => handleOpenDeviceModal()}
-          currentUser={currentUser}
-          onLogout={handleLogout}
         />
 
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
@@ -282,7 +306,6 @@ export default function App() {
           {activeTab === 'configuracoes' && (
             <SettingsView
               key={refreshKey}
-              onOpenSpreadsheetModal={() => setIsSpreadsheetModalOpen(true)}
               onDataReset={triggerRefresh}
               currentUser={currentUser}
             />
@@ -326,12 +349,6 @@ export default function App() {
         onClose={() => setIsTermViewerOpen(false)}
         term={selectedTerm}
         onTermUpdated={triggerRefresh}
-      />
-
-      <SpreadsheetImportModal
-        isOpen={isSpreadsheetModalOpen}
-        onClose={() => setIsSpreadsheetModalOpen(false)}
-        onSuccess={triggerRefresh}
       />
 
       {/* Notificações Flutuantes Globais do ApiClient (401, 403, 500, Servidor Indisponível) */}

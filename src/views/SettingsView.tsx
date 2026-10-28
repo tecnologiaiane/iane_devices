@@ -1,39 +1,123 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { dataService } from '../services/dataStorage';
 import { authService } from '../services/authService';
+import { apiClient } from '../services/apiClient';
 import { User, UserRole, SystemUserFormData } from '../types';
 import {
-  Settings,
-  FileSpreadsheet,
   Download,
   Upload,
-  RotateCcw,
   ShieldCheck,
   Database,
   History,
   CheckCircle2,
   AlertTriangle,
-  Server,
-  Activity,
-  Terminal,
   UserPlus,
   Users,
   Edit2,
   Trash2,
-  KeyRound,
   Eye,
   EyeOff,
   X,
-  Lock,
   CheckSquare,
-  Square
+  Square,
+  ChevronDown,
+  RefreshCw,
+  Loader2,
+  Server,
+  ServerOff,
+  HardDrive,
+  Clock,
+  ShieldAlert,
+  RotateCcw,
 } from 'lucide-react';
 
 interface SettingsViewProps {
-  onOpenSpreadsheetModal: () => void;
   onDataReset: () => void;
   currentUser?: User | null;
 }
+
+type SettingsSectionId = 'users' | 'backup' | 'audit' | 'danger';
+
+interface BackupFileInfo {
+  fileName: string;
+  createdAt: string;
+  size: number;
+  origin: 'manual' | 'scheduled' | string;
+}
+
+interface BackupListPayload {
+  backups: BackupFileInfo[];
+  intervalHours: number;
+  retention: number;
+}
+
+interface SettingsSectionProps {
+  id: SettingsSectionId;
+  title: string;
+  description: string;
+  icon: React.ElementType;
+  badge?: string;
+  isOpen: boolean;
+  onToggle: (id: SettingsSectionId) => void;
+  tone?: 'default' | 'danger';
+  children: React.ReactNode;
+}
+
+const SettingsSection: React.FC<SettingsSectionProps> = ({
+  id,
+  title,
+  description,
+  icon: Icon,
+  badge,
+  isOpen,
+  onToggle,
+  tone = 'default',
+  children,
+}) => (
+  <section className="bg-white rounded-xl border border-ink-200 shadow-xs overflow-hidden">
+    <button
+      type="button"
+      onClick={() => onToggle(id)}
+      aria-expanded={isOpen}
+      aria-controls={`settings-section-${id}`}
+      className="w-full flex items-center gap-3 p-4 text-left hover:bg-ink-50/60 transition-colors cursor-pointer"
+    >
+      <div
+        className={`w-9 h-9 rounded-lg border flex items-center justify-center shrink-0 ${
+          tone === 'danger'
+            ? 'bg-rose-50 border-rose-200 text-rose-600'
+            : 'bg-iane-50 border-iane-200 text-iane-600'
+        }`}
+      >
+        <Icon className="w-5 h-5" />
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2 min-w-0">
+          <h3 className="text-sm font-bold text-ink-900 truncate">{title}</h3>
+          {badge && (
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-ink-100 text-ink-600 border border-ink-200 shrink-0">
+              {badge}
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-ink-500 truncate mt-0.5">{description}</p>
+      </div>
+
+      <ChevronDown
+        className={`w-4 h-4 text-ink-400 shrink-0 transition-transform duration-200 ${
+          isOpen ? 'rotate-180' : ''
+        }`}
+      />
+    </button>
+
+    {isOpen && (
+      <div id={`settings-section-${id}`} className="border-t border-ink-100">
+        {children}
+      </div>
+    )}
+  </section>
+);
 
 const AVAILABLE_PERMISSIONS = [
   { id: 'dashboard', label: 'Dashboard & Indicadores', description: 'Visualizar painel geral e métricas de telefonia' },
@@ -57,21 +141,52 @@ const DEFAULT_ROLE_PERMS: Record<UserRole, string[]> = {
   visualizador: ['dashboard', 'dispositivos', 'linhas', 'colaboradores', 'relatorios'],
 };
 
+const formatFileSize = (bytes: number): string => {
+  if (!bytes || bytes <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  const value = bytes / Math.pow(1024, index);
+  return `${value.toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
+};
+
+const formatBackupDate = (value: string): string => {
+  try {
+    return new Date(value).toLocaleString('pt-BR');
+  } catch {
+    return value;
+  }
+};
+
 export const SettingsView: React.FC<SettingsViewProps> = ({
-  onOpenSpreadsheetModal,
   onDataReset,
   currentUser: propUser,
 }) => {
   const activeUser = propUser || authService.getCurrentUser();
   const canManageUsers = authService.canManageUsers(activeUser);
+  const isAdmin = activeUser?.role === 'admin';
 
   const [auditLogs, setAuditLogs] = useState(dataService.getAuditLogs());
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [openSection, setOpenSection] = useState<SettingsSectionId | null>(null);
+
+  // Status do banco (dropdown minimalista no canto)
   const [serverHealth, setServerHealth] = useState<{
     database: string;
     environment: string;
   } | null>(null);
+  const [isCheckingHealth, setIsCheckingHealth] = useState(false);
+  const [lastHealthCheck, setLastHealthCheck] = useState<Date | null>(null);
+  const [isDbDropdownOpen, setIsDbDropdownOpen] = useState(false);
+  const dbDropdownRef = useRef<HTMLDivElement>(null);
+  const [isSyncingWithDb, setIsSyncingWithDb] = useState(false);
+
+  // Backup no servidor
+  const [backups, setBackups] = useState<BackupFileInfo[]>([]);
+  const [backupConfig, setBackupConfig] = useState({ intervalHours: 24, retention: 14 });
+  const [loadingBackups, setLoadingBackups] = useState(false);
+  const [isCreatingBackup, setIsCreatingBackup] = useState(false);
+  const [downloadingBackup, setDownloadingBackup] = useState<string | null>(null);
 
   // Estados de Gestão de Usuários
   const [users, setUsers] = useState<User[]>([]);
@@ -90,30 +205,113 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmittingUser, setIsSubmittingUser] = useState(false);
 
+  // Confirmação reforçada de limpeza total
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [resetConfirmText, setResetConfirmText] = useState('');
+  const [resetAcknowledged, setResetAcknowledged] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+
+  const checkHealth = async () => {
+    setIsCheckingHealth(true);
+    try {
+      const response = await fetch('/api/health', { cache: 'no-store' });
+      if (!response.ok) throw new Error('health check failed');
+      const data = await response.json();
+      setServerHealth({
+        database: data.database || 'unknown',
+        environment: data.environment || 'unknown',
+      });
+    } catch {
+      setServerHealth({ database: 'unreachable', environment: 'unknown' });
+    } finally {
+      setIsCheckingHealth(false);
+      setLastHealthCheck(new Date());
+    }
+  };
+
   const loadUsers = async () => {
     setLoadingUsers(true);
     try {
       const list = await dataService.getUsers();
       setUsers(list);
     } catch {
-      // ignore
+      // Mantém a lista anterior em caso de falha temporária
     } finally {
       setLoadingUsers(false);
     }
   };
 
+  const loadBackups = async () => {
+    setLoadingBackups(true);
+    try {
+      const res = await apiClient.get<BackupListPayload>('/api/backup');
+      if (res.success && res.data) {
+        setBackups(Array.isArray(res.data.backups) ? res.data.backups : []);
+        setBackupConfig({
+          intervalHours: res.data.intervalHours || 24,
+          retention: res.data.retention || 14,
+        });
+      }
+    } catch {
+      // O dropdown permanece com o último estado conhecido
+    } finally {
+      setLoadingBackups(false);
+    }
+  };
+
   useEffect(() => {
-    fetch('/api/health')
-      .then(res => res.json())
-      .then(data => setServerHealth(data))
-      .catch(() => setServerHealth({ database: 'local_storage_mode', environment: 'client' }));
+    void checkHealth();
+    const timer = window.setInterval(() => {
+      void checkHealth();
+    }, 30000);
 
     if (canManageUsers) {
-      loadUsers();
+      void loadUsers();
     }
+    if (isAdmin) {
+      void loadBackups();
+    }
+
+    return () => window.clearInterval(timer);
   }, []);
 
-  const [isSyncingWithDb, setIsSyncingWithDb] = useState(false);
+  // Fecha o dropdown de status do banco ao clicar fora ou pressionar Esc
+  useEffect(() => {
+    if (!isDbDropdownOpen) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dbDropdownRef.current && !dbDropdownRef.current.contains(event.target as Node)) {
+        setIsDbDropdownOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsDbDropdownOpen(false);
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isDbDropdownOpen]);
+
+  const handleToggleSection = (id: SettingsSectionId) => {
+    setOpenSection((current) => (current === id ? null : id));
+
+    if (id === 'audit') {
+      void dataService
+        .fetchAuditLogs()
+        .then((logs) => setAuditLogs(logs))
+        .catch(() => undefined);
+    }
+    if (id === 'users' && canManageUsers) {
+      void loadUsers();
+    }
+    if (id === 'backup' && isAdmin && backups.length === 0) {
+      void loadBackups();
+    }
+  };
 
   const handleForceSyncWithDatabase = async () => {
     setIsSyncingWithDb(true);
@@ -122,9 +320,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     try {
       const res = await dataService.batchSyncToServer();
       if (res.success) {
-        setSuccessMessage('Sucesso: Todos os dados locais foram gravados e persistidos no banco de dados PostgreSQL!');
-        const health = await fetch('/api/health').then(r => r.json()).catch(() => null);
-        if (health) setServerHealth(health);
+        setSuccessMessage('Dados locais gravados no PostgreSQL com sucesso.');
+        await checkHealth();
       } else {
         setErrorMessage(res.message);
       }
@@ -132,6 +329,116 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       setErrorMessage(err.message || 'Erro ao comunicar com o servidor.');
     } finally {
       setIsSyncingWithDb(false);
+    }
+  };
+
+  const handleCreateBackup = async () => {
+    setIsCreatingBackup(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+    try {
+      const res = await apiClient.post<BackupFileInfo>('/api/backup');
+      if (res.success && res.data) {
+        setSuccessMessage(`Backup ${res.data.fileName} gerado com sucesso.`);
+        await loadBackups();
+      } else {
+        setErrorMessage(res.message || res.error || 'Não foi possível gerar o backup no servidor.');
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Não foi possível gerar o backup no servidor.');
+    } finally {
+      setIsCreatingBackup(false);
+    }
+  };
+
+  const handleDownloadServerBackup = async (fileName: string) => {
+    setDownloadingBackup(fileName);
+    setErrorMessage('');
+    try {
+      const token = authService.getToken();
+      const response = await fetch(`/api/backup/${encodeURIComponent(fileName)}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.message || 'Não foi possível baixar o backup.');
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Não foi possível baixar o backup.');
+    } finally {
+      setDownloadingBackup(null);
+    }
+  };
+
+  const handleDownloadLocalBackup = () => {
+    const json = dataService.exportFullBackup();
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `backup_iane_dispositivos_${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      const res = dataService.importFullBackup(content);
+      if (res.success) {
+        setSuccessMessage(res.message);
+        setErrorMessage('');
+        setAuditLogs(dataService.getAuditLogs());
+        onDataReset();
+      } else {
+        setErrorMessage(res.message);
+        setSuccessMessage('');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  const handleConfirmReset = async () => {
+    if (!isAdmin || resetConfirmText.trim().toUpperCase() !== 'ZERAR' || !resetAcknowledged) {
+      return;
+    }
+
+    setIsResetting(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+    try {
+      const res = await apiClient.post('/api/database/reset');
+      if (!res.success) {
+        setErrorMessage(res.message || res.error || 'O servidor recusou a operação. Nenhum dado foi removido.');
+        return;
+      }
+
+      // Limpa apenas o cache local: o PostgreSQL já foi zerado pela chamada acima.
+      dataService.resetToDefaults(false);
+      setAuditLogs(dataService.getAuditLogs());
+      setSuccessMessage('Base de dados zerada com sucesso no servidor e neste navegador.');
+      setIsResetModalOpen(false);
+      setResetConfirmText('');
+      setResetAcknowledged(false);
+      onDataReset();
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Não foi possível zerar a base de dados.');
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -153,7 +460,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setFormFullName(u.fullName);
     setFormUsername(u.username);
     setFormEmail(u.email || '');
-    setFormPassword(''); // Em branco = manter atual
+    setFormPassword('');
     setFormRole(u.role);
     setFormPermissions(u.permissions || DEFAULT_ROLE_PERMS[u.role] || []);
     setFormActive(u.active !== false);
@@ -163,7 +470,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const handleRoleChange = (newRole: UserRole) => {
     setFormRole(newRole);
-    // Se o usuário estiver criando um novo, preenche com as permissões padrão do papel
     if (!userToEdit) {
       setFormPermissions(DEFAULT_ROLE_PERMS[newRole] || []);
     }
@@ -171,14 +477,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const handleTogglePermission = (permId: string) => {
     if (formPermissions.includes(permId)) {
-      setFormPermissions(formPermissions.filter(p => p !== permId));
+      setFormPermissions(formPermissions.filter((p) => p !== permId));
     } else {
       setFormPermissions([...formPermissions, permId]);
     }
   };
 
   const handleSelectAllPerms = () => {
-    setFormPermissions(AVAILABLE_PERMISSIONS.map(p => p.id));
+    setFormPermissions(AVAILABLE_PERMISSIONS.map((p) => p.id));
   };
 
   const handleClearAllPerms = () => {
@@ -218,7 +524,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     if (res.success) {
       setSuccessMessage(res.message);
       setIsUserModalOpen(false);
-      loadUsers();
+      void loadUsers();
       setAuditLogs(dataService.getAuditLogs());
     } else {
       setErrorMessage(res.message);
@@ -240,7 +546,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       const res = await dataService.deleteUser(u.id);
       if (res.success) {
         setSuccessMessage(res.message);
-        loadUsers();
+        void loadUsers();
         setAuditLogs(dataService.getAuditLogs());
       } else {
         setErrorMessage(res.message);
@@ -248,48 +554,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   };
 
-  const handleDownloadBackup = () => {
-    const json = dataService.exportFullBackup();
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `backup_iane_dispositivos_${new Date().toISOString().split('T')[0]}.json`;
-    link.click();
-  };
-
-  const handleImportBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = event.target?.result as string;
-      const res = dataService.importFullBackup(content);
-      if (res.success) {
-        setSuccessMessage(res.message);
-        setErrorMessage('');
-        setAuditLogs(dataService.getAuditLogs());
-        onDataReset();
-      } else {
-        setErrorMessage(res.message);
-        setSuccessMessage('');
-      }
-    };
-    reader.readAsText(file);
-  };
-
-  const handleClearDatabase = () => {
-    if (window.confirm('Atenção: Isso removerá todos os dados (aparelhos, linhas, colaboradores e movimentações), deixando o sistema 100% limpo para produção. Deseja continuar?')) {
-      dataService.resetToDefaults(true);
-      setAuditLogs(dataService.getAuditLogs());
-      setSuccessMessage('Base de dados zerada com sucesso. O sistema está limpo para inserção de dados reais.');
-      onDataReset();
-    }
-  };
+  const dbConnected = serverHealth?.database === 'connected';
+  const dbUnreachable = serverHealth?.database === 'unreachable';
+  const dbLabel = dbUnreachable
+    ? 'Servidor indisponível'
+    : dbConnected
+    ? 'Banco conectado'
+    : 'Banco desconectado';
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Mensagens de Feedback */}
       {successMessage && (
         <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-900 flex items-center justify-between gap-2 shadow-xs">
@@ -297,7 +571,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             <span className="font-medium">{successMessage}</span>
           </div>
-          <button onClick={() => setSuccessMessage('')} className="text-emerald-700 hover:text-emerald-900 cursor-pointer">
+          <button onClick={() => setSuccessMessage('')} className="text-emerald-700 hover:text-emerald-900 cursor-pointer" aria-label="Fechar mensagem">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -309,342 +583,399 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
             <span className="font-medium">{errorMessage}</span>
           </div>
-          <button onClick={() => setErrorMessage('')} className="text-rose-700 hover:text-rose-900 cursor-pointer">
+          <button onClick={() => setErrorMessage('')} className="text-rose-700 hover:text-rose-900 cursor-pointer" aria-label="Fechar mensagem">
             <X className="w-4 h-4" />
           </button>
         </div>
       )}
 
-      {/* Production Architecture & PostgreSQL Status */}
-      <div className="bg-ink-900 text-ink-100 p-6 rounded-xl border border-ink-800 shadow-md">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-4 border-b border-ink-800">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-iane-600/30 border border-iane-500/40 flex items-center justify-center text-iane-400 shrink-0">
-              <Server className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                <span>Servidor On-Premise & Conexão PostgreSQL</span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                  Pronto para Produção
-                </span>
-              </h2>
-              <p className="text-xs text-ink-400">
-                Backend Express (`server.ts`), Criptografia bcrypt e Controle de Acesso por Perfil (RBAC)
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-ink-800/80 border border-ink-700 text-xs">
-              <div className={`w-2.5 h-2.5 rounded-full ${serverHealth?.database === 'connected' ? 'bg-emerald-500 animate-pulse' : 'bg-sun-400'}`} />
-              <span className="text-ink-300 font-medium">Status do Banco:</span>
-              <span className={`font-semibold ${serverHealth?.database === 'connected' ? 'text-emerald-400' : 'text-sun-300'}`}>
-                {serverHealth?.database === 'connected' ? 'PostgreSQL Conectado' : 'Modo Híbrido (Armazenamento Local/Memória)'}
-              </span>
-            </div>
-
-            <button
-              onClick={handleForceSyncWithDatabase}
-              disabled={isSyncingWithDb}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-iane-600 hover:bg-iane-500 text-white text-xs font-medium transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
-              title="Grava todos os cadastros e movimentações atuais diretamente no banco PostgreSQL"
-            >
-              <Database className={`w-3.5 h-3.5 ${isSyncingWithDb ? 'animate-spin' : ''}`} />
-              <span>{isSyncingWithDb ? 'Gravando no Banco...' : 'Gravar Dados no PostgreSQL'}</span>
-            </button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4 text-xs">
-          <div className="bg-ink-800/50 p-3 rounded-lg border border-ink-700/60">
-            <div className="flex items-center gap-2 font-semibold text-white mb-1">
-              <Terminal className="w-3.5 h-3.5 text-iane-400" />
-              <span>1. Base Compartilhada</span>
-            </div>
-            <p className="text-ink-400 text-[11px] leading-relaxed">
-              Todos os computadores da empresa conectam na mesma base de dados através da API REST corporativa.
-            </p>
-          </div>
-
-          <div className="bg-ink-800/50 p-3 rounded-lg border border-ink-700/60">
-            <div className="flex items-center gap-2 font-semibold text-white mb-1">
-              <Lock className="w-3.5 h-3.5 text-emerald-400" />
-              <span>2. Senhas Seguras (bcrypt)</span>
-            </div>
-            <p className="text-ink-400 text-[11px] leading-relaxed">
-              Senhas criptografadas com salting (bcrypt 10 rounds). Nenhuma senha em texto puro é gravada.
-            </p>
-          </div>
-
-          <div className="bg-ink-800/50 p-3 rounded-lg border border-ink-700/60">
-            <div className="flex items-center gap-2 font-semibold text-white mb-1">
-              <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
-              <span>3. Permissões Granulares</span>
-            </div>
-            <p className="text-ink-400 text-[11px] leading-relaxed">
-              Super Admin define exatamente quais módulos cada operador pode visualizar, editar ou movimentar.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* =========================================================================
-          GESTÃO DE USUÁRIOS E PERMISSÕES (RBAC - EXCLUSIVO SUPER ADMIN / GESTORES)
-          ========================================================================= */}
-      <div className="bg-white rounded-xl border border-ink-200 shadow-xs overflow-hidden">
-        <div className="p-5 border-b border-ink-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-ink-50/50">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-iane-50 border border-iane-200 flex items-center justify-center text-iane-600 shrink-0">
-              <Users className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-ink-900 flex items-center gap-2">
-                <span>Gestão de Usuários & Permissões de Acesso</span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-iane-100 text-iane-800">
-                  {users.length} cadastrados
-                </span>
-              </h3>
-              <p className="text-xs text-ink-500">
-                Cadastre operadores e defina permissões específicas por módulo do sistema
-              </p>
-            </div>
-          </div>
-
-          {canManageUsers && (
-            <button
-              onClick={handleOpenCreateUser}
-              className="py-2 px-3.5 bg-iane-600 hover:bg-iane-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
-            >
-              <UserPlus className="w-4 h-4" />
-              <span>Novo Usuário</span>
-            </button>
-          )}
-        </div>
-
-        {/* User Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-ink-50 text-ink-600 font-semibold border-b border-ink-200 text-[11px]">
-              <tr>
-                <th className="py-3 px-4">Nome & Login</th>
-                <th className="py-3 px-4">E-mail Corporativo</th>
-                <th className="py-3 px-4">Papel (Perfil)</th>
-                <th className="py-3 px-4">Módulos Autorizados</th>
-                <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4 text-right">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-ink-100">
-              {loadingUsers ? (
-                <tr>
-                  <td colSpan={6} className="py-6 text-center text-ink-400">
-                    Carregando usuários do sistema...
-                  </td>
-                </tr>
-              ) : users.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="py-6 text-center text-ink-400">
-                    Nenhum usuário cadastrado.
-                  </td>
-                </tr>
-              ) : (
-                users.map((u) => {
-                  const isAdminUser = u.role === 'admin';
-                  const isCurrentSuper = u.id === 'user-iane-super-1' || u.id === 'user-iane-super-2';
-                  const isMyself = u.id === activeUser?.id;
-
-                  const roleBadgeClass = {
-                    admin: 'bg-purple-100 text-purple-800 border-purple-200',
-                    gestor: 'bg-iane-100 text-iane-800 border-iane-200',
-                    operador: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-                    visualizador: 'bg-ink-100 text-ink-700 border-ink-200',
-                  }[u.role] || 'bg-ink-100 text-ink-700';
-
-                  const roleLabel = {
-                    admin: 'Super Administrador',
-                    gestor: 'Gestor de Telefonia',
-                    operador: 'Operador de TI/RH',
-                    visualizador: 'Visualizador (Leitura)',
-                  }[u.role] || u.role;
-
-                  const hasAll = isAdminUser || u.permissions?.includes('all');
-                  const countPerms = hasAll ? AVAILABLE_PERMISSIONS.length : (u.permissions?.length || 0);
-
-                  return (
-                    <tr key={u.id} className="hover:bg-ink-50/60 transition-colors">
-                      <td className="py-3 px-4">
-                        <div className="font-semibold text-ink-900 flex items-center gap-1.5">
-                          <span>{u.fullName}</span>
-                          {isMyself && (
-                            <span className="text-[10px] px-1.5 py-0.2 bg-iane-50 text-iane-700 border border-iane-200 rounded font-normal">
-                              Você
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-[11px] text-ink-400 font-mono">@{u.username}</div>
-                      </td>
-
-                      <td className="py-3 px-4 text-ink-600">
-                        {u.email || <span className="text-ink-400 italic">Não informado</span>}
-                      </td>
-
-                      <td className="py-3 px-4">
-                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-semibold border ${roleBadgeClass}`}>
-                          {roleLabel}
-                        </span>
-                      </td>
-
-                      <td className="py-3 px-4">
-                        <span className="text-ink-700 font-medium">
-                          {hasAll ? (
-                            <span className="text-emerald-700 font-semibold">Acesso Total ({AVAILABLE_PERMISSIONS.length} módulos)</span>
-                          ) : (
-                            `${countPerms} de ${AVAILABLE_PERMISSIONS.length} módulos`
-                          )}
-                        </span>
-                      </td>
-
-                      <td className="py-3 px-4">
-                        <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${u.active !== false ? 'text-emerald-700' : 'text-ink-400'}`}>
-                          <span className={`w-2 h-2 rounded-full ${u.active !== false ? 'bg-emerald-500' : 'bg-ink-300'}`} />
-                          {u.active !== false ? 'Ativo' : 'Inativo'}
-                        </span>
-                      </td>
-
-                      <td className="py-3 px-4 text-right">
-                        {canManageUsers ? (
-                          <div className="flex items-center justify-end gap-1">
-                            <button
-                              onClick={() => handleOpenEditUser(u)}
-                              title="Editar Usuário e Permissões"
-                              className="p-1.5 text-ink-500 hover:text-iane-600 hover:bg-iane-50 rounded-md transition-colors cursor-pointer"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
-
-                            <button
-                              onClick={() => handleDeleteUser(u)}
-                              disabled={isCurrentSuper || isMyself}
-                              title={isCurrentSuper ? 'Super Admin principal não pode ser excluído' : isMyself ? 'Você não pode excluir seu próprio login' : 'Excluir Usuário'}
-                              className={`p-1.5 rounded-md transition-colors ${
-                                isCurrentSuper || isMyself
-                                  ? 'text-ink-300 cursor-not-allowed'
-                                  : 'text-ink-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer'
-                              }`}
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        ) : (
-                          <span className="text-[11px] text-ink-400 italic">Somente leitura</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Grid de Ferramentas Auxiliares */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* 1. Migração da Planilha Atual */}
-        <div className="bg-white p-5 rounded-xl border border-ink-200 shadow-xs flex flex-col justify-between space-y-4">
-          <div>
-            <div className="flex items-center gap-2.5 mb-2">
-              <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
-              <h3 className="text-sm font-bold text-ink-900">
-                Assistente de Migração da Planilha Existente
-              </h3>
-            </div>
-            <p className="text-xs text-ink-600 leading-relaxed">
-              Importe os dados das abas <strong>Base de Dados</strong> e <strong>Analítico</strong>. O assistente analisa o cabeçalho das colunas, detecta números de telefone, fabricantes e valida IMEIs duplicados antes de confirmar a importação.
-            </p>
-          </div>
-
-          <button
-            onClick={onOpenSpreadsheetModal}
-            className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <FileSpreadsheet className="w-4 h-4" />
-            <span>Abrir Mapeador de Planilha (CSV)</span>
-          </button>
-        </div>
-
-        {/* 2. Backup & Restauração JSON */}
-        <div className="bg-white p-5 rounded-xl border border-ink-200 shadow-xs flex flex-col justify-between space-y-4">
-          <div>
-            <div className="flex items-center gap-2.5 mb-2">
-              <Database className="w-5 h-5 text-iane-600" />
-              <h3 className="text-sm font-bold text-ink-900">
-                Backup e Restauração de Dados
-              </h3>
-            </div>
-            <p className="text-xs text-ink-600 leading-relaxed">
-              Exporte todos os registros do sistema (aparelhos, linhas, colaboradores, termos e movimentações) em arquivo JSON seguro para contingência ou restaure um backup anterior.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={handleDownloadBackup}
-              className="py-2.5 px-3 bg-ink-100 hover:bg-ink-200 text-ink-800 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              <Download className="w-3.5 h-3.5 text-ink-600" />
-              <span>Baixar Backup</span>
-            </button>
-
-            <label className="py-2.5 px-3 bg-ink-100 hover:bg-ink-200 text-ink-800 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer">
-              <Upload className="w-3.5 h-3.5 text-ink-600" />
-              <span>Restaurar Backup</span>
-              <input
-                type="file"
-                accept=".json"
-                onChange={handleImportBackup}
-                className="hidden"
-              />
-            </label>
-          </div>
-        </div>
-      </div>
-
-      {/* Limpeza Total da Base de Dados */}
-      {canManageUsers && (
-        <div className="bg-white p-5 rounded-xl border border-ink-200 shadow-xs space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-ink-100 pb-3">
-            <div className="flex items-center gap-2">
-              <RotateCcw className="w-4 h-4 text-rose-600" />
-              <h3 className="text-sm font-bold text-ink-900">Limpar Base de Dados (Zerar para Produção)</h3>
-            </div>
-            <button
-              onClick={handleClearDatabase}
-              className="px-3.5 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors cursor-pointer self-start sm:self-auto"
-            >
-              Zerar Todos os Dados
-            </button>
-          </div>
-          <p className="text-xs text-ink-500 leading-relaxed">
-            Remove os registros de aparelhos, linhas, colaboradores e movimentações tanto localmente quanto no PostgreSQL, deixando o sistema 100% limpo para inventário oficial da IANE.
+      {/* Cabeçalho da tela + status do banco em dropdown */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h2 className="text-base font-bold text-ink-900">Configurações e administração</h2>
+          <p className="text-xs text-ink-500 mt-0.5">
+            Backup, usuários e auditoria organizados em seções recolhíveis.
           </p>
         </div>
+
+        <div ref={dbDropdownRef} className="relative self-start sm:self-auto shrink-0">
+          <button
+            type="button"
+            onClick={() => setIsDbDropdownOpen((open) => !open)}
+            aria-haspopup="menu"
+            aria-expanded={isDbDropdownOpen}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-ink-200 text-xs font-semibold text-ink-700 shadow-xs hover:bg-ink-50 transition-colors cursor-pointer"
+          >
+            <span
+              className={`w-2 h-2 rounded-full ${
+                dbConnected ? 'bg-emerald-500' : dbUnreachable ? 'bg-rose-500' : 'bg-amber-500'
+              }`}
+            />
+            <span>{dbLabel}</span>
+            <ChevronDown
+              className={`w-3.5 h-3.5 text-ink-400 transition-transform ${
+                isDbDropdownOpen ? 'rotate-180' : ''
+              }`}
+            />
+          </button>
+
+          {isDbDropdownOpen && (
+            <div
+              role="menu"
+              aria-label="Status da conexão com o banco"
+              className="absolute right-0 mt-2 w-72 bg-white rounded-xl border border-ink-200 shadow-xl z-50 overflow-hidden"
+            >
+              <div className="flex items-start gap-2.5 p-3.5">
+                <div
+                  className={`w-8 h-8 rounded-lg border flex items-center justify-center shrink-0 ${
+                    dbConnected
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-600'
+                      : dbUnreachable
+                      ? 'bg-rose-50 border-rose-200 text-rose-600'
+                      : 'bg-amber-50 border-amber-200 text-amber-600'
+                  }`}
+                >
+                  {dbConnected ? <Server className="w-4 h-4" /> : <ServerOff className="w-4 h-4" />}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-ink-900">
+                    {dbConnected ? 'PostgreSQL conectado' : dbUnreachable ? 'Servidor sem resposta' : 'PostgreSQL desconectado'}
+                  </p>
+                  <p className="text-[11px] text-ink-500 leading-snug mt-0.5">
+                    {dbConnected
+                      ? 'Leitura e gravação na base corporativa.'
+                      : 'O sistema mantém os dados no cache local até reconectar.'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="px-3.5 py-2.5 border-t border-ink-100 space-y-1.5 text-[11px]">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-ink-500">Ambiente</span>
+                  <span className="font-semibold text-ink-800">
+                    {serverHealth?.environment === 'production' ? 'Produção' : 'Desenvolvimento'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-ink-500">Última verificação</span>
+                  <span className="font-mono text-ink-700">
+                    {lastHealthCheck ? lastHealthCheck.toLocaleTimeString('pt-BR') : '—'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-2 border-t border-ink-100 flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => void checkHealth()}
+                  disabled={isCheckingHealth}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-semibold text-ink-700 hover:bg-ink-100 transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  <RefreshCw className={`w-3 h-3 ${isCheckingHealth ? 'animate-spin' : ''}`} />
+                  Verificar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleForceSyncWithDatabase()}
+                  disabled={isSyncingWithDb || !dbConnected}
+                  title="Grava os dados locais no PostgreSQL"
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-semibold text-iane-700 hover:bg-iane-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  <Database className={`w-3 h-3 ${isSyncingWithDb ? 'animate-spin' : ''}`} />
+                  Sincronizar
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Gestão de Usuários */}
+      {canManageUsers && (
+        <SettingsSection
+          id="users"
+          title="Gestão de usuários e permissões"
+          description="Cadastre operadores e defina o acesso por módulo."
+          icon={Users}
+          badge={`${users.length} cadastrados`}
+          isOpen={openSection === 'users'}
+          onToggle={handleToggleSection}
+        >
+          <div className="p-4 sm:p-5 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <p className="text-xs text-ink-500">
+                Controle de acesso baseado em perfis (RBAC). Apenas administradores e gestores autorizados podem alterar usuários.
+              </p>
+              <button
+                onClick={handleOpenCreateUser}
+                className="py-2 px-3.5 bg-iane-600 hover:bg-iane-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>Novo Usuário</span>
+              </button>
+            </div>
+
+            <div className="overflow-x-auto border border-ink-200 rounded-lg">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-ink-50 text-ink-600 font-semibold border-b border-ink-200 text-[11px]">
+                  <tr>
+                    <th className="py-3 px-4">Nome & Login</th>
+                    <th className="py-3 px-4">E-mail Corporativo</th>
+                    <th className="py-3 px-4">Papel (Perfil)</th>
+                    <th className="py-3 px-4">Módulos Autorizados</th>
+                    <th className="py-3 px-4">Status</th>
+                    <th className="py-3 px-4 text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-ink-100">
+                  {loadingUsers ? (
+                    <tr>
+                      <td colSpan={6} className="py-6 text-center text-ink-400">
+                        Carregando usuários do sistema...
+                      </td>
+                    </tr>
+                  ) : users.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-6 text-center text-ink-400">
+                        Nenhum usuário cadastrado.
+                      </td>
+                    </tr>
+                  ) : (
+                    users.map((u) => {
+                      const isAdminUser = u.role === 'admin';
+                      const isCurrentSuper = u.id === 'user-iane-super-1' || u.id === 'user-iane-super-2';
+                      const isMyself = u.id === activeUser?.id;
+
+                      const roleBadgeClass = {
+                        admin: 'bg-purple-100 text-purple-800 border-purple-200',
+                        gestor: 'bg-iane-100 text-iane-800 border-iane-200',
+                        operador: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+                        visualizador: 'bg-ink-100 text-ink-700 border-ink-200',
+                      }[u.role] || 'bg-ink-100 text-ink-700';
+
+                      const roleLabel = {
+                        admin: 'Super Administrador',
+                        gestor: 'Gestor de Telefonia',
+                        operador: 'Operador de TI/RH',
+                        visualizador: 'Visualizador (Leitura)',
+                      }[u.role] || u.role;
+
+                      const hasAll = isAdminUser || u.permissions?.includes('all');
+                      const countPerms = hasAll ? AVAILABLE_PERMISSIONS.length : (u.permissions?.length || 0);
+
+                      return (
+                        <tr key={u.id} className="hover:bg-ink-50/60 transition-colors">
+                          <td className="py-3 px-4">
+                            <div className="font-semibold text-ink-900 flex items-center gap-1.5">
+                              <span>{u.fullName}</span>
+                              {isMyself && (
+                                <span className="text-[10px] px-1.5 py-0.2 bg-iane-50 text-iane-700 border border-iane-200 rounded font-normal">
+                                  Você
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[11px] text-ink-400 font-mono">@{u.username}</div>
+                          </td>
+
+                          <td className="py-3 px-4 text-ink-600">
+                            {u.email || <span className="text-ink-400 italic">Não informado</span>}
+                          </td>
+
+                          <td className="py-3 px-4">
+                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-semibold border ${roleBadgeClass}`}>
+                              {roleLabel}
+                            </span>
+                          </td>
+
+                          <td className="py-3 px-4">
+                            <span className="text-ink-700 font-medium">
+                              {hasAll ? (
+                                <span className="text-emerald-700 font-semibold">Acesso Total ({AVAILABLE_PERMISSIONS.length} módulos)</span>
+                              ) : (
+                                `${countPerms} de ${AVAILABLE_PERMISSIONS.length} módulos`
+                              )}
+                            </span>
+                          </td>
+
+                          <td className="py-3 px-4">
+                            <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${u.active !== false ? 'text-emerald-700' : 'text-ink-400'}`}>
+                              <span className={`w-2 h-2 rounded-full ${u.active !== false ? 'bg-emerald-500' : 'bg-ink-300'}`} />
+                              {u.active !== false ? 'Ativo' : 'Inativo'}
+                            </span>
+                          </td>
+
+                          <td className="py-3 px-4 text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                onClick={() => handleOpenEditUser(u)}
+                                title="Editar Usuário e Permissões"
+                                className="p-1.5 text-ink-500 hover:text-iane-600 hover:bg-iane-50 rounded-md transition-colors cursor-pointer"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+
+                              <button
+                                onClick={() => handleDeleteUser(u)}
+                                disabled={isCurrentSuper || isMyself}
+                                title={isCurrentSuper ? 'Super Admin principal não pode ser excluído' : isMyself ? 'Você não pode excluir seu próprio login' : 'Excluir Usuário'}
+                                className={`p-1.5 rounded-md transition-colors ${
+                                  isCurrentSuper || isMyself
+                                    ? 'text-ink-300 cursor-not-allowed'
+                                    : 'text-ink-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer'
+                                }`}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </SettingsSection>
       )}
 
-      {/* Audit Log Table */}
-      <div className="bg-white rounded-xl border border-ink-200 shadow-xs overflow-hidden">
-        <div className="p-4 border-b border-ink-200 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <History className="w-4 h-4 text-ink-500" />
-            <h3 className="text-sm font-bold text-ink-900">Trilha de Auditoria do Sistema</h3>
-          </div>
-          <span className="text-xs text-ink-500 font-mono">
-            {auditLogs.length} eventos registrados
-          </span>
-        </div>
+      {/* Backup e restauração */}
+      <SettingsSection
+        id="backup"
+        title="Backup e restauração"
+        description={
+          isAdmin
+            ? `Cópias automáticas a cada ${backupConfig.intervalHours}h · retenção de ${backupConfig.retention} arquivos.`
+            : 'Cópia local dos dados em JSON.'
+        }
+        icon={HardDrive}
+        isOpen={openSection === 'backup'}
+        onToggle={handleToggleSection}
+      >
+        <div className="p-4 sm:p-5 space-y-5">
+          {isAdmin ? (
+            <>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-start gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center shrink-0">
+                    <Clock className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-ink-900">Backup automático do PostgreSQL</p>
+                    <p className="text-[11px] text-ink-500 leading-snug mt-0.5">
+                      Rotina no servidor, executada a cada {backupConfig.intervalHours} horas. Inclui os PDFs dos termos.
+                    </p>
+                  </div>
+                </div>
 
-        <div className="max-h-72 overflow-y-auto">
+                <button
+                  onClick={() => void handleCreateBackup()}
+                  disabled={isCreatingBackup || !dbConnected}
+                  title={!dbConnected ? 'Conecte o PostgreSQL para gerar o backup' : 'Gerar uma cópia completa agora'}
+                  className="py-2 px-3.5 bg-iane-600 hover:bg-iane-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors flex items-center justify-center gap-1.5 self-start sm:self-auto disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  {isCreatingBackup ? <Loader2 className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
+                  <span>{isCreatingBackup ? 'Gerando backup...' : 'Fazer backup agora'}</span>
+                </button>
+              </div>
+
+              <div className="border border-ink-200 rounded-lg overflow-hidden">
+                <div className="px-3 py-2 bg-ink-50 border-b border-ink-200 flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-ink-600 uppercase tracking-wider">
+                    Cópias no servidor
+                  </span>
+                  <button
+                    onClick={() => void loadBackups()}
+                    disabled={loadingBackups}
+                    title="Atualizar lista"
+                    className="p-1 text-ink-500 hover:text-iane-600 rounded transition-colors cursor-pointer"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${loadingBackups ? 'animate-spin' : ''}`} />
+                  </button>
+                </div>
+
+                {loadingBackups && backups.length === 0 ? (
+                  <p className="px-3 py-5 text-center text-[11px] text-ink-400">Carregando backups...</p>
+                ) : backups.length === 0 ? (
+                  <p className="px-3 py-5 text-center text-[11px] text-ink-400">
+                    Nenhum backup ainda. A primeira cópia automática é criada após o servidor conectar ao banco.
+                  </p>
+                ) : (
+                  <ul className="divide-y divide-ink-100 max-h-56 overflow-y-auto">
+                    {backups.map((backup) => (
+                      <li key={backup.fileName} className="flex items-center gap-3 px-3 py-2 hover:bg-ink-50/60">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-semibold text-ink-800 truncate">
+                            {backup.origin === 'scheduled' ? 'Automático' : 'Manual'} · {formatBackupDate(backup.createdAt)}
+                          </p>
+                          <p className="text-[10px] font-mono text-ink-400 truncate">
+                            {backup.fileName} · {formatFileSize(backup.size)}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => void handleDownloadServerBackup(backup.fileName)}
+                          disabled={downloadingBackup === backup.fileName}
+                          title="Baixar este backup"
+                          className="p-1.5 text-ink-500 hover:text-iane-600 hover:bg-iane-50 rounded-md transition-colors disabled:opacity-50 cursor-pointer"
+                        >
+                          {downloadingBackup === backup.fileName ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Download className="w-4 h-4" />
+                          )}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="flex items-start gap-2.5 p-3 rounded-lg bg-ink-50 border border-ink-200">
+              <ShieldAlert className="w-4 h-4 text-ink-500 shrink-0 mt-0.5" />
+              <p className="text-[11px] text-ink-600 leading-relaxed">
+                O backup completo do servidor é exclusivo para administradores. Use a cópia local em JSON abaixo.
+              </p>
+            </div>
+          )}
+
+          <div className="pt-4 border-t border-ink-100">
+            <p className="text-[11px] font-semibold text-ink-600 uppercase tracking-wider mb-2">
+              Cópia local em JSON
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={handleDownloadLocalBackup}
+                className="py-2 px-3 bg-ink-100 hover:bg-ink-200 text-ink-800 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5 text-ink-600" />
+                <span>Baixar JSON</span>
+              </button>
+
+              <label className="py-2 px-3 bg-ink-100 hover:bg-ink-200 text-ink-800 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer">
+                <Upload className="w-3.5 h-3.5 text-ink-600" />
+                <span>Restaurar JSON</span>
+                <input type="file" accept=".json" onChange={handleImportBackup} className="hidden" />
+              </label>
+            </div>
+            <p className="text-[10px] text-ink-400 leading-snug mt-2">
+              O JSON local contém cadastros e movimentações, mas não os PDFs dos termos. Para recuperação completa, use as cópias do servidor.
+            </p>
+          </div>
+        </div>
+      </SettingsSection>
+
+      {/* Trilha de Auditoria */}
+      <SettingsSection
+        id="audit"
+        title="Trilha de auditoria"
+        description="Histórico de operações realizadas no sistema."
+        icon={History}
+        badge={`${auditLogs.length} eventos`}
+        isOpen={openSection === 'audit'}
+        onToggle={handleToggleSection}
+      >
+        <div className="max-h-80 overflow-y-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead className="bg-ink-50 border-b border-ink-200 text-ink-600 font-semibold text-[11px] sticky top-0">
               <tr>
@@ -656,19 +987,64 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-ink-100">
-              {auditLogs.map((log) => (
-                <tr key={log.id} className="hover:bg-ink-50/50">
-                  <td className="py-2 px-3 font-mono text-ink-500 whitespace-nowrap">{log.timestamp}</td>
-                  <td className="py-2 px-3 font-semibold text-ink-800">{log.entityType}</td>
-                  <td className="py-2 px-3 font-mono text-iane-700">{log.entityLabel}</td>
-                  <td className="py-2 px-3 text-ink-700">{log.details}</td>
-                  <td className="py-2 px-3 text-ink-500">{log.user}</td>
+              {auditLogs.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-6 text-center text-ink-400">
+                    Nenhum evento registrado.
+                  </td>
                 </tr>
-              ))}
+              ) : (
+                auditLogs.map((log) => (
+                  <tr key={log.id} className="hover:bg-ink-50/50">
+                    <td className="py-2 px-3 font-mono text-ink-500 whitespace-nowrap">{log.timestamp}</td>
+                    <td className="py-2 px-3 font-semibold text-ink-800">{log.entityType}</td>
+                    <td className="py-2 px-3 font-mono text-iane-700">{log.entityLabel}</td>
+                    <td className="py-2 px-3 text-ink-700">{log.details}</td>
+                    <td className="py-2 px-3 text-ink-500">{log.user}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
-      </div>
+      </SettingsSection>
+
+      {/* Área administrativa sensível */}
+      {isAdmin && (
+        <SettingsSection
+          id="danger"
+          title="Área administrativa avançada"
+          description="Operações irreversíveis. Use somente com backup recente."
+          icon={ShieldAlert}
+          tone="danger"
+          isOpen={openSection === 'danger'}
+          onToggle={handleToggleSection}
+        >
+          <div className="p-4 sm:p-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-lg border border-rose-200 bg-rose-50/60">
+              <div className="flex items-start gap-2.5">
+                <RotateCcw className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-bold text-rose-900">Zerar todos os dados</p>
+                  <p className="text-[11px] text-rose-700 leading-snug mt-0.5">
+                    Remove aparelhos, linhas, colaboradores, movimentações, termos e auditoria do PostgreSQL e deste navegador.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setResetConfirmText('');
+                  setResetAcknowledged(false);
+                  setIsResetModalOpen(true);
+                }}
+                className="px-3.5 py-1.5 text-xs font-semibold text-rose-700 bg-white hover:bg-rose-100 border border-rose-300 rounded-lg transition-colors cursor-pointer self-start sm:self-auto shrink-0"
+              >
+                Zerar dados...
+              </button>
+            </div>
+          </div>
+        </SettingsSection>
+      )}
 
       {/* =========================================================================
           MODAL DE CADASTRO / EDIÇÃO DE USUÁRIO (RBAC)
@@ -754,7 +1130,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-2.5 top-1/2 -tranink-y-1/2 text-ink-400 hover:text-ink-600"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-600"
+                      aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -898,6 +1275,85 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmação reforçada para zerar dados */}
+      {isResetModalOpen && (
+        <div className="fixed inset-0 z-50 bg-ink-900/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-rose-200">
+            <div className="px-5 py-4 bg-rose-700 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <ShieldAlert className="w-5 h-5" />
+                <h3 className="font-bold text-sm">Confirmar limpeza total</h3>
+              </div>
+              <button
+                onClick={() => setIsResetModalOpen(false)}
+                disabled={isResetting}
+                className="text-rose-100 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
+                aria-label="Fechar"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-[11px] text-rose-800 leading-relaxed">
+                Esta ação remove permanentemente todos os aparelhos, linhas, colaboradores, movimentações, termos e registros de auditoria.
+                Ela não pode ser desfeita. Gere e baixe um backup antes de continuar.
+              </div>
+
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={resetAcknowledged}
+                  onChange={(e) => setResetAcknowledged(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 rounded border-ink-300 text-rose-600 focus:ring-rose-500"
+                />
+                <span className="text-xs text-ink-700 leading-snug">
+                  Entendo que todos os dados serão apagados definitivamente.
+                </span>
+              </label>
+
+              <div>
+                <label className="block text-xs font-semibold text-ink-700 mb-1">
+                  Digite <span className="font-mono text-rose-700">ZERAR</span> para confirmar
+                </label>
+                <input
+                  type="text"
+                  value={resetConfirmText}
+                  onChange={(e) => setResetConfirmText(e.target.value)}
+                  placeholder="ZERAR"
+                  autoComplete="off"
+                  className="w-full text-xs px-3 py-2 border border-ink-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500 font-mono uppercase"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2 border-t border-ink-100">
+                <button
+                  type="button"
+                  onClick={() => setIsResetModalOpen(false)}
+                  disabled={isResetting}
+                  className="px-4 py-2 border border-ink-300 rounded-lg text-xs font-semibold text-ink-700 hover:bg-ink-50 transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleConfirmReset()}
+                  disabled={
+                    isResetting ||
+                    !resetAcknowledged ||
+                    resetConfirmText.trim().toUpperCase() !== 'ZERAR'
+                  }
+                  className="px-5 py-2 bg-rose-700 hover:bg-rose-800 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg text-xs font-semibold shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  {isResetting ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
+                  <span>{isResetting ? 'Zerando...' : 'Zerar todos os dados'}</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

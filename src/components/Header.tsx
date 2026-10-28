@@ -1,17 +1,12 @@
 import React from 'react';
-import { Menu, Plus, ArrowLeftRight, Smartphone } from 'lucide-react';
+import { Menu, ArrowLeftRight, Smartphone } from 'lucide-react';
 import { NavTab } from './Sidebar';
-
-import { User as UserType } from '../types';
-import { LogOut, User } from 'lucide-react';
 
 interface HeaderProps {
   activeTab: NavTab;
   onToggleMobile: () => void;
   onOpenMovementModal: () => void;
   onOpenDeviceModal: () => void;
-  currentUser?: UserType | null;
-  onLogout?: () => void;
 }
 
 const TAB_TITLES: Record<NavTab, { title: string; category: string }> = {
@@ -22,7 +17,7 @@ const TAB_TITLES: Record<NavTab, { title: string; category: string }> = {
   movimentacoes: { title: 'Histórico e Registro de Movimentações', category: 'Operações' },
   termos: { title: 'Termos e Documentos de Guarda', category: 'Compliance Jurídico' },
   relatorios: { title: 'Relatórios e Auditoria Patrimonial', category: 'Controladoria' },
-  configuracoes: { title: 'Configurações e Importação da Planilha', category: 'Sistema' },
+  configuracoes: { title: 'Configurações do Sistema', category: 'Sistema' },
 };
 
 export const Header: React.FC<HeaderProps> = ({
@@ -30,8 +25,6 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleMobile,
   onOpenMovementModal,
   onOpenDeviceModal,
-  currentUser,
-  onLogout,
 }) => {
   const info = TAB_TITLES[activeTab] || { title: 'IANE - Gestão de Dispositivos', category: 'Gestão' };
 
@@ -59,7 +52,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Right: Quick Corporate Actions & User Status */}
+      {/* Right: Quick Corporate Actions */}
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
         <button
           onClick={onOpenDeviceModal}
@@ -76,27 +69,6 @@ export const Header: React.FC<HeaderProps> = ({
           <ArrowLeftRight className="w-3.5 h-3.5" />
           <span>Nova Movimentação</span>
         </button>
-
-        {currentUser && onLogout && (
-          <div className="flex items-center pl-2 ml-1 border-l border-ink-200 gap-2">
-            <div className="hidden xl:flex flex-col text-right">
-              <span className="text-xs font-bold text-ink-800 leading-tight">
-                {currentUser.fullName}
-              </span>
-              <span className="text-[10px] text-ink-500 font-medium uppercase tracking-wider">
-                {currentUser.role}
-              </span>
-            </div>
-            <button
-              onClick={onLogout}
-              title="Sair do sistema"
-              className="p-2 rounded-lg text-ink-500 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
-              aria-label="Sair da conta"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
-          </div>
-        )}
       </div>
     </header>
   );

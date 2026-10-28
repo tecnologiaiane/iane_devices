@@ -41,9 +41,16 @@ services:
       # Sem ele o servidor gera um segredo efêmero e as sessões caem a cada reinício.
       JWT_SECRET: ${JWT_SECRET:-}
       DATABASE_URL: ${DATABASE_URL:-postgres://iane_admin:Iane%40admin@postgres:5432/telecom_assets}
+      # Backup automático: intervalo em horas, cópias mantidas e pasta persistida no host.
+      BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-24}
+      BACKUP_RETENTION: ${BACKUP_RETENTION:-14}
+      BACKUP_DIR: /app/backups
     ports:
       # Acesso web via rede local ou externa
       - "3000:3000"
+    volumes:
+      # Mantém as cópias de segurança fora do container (sobrevivem a rebuilds)
+      - ./backups:/app/backups
     depends_on:
       postgres:
         condition: service_healthy
