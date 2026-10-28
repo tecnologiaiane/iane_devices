@@ -18,6 +18,17 @@
   --color-navy-900: #262161;
   --color-navy-950: #17143F;
 
+  /* Menu lateral (paleta do layout de referência) */
+  --color-deep-950: #072E36;
+  --color-deep-900: #0A3C47;
+  --color-deep-800: #10454F;
+  --color-deep-700: #14444E;
+  --color-deep-600: #1D4B55;
+  --color-mist-300: #B7C7CB;
+  --color-mist-400: #91A7AC;
+  --color-aqua-400: #33C1E8;
+  --color-aqua-500: #0BAFE3;
+
   --color-sun-50: #FFFBD6;
   --color-sun-100: #FFF6A3;
   --color-sun-300: #F8EC76;
