@@ -10,7 +10,7 @@ services:
       POSTGRES_DB: telecom_assets
       POSTGRES_USER: iane_admin
       # Obrigatória: defina POSTGRES_PASSWORD no .env (sem valor padrão inseguro).
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no arquivo .env}
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no arquivo .env}"
       TZ: ${TZ:-America/Sao_Paulo}
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -41,11 +41,11 @@ services:
       PORT: 3000
       TZ: ${TZ:-America/Sao_Paulo}
       # Obrigatórios: o compose recusa iniciar sem estes valores definidos no .env.
-      JWT_SECRET: ${JWT_SECRET:?Defina JWT_SECRET no arquivo .env (ex.: openssl rand -hex 48)}
+      JWT_SECRET: "${JWT_SECRET:?Defina JWT_SECRET no arquivo .env (ex.: openssl rand -hex 48)}"
       # Validade da sessão (padrão 12h). Ex.: 8h, 12h, 1d.
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-12h}
       # A senha na URL deve ser a mesma de POSTGRES_PASSWORD (codifique caracteres especiais, ex.: @ -> %40).
-      DATABASE_URL: ${DATABASE_URL:?Defina DATABASE_URL no arquivo .env}
+      DATABASE_URL: "${DATABASE_URL:?Defina DATABASE_URL no arquivo .env}"
       # Em produção, NUNCA habilite o modo memória: ele não persiste dados.
       ALLOW_MEMORY_FALLBACK: ${ALLOW_MEMORY_FALLBACK:-false}
       # Backup automático: intervalo em horas, cópias mantidas e pasta persistida no host.
