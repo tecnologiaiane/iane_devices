@@ -9,7 +9,8 @@
     "start": "tsx server.ts",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test": "tsx --test tests/dates.test.ts tests/formatters.test.ts tests/server.test.ts"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",

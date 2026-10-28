@@ -1,15 +1,23 @@
+/**
+ * Formata uma data para o padrão brasileiro (DD/MM/AAAA).
+ *
+ * Datas puras (YYYY-MM-DD) são formatadas sem passar por `Date`, evitando o
+ * deslocamento de fuso. Timestamps ISO são convertidos para o fuso local.
+ */
 export function formatDate(dateString?: string): string {
   if (!dateString) return '-';
+  const value = String(dateString).trim();
   try {
-    // Check if format is already YYYY-MM-DD
-    const parts = dateString.split(/[-T /]/);
-    if (parts.length >= 3 && parts[0].length === 4) {
-      const year = parts[0];
-      const month = parts[1].padStart(2, '0');
-      const day = parts[2].padStart(2, '0');
-      return `${day}/${month}/${year}`;
+    // Data pura ou data/hora local sem fuso: usa os componentes como vieram.
+    const match =
+      /^(\d{4})-(\d{2})-(\d{2})$/.exec(value) ||
+      /^(\d{4})-(\d{2})-(\d{2})[ T]\d{2}:\d{2}(?::\d{2})?$/.exec(value);
+    if (match) {
+      return `${match[3]}/${match[2]}/${match[1]}`;
     }
-    const d = new Date(dateString);
+
+    // Timestamp com fuso (ex.: createdAt vindo do PostgreSQL): converte para o fuso local.
+    const d = new Date(value);
     if (isNaN(d.getTime())) return dateString;
     return d.toLocaleDateString('pt-BR');
   } catch {

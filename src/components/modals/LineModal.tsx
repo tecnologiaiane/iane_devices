@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal } from '../Modal';
 import { PhoneLine, Carrier, LineStatus } from '../../types';
 import { dataService } from '../../services/dataStorage';
+import { todayISO } from '../../utils/dates';
 import { AlertTriangle, PhoneCall } from 'lucide-react';
 
 interface LineModalProps {
@@ -51,7 +52,7 @@ export const LineModal: React.FC<LineModalProps> = ({
         setMonthlyCost('69.90');
         setStatus('Disponível');
         setDepartment('');
-        setActivationDate(new Date().toISOString().split('T')[0]);
+        setActivationDate(todayISO());
         setIccid('');
         setNotes('');
       }

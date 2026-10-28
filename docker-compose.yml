@@ -9,14 +9,16 @@ services:
     environment:
       POSTGRES_DB: telecom_assets
       POSTGRES_USER: iane_admin
-      # Defina POSTGRES_PASSWORD e DATABASE_URL no arquivo .env para produção.
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-Iane@admin}
+      # Obrigatória: defina POSTGRES_PASSWORD no .env (sem valor padrão inseguro).
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no arquivo .env}
+      TZ: ${TZ:-America/Sao_Paulo}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
     ports:
-      # Acesso para administração na rede local (pgAdmin, DBeaver)
-      - "5432:5432"
+      # Acesso administrativo apenas da própria máquina (pgAdmin, DBeaver).
+      # Para expor na rede, use "5432:5432" conscientemente.
+      - "127.0.0.1:5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U iane_admin -d telecom_assets"]
       interval: 5s
@@ -37,10 +39,15 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
-      # Defina JWT_SECRET no .env com um valor longo e aleatório (ex.: openssl rand -hex 48).
-      # Sem ele o servidor gera um segredo efêmero e as sessões caem a cada reinício.
-      JWT_SECRET: ${JWT_SECRET:-}
-      DATABASE_URL: ${DATABASE_URL:-postgres://iane_admin:Iane%40admin@postgres:5432/telecom_assets}
+      TZ: ${TZ:-America/Sao_Paulo}
+      # Obrigatórios: o compose recusa iniciar sem estes valores definidos no .env.
+      JWT_SECRET: ${JWT_SECRET:?Defina JWT_SECRET no arquivo .env (ex.: openssl rand -hex 48)}
+      # Validade da sessão (padrão 12h). Ex.: 8h, 12h, 1d.
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-12h}
+      # A senha na URL deve ser a mesma de POSTGRES_PASSWORD (codifique caracteres especiais, ex.: @ -> %40).
+      DATABASE_URL: ${DATABASE_URL:?Defina DATABASE_URL no arquivo .env}
+      # Em produção, NUNCA habilite o modo memória: ele não persiste dados.
+      ALLOW_MEMORY_FALLBACK: ${ALLOW_MEMORY_FALLBACK:-false}
       # Backup automático: intervalo em horas, cópias mantidas e pasta persistida no host.
       BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-24}
       BACKUP_RETENTION: ${BACKUP_RETENTION:-14}

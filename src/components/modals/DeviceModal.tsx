@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal } from '../Modal';
 import { Device, DeviceCondition, DeviceStatus } from '../../types';
 import { dataService } from '../../services/dataStorage';
+import { todayISO } from '../../utils/dates';
 import { AlertTriangle, Smartphone } from 'lucide-react';
 
 interface DeviceModalProps {
@@ -59,7 +60,7 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
         setImei1('');
         setImei2('');
         setSerialNumber('');
-        setPurchaseDate(new Date().toISOString().split('T')[0]);
+        setPurchaseDate(todayISO());
         setPurchaseValue('');
         setCondition('Novo');
         setStatus('Disponível');

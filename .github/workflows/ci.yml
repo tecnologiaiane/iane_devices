@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  quality:
+    name: Lint, testes e build
+    runs-on: ubuntu-latest
+
+    env:
+      TZ: America/Sao_Paulo
+      # Testes de API rodam sem PostgreSQL (memória) em porta efêmera.
+      NODE_ENV: test
+      SKIP_VITE: 'true'
+      ALLOW_MEMORY_FALLBACK: 'true'
+      DATABASE_URL: ''
+      PORT: '0'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci --legacy-peer-deps
+
+      - name: Verificação de tipos (strict)
+        run: npm run lint
+
+      - name: Testes automatizados
+        env:
+          JWT_SECRET: ci-secret-apenas-para-testes
+        run: npm test
+
+      - name: Build de produção
+        run: npm run build

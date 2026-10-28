@@ -54,8 +54,9 @@ Desenvolvido para modernizar e substituir controles manuais em planilhas (*Dashb
 ## 💻 Como Executar Localmente
 
 ### Pré-requisitos
-- [Node.js](https://nodejs.org/) versão 18 ou superior
-- [npm](https://www.npmjs.com/) ou [bun](https://bun.sh/)
+- [Node.js](https://nodejs.org/) versão 22 LTS (ou 20.19+)
+- [npm](https://www.npmjs.com/)
+- PostgreSQL 16 (opcional em desenvolvimento; obrigatório em produção)
 
 ### Instalação e Execução
 
@@ -67,11 +68,27 @@ cd <PASTA_DO_PROJETO>
 # 2. Instalar as dependências
 npm install
 
-# 3. Iniciar o servidor de desenvolvimento
+# 3. Configurar as variáveis de ambiente
+cp .env.example .env
+# edite o .env com DATABASE_URL, JWT_SECRET etc.
+
+# 4. Iniciar o servidor de desenvolvimento
 npm run dev
 ```
 
 Acesse no navegador: `http://localhost:3000`
+
+Sem PostgreSQL, use `ALLOW_MEMORY_FALLBACK=true` **apenas em desenvolvimento** (os dados não são persistidos no servidor).
+
+### Testes, lint e build
+
+```bash
+npm run lint    # verificação de tipos (TypeScript strict)
+npm test        # testes de datas, formatadores e API (node:test + tsx)
+npm run build   # build de produção em dist/
+```
+
+A suíte `npm test` sobe a API em porta efêmera, sem PostgreSQL (`SKIP_VITE=true`, `ALLOW_MEMORY_FALLBACK=true`) e cobre login, RBAC por módulo, revogação de sessão, auditoria e sincronização em lote. O workflow `.github/workflows/ci.yml` executa lint, testes e build a cada push/PR.
 
 ### Build para Produção
 
@@ -79,7 +96,7 @@ Acesse no navegador: `http://localhost:3000`
 npm run build
 ```
 
-Os arquivos estáticos otimizados serão gerados na pasta `dist/`.
+Os arquivos estáticos otimizados serão gerados na pasta `dist/`. As telas e modais são carregados sob demanda (`React.lazy`), com dependências separadas em chunks de longa duração (`vendor-react`, `vendor-icons`, `vendor-http`).
 
 ### Rotas da aplicação
 
@@ -89,23 +106,33 @@ Cada aba possui URL própria (navegação direta e recarregamento funcionam no s
 
 `/login` é uma rota real: sem sessão ativa, qualquer caminho protegido redireciona para `/login` guardando a origem; após autenticar, o usuário volta ao caminho solicitado.
 
-### Variáveis de ambiente (segurança)
+### Segurança e permissões (RBAC)
 
 | Variável | Descrição |
 | --- | --- |
 | `JWT_SECRET` | **Obrigatória em produção.** Segredo longo e aleatório para assinar os tokens (ex.: `openssl rand -hex 48`). Sem ela, o servidor gera um segredo efêmero e as sessões caem a cada reinício. |
-| `DATABASE_URL` | String de conexão do PostgreSQL. |
-| `POSTGRES_PASSWORD` | Senha do banco usada pelo `docker-compose`. |
-| `ALLOW_MEMORY_FALLBACK` | Apenas desenvolvimento. Com `true`, permite operar sem PostgreSQL (sem persistência real). |
+| `JWT_EXPIRES_IN` | Validade da sessão. Padrão `12h` (ex.: `8h`, `1d`). |
+| `DATABASE_URL` | String de conexão do PostgreSQL. **Obrigatória** no `docker-compose`. |
+| `POSTGRES_PASSWORD` | Senha do banco usada pelo `docker-compose`. **Obrigatória**. |
+| `ALLOW_MEMORY_FALLBACK` | Apenas desenvolvimento. Com `true`, permite operar sem PostgreSQL (sem persistência real). Em produção mantenha `false`. |
+| `TZ` | Fuso horário do servidor e do banco. Padrão `America/Sao_Paulo` (datas sem deslocamento UTC). |
 
-Todas as rotas `/api/*` exigem autenticação, exceto `/api/health` e `/api/auth/login`. A gestão de usuários (`/api/users`) exige a permissão `manage_users`.
+- **Autenticação**: todas as rotas `/api/*` exigem token JWT, exceto `/api/health` e `/api/auth/login`.
+- **Leitura**: liberada para quem possui ao menos um módulo (`dashboard`, `dispositivos`, `linhas`, `colaboradores`, `movimentacoes`, `termos`, `relatorios`, `configuracoes`).
+- **Escrita**: exige a permissão do módulo — `dispositivos_edit`, `linhas_edit`, `colaboradores_edit`, `movimentacoes` (movimentações e transferências) e `termos`.
+- **Administração**: `/api/users`, reset do banco e backup exigem `manage_users`/perfil `admin`.
+- **Revogação de sessão**: cada usuário possui `token_version`; logout, troca de senha, alteração de papel/permissões ou desativação invalidam imediatamente os tokens já emitidos.
+- **Auditoria**: o autor do log vem sempre do token autenticado, nunca do corpo da requisição.
+- **Seed idempotente**: os superusuários padrão usam `ON CONFLICT DO NOTHING` — a senha alterada pelo administrador nunca é sobrescrita em reinícios.
 
 ### Docker
 
 ```bash
-# Defina JWT_SECRET no arquivo .env antes de subir em produção
+# Crie o .env com POSTGRES_PASSWORD, DATABASE_URL e JWT_SECRET
 docker compose up -d --build
 ```
+
+O compose recusa iniciar sem `POSTGRES_PASSWORD`, `DATABASE_URL` e `JWT_SECRET` definidos. A porta do PostgreSQL é publicada apenas em `127.0.0.1:5432` (acesso administrativo local); remova essa seção ou ajuste conscientemente para expor na rede. O container da aplicação define `TZ=America/Sao_Paulo` e `ALLOW_MEMORY_FALLBACK=false`.
 
 ---
 

@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { Modal } from '../Modal';
 import { Device, PhoneLine, Collaborator, DeviceCondition, DocumentTerm, TermType, TermStatus } from '../../types';
 import { dataService, STOCK_LABEL } from '../../services/dataStorage';
+import { todayISO } from '../../utils/dates';
 import {
   formatFileSize,
   readFileAsBase64,
@@ -60,7 +61,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
   defaultFlow = 'entrega',
 }) => {
   const [activeFlow, setActiveFlow] = useState<OfficialFlowType>(defaultFlow);
-  const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState<string>(todayISO());
   const [showSummary, setShowSummary] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -137,7 +138,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
   const [quickTerm, setQuickTerm] = useState({
     code: '',
     type: 'Termo de Entrega' as TermType,
-    date: new Date().toISOString().split('T')[0],
+    date: todayISO(),
     status: 'Assinado' as TermStatus,
   });
   const [quickTermFile, setQuickTermFile] = useState<File | null>(null);
@@ -161,7 +162,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
       setQuickTerm({
         code: '',
         type: 'Termo de Entrega',
-        date: new Date().toISOString().split('T')[0],
+        date: todayISO(),
         status: 'Assinado',
       });
       setQuickTermFile(null);
@@ -171,7 +172,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
       setErrorMessage('');
       setShowSummary(false);
       setActiveFlow(defaultFlow);
-      setDate(new Date().toISOString().split('T')[0]);
+      setDate(todayISO());
 
       // Preselection logic
       if (preselectedDeviceId) {

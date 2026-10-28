@@ -16,6 +16,7 @@ import {
 } from '../types';
 import { apiClient, ApiResponse } from './apiClient';
 import { authService } from './authService';
+import { todayISO, nowLocalDateTime } from '../utils/dates';
 
 const STORAGE_KEYS = {
   DEVICES: 'iane_devices_v3',
@@ -603,7 +604,7 @@ class DataStorageService {
   public saveDevice(device: Partial<Device> & { id?: string }): { success: boolean; message: string; device?: Device } {
     const devices = this.getDevices();
     const isNew = !device.id;
-    const now = new Date().toISOString().split('T')[0];
+    const now = todayISO();
 
     // IMEI 1 duplicado
     if (device.imei1) {
@@ -693,7 +694,7 @@ class DataStorageService {
   public saveLine(line: Partial<PhoneLine> & { id?: string }): { success: boolean; message: string; line?: PhoneLine } {
     const lines = this.getLines();
     const isNew = !line.id;
-    const now = new Date().toISOString().split('T')[0];
+    const now = todayISO();
 
     if (line.phoneNumber) {
       const normalizedPhone = line.phoneNumber.replace(/\D/g, '');
@@ -773,7 +774,7 @@ class DataStorageService {
   public saveCollaborator(collab: Partial<Collaborator> & { id?: string }): { success: boolean; message: string; collaborator?: Collaborator } {
     const collabs = this.getCollaborators();
     const isNew = !collab.id;
-    const now = new Date().toISOString().split('T')[0];
+    const now = todayISO();
 
     if (collab.registrationNumber) {
       const duplicateMat = collabs.find(c => c.registrationNumber.trim().toUpperCase() === collab.registrationNumber?.trim().toUpperCase() && c.id !== collab.id);
@@ -862,7 +863,7 @@ class DataStorageService {
       // Cada assinatura registra seu próprio momento (inclusive ao reassinar após
       // voltar para pendente).
       const now = new Date();
-      term.signedAt = `${now.toISOString().split('T')[0]} ${now.toLocaleTimeString('pt-BR').substring(0, 5)}`;
+      term.signedAt = nowLocalDateTime(now);
     } else {
       // Pendente/arquivado não tem assinatura vigente.
       term.signedAt = undefined;
@@ -1543,7 +1544,7 @@ class DataStorageService {
     const prevStatus = device.status;
     device.status = 'Disponível';
     device.condition = params.condition;
-    device.updatedAt = new Date().toISOString().split('T')[0];
+    device.updatedAt = todayISO();
     if (params.notes) {
       device.notes = device.notes ? `${device.notes} | ${params.notes}` : params.notes;
     }
@@ -1554,7 +1555,7 @@ class DataStorageService {
       id: `mov-${Date.now()}`,
       code: movCode,
       type: 'Liberação de Estoque',
-      date: new Date().toISOString().split('T')[0],
+      date: todayISO(),
       deviceId: device.id,
       deviceTag: device.assetTag,
       deviceName: `${device.brand} ${device.model}`,
@@ -1787,7 +1788,7 @@ class DataStorageService {
   private logAudit(entityType: 'Dispositivo' | 'Linha' | 'Colaborador' | 'Movimentação' | 'Termo', entityId: string, entityLabel: string, details: string, user: string = 'Gestor de Telefonia') {
     const logs = this.getAuditLogs();
     const now = new Date();
-    const timestamp = `${now.toISOString().split('T')[0]} ${now.toLocaleTimeString('pt-BR')}`;
+    const timestamp = nowLocalDateTime(now);
     const newLog: AuditLog = {
       id: `aud-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       timestamp,

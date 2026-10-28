@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { dataService } from '../services/dataStorage';
 import { formatDate, formatCurrency, formatImei, downloadCsv } from '../utils/formatters';
+import { todayISO } from '../utils/dates';
 import { StatusBadge } from '../components/StatusBadge';
 import {
   BarChart3,
@@ -88,7 +89,7 @@ export const ReportsView: React.FC = () => {
 
   // Export CSV handler
   const handleExportCsv = () => {
-    const timestamp = new Date().toISOString().split('T')[0];
+    const timestamp = todayISO();
 
     if (selectedReport === 'inventario_completo') {
       const headers = ['Tag', 'Marca', 'Modelo', 'IMEI 1', 'IMEI 2', 'Número de Série', 'Status', 'Responsável', 'Linha', 'Departamento', 'Condição', 'Valor (R$)', 'Data Compra'];

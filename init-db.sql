@@ -120,8 +120,11 @@ CREATE TABLE IF NOT EXISTS system_users (
     role VARCHAR(50) DEFAULT 'admin', -- admin, gestor, operador, visualizador
     permissions TEXT[] DEFAULT ARRAY['all']::TEXT[],
     active BOOLEAN DEFAULT TRUE,
+    token_version INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE system_users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0;
 
 CREATE INDEX IF NOT EXISTS idx_users_username ON system_users(username);
 
@@ -139,6 +142,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 
 -- Super Usuário Oficial da TI IANE com Senha Criptografada (bcrypt)
 -- Senha padrão inicial: Iane@2026
+-- ON CONFLICT DO NOTHING: jamais redefine a senha de um usuário já existente a cada inicialização.
 INSERT INTO system_users (id, username, password_hash, full_name, email, role, permissions)
 VALUES (
     'user-iane-super-1',
@@ -149,10 +153,7 @@ VALUES (
     'admin',
     ARRAY['all', 'dashboard', 'dispositivos', 'dispositivos_edit', 'linhas', 'linhas_edit', 'colaboradores', 'colaboradores_edit', 'movimentacoes', 'termos', 'relatorios', 'configuracoes', 'manage_users']::TEXT[]
 )
-ON CONFLICT (username) DO UPDATE 
-SET password_hash = EXCLUDED.password_hash,
-    permissions = EXCLUDED.permissions,
-    role = EXCLUDED.role;
+ON CONFLICT DO NOTHING;
 
 INSERT INTO system_users (id, username, password_hash, full_name, email, role, permissions)
 VALUES (
@@ -164,10 +165,7 @@ VALUES (
     'admin',
     ARRAY['all', 'dashboard', 'dispositivos', 'dispositivos_edit', 'linhas', 'linhas_edit', 'colaboradores', 'colaboradores_edit', 'movimentacoes', 'termos', 'relatorios', 'configuracoes', 'manage_users']::TEXT[]
 )
-ON CONFLICT (username) DO UPDATE 
-SET password_hash = EXCLUDED.password_hash,
-    permissions = EXCLUDED.permissions,
-    role = EXCLUDED.role;
+ON CONFLICT DO NOTHING;
 
 
 

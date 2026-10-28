@@ -3,6 +3,7 @@ import { dataService } from '../services/dataStorage';
 import { authService } from '../services/authService';
 import { apiClient } from '../services/apiClient';
 import { User, UserRole, SystemUserFormData } from '../types';
+import { todayISO } from '../utils/dates';
 import {
   Download,
   Upload,
@@ -385,7 +386,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `backup_iane_dispositivos_${new Date().toISOString().split('T')[0]}.json`;
+    link.download = `backup_iane_dispositivos_${todayISO()}.json`;
     link.click();
     URL.revokeObjectURL(url);
   };

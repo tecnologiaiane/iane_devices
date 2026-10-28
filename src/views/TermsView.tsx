@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { DocumentTerm, TermType, TermStatus } from '../types';
 import { dataService } from '../services/dataStorage';
 import { formatDate } from '../utils/formatters';
+import { todayISO } from '../utils/dates';
 import {
   MAX_PDF_BYTES,
   formatFileSize,
@@ -36,7 +37,7 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm }) => {
   const [manualTerm, setManualTerm] = useState<Partial<DocumentTerm>>({
     type: 'Termo de Entrega',
     status: 'Assinado',
-    date: new Date().toISOString().split('T')[0],
+    date: todayISO(),
     accessoriesList: [],
     clauses: []
   });
@@ -143,7 +144,7 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm }) => {
     setManualTerm({
       type: 'Termo de Entrega',
       status: 'Assinado',
-      date: new Date().toISOString().split('T')[0],
+      date: todayISO(),
       accessoriesList: [],
       clauses: []
     });

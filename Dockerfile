@@ -29,6 +29,10 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV BACKUP_DIR=/app/backups
+ENV TZ=America/Sao_Paulo
+
+# tzdata garante que as datas/horas locais (America/Sao_Paulo) sejam calculadas corretamente.
+RUN apk add --no-cache tzdata
 
 # Copia manifestos e instala apenas dependências de produção
 COPY package*.json ./

@@ -90,10 +90,35 @@ class AuthService {
     }
   }
 
-  public logout(): void {
+  /**
+   * Encerra a sessão local e, por padrão, revoga o token no servidor (best-effort).
+   * Use `revoke: false` quando a sessão já foi rejeitada (401), evitando chamadas inúteis.
+   */
+  public logout(options: { revoke?: boolean } = {}): void {
+    const token = this.getToken();
     localStorage.removeItem(AUTH_USER_KEY);
     localStorage.removeItem(AUTH_TOKEN_KEY);
     this.notify(null);
+    if (options.revoke !== false && token) {
+      this.revokeSession(token);
+    }
+  }
+
+  /** Revoga o token no backend sem passar pelo Axios (não gera notificações de erro). */
+  private revokeSession(token: string): void {
+    try {
+      const base =
+        typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL
+          ? import.meta.env.VITE_API_URL
+          : '';
+      void fetch(`${base}/api/auth/logout`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        keepalive: true,
+      }).catch(() => undefined);
+    } catch {
+      // Logout local continua válido mesmo se o servidor estiver indisponível.
+    }
   }
 
   public hasPermission(permission: string, userOverride?: User | null): boolean {

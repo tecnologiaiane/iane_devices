@@ -39,6 +39,8 @@ if (!process.env.JWT_SECRET) {
 // Para desenvolvimento sem banco, defina ALLOW_MEMORY_FALLBACK=true.
 const ALLOW_MEMORY_FALLBACK = process.env.ALLOW_MEMORY_FALLBACK === 'true';
 const EFFECTIVE_JWT_SECRET = JWT_SECRET;
+// Validade do token de sessão (configurável). Padrão: 12h em vez dos 7 dias anteriores.
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '12h';
 
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
@@ -99,6 +101,7 @@ const memoryStore = {
       role: 'admin',
       permissions: ['all', 'dashboard', 'dispositivos', 'dispositivos_edit', 'linhas', 'linhas_edit', 'colaboradores', 'colaboradores_edit', 'movimentacoes', 'termos', 'relatorios', 'configuracoes', 'manage_users'],
       active: true,
+      tokenVersion: 0,
       createdAt: new Date().toISOString(),
     },
     {
@@ -110,6 +113,7 @@ const memoryStore = {
       role: 'admin',
       permissions: ['all', 'dashboard', 'dispositivos', 'dispositivos_edit', 'linhas', 'linhas_edit', 'colaboradores', 'colaboradores_edit', 'movimentacoes', 'termos', 'relatorios', 'configuracoes', 'manage_users'],
       active: true,
+      tokenVersion: 0,
       createdAt: new Date().toISOString(),
     }
   ],
@@ -237,9 +241,14 @@ async function autoMigrateDatabase(client: pg.PoolClient) {
         role VARCHAR(50) DEFAULT 'admin',
         permissions TEXT[] DEFAULT ARRAY['all']::TEXT[],
         active BOOLEAN DEFAULT TRUE,
+        token_version INTEGER NOT NULL DEFAULT 0,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
     `);
+    // Compatibilidade com bancos criados antes da revogação de sessão
+    await client.query(
+      `ALTER TABLE system_users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0;`
+    );
 
     // 7. Tabela de Auditoria
     await client.query(`
@@ -293,7 +302,8 @@ async function autoMigrateDatabase(client: pg.PoolClient) {
       CREATE INDEX IF NOT EXISTS idx_movements_date ON movements(movement_date);
     `);
 
-    // 8. Garante que os Super Usuários oficiais existam com senha bcrypt
+    // 8. Garante que os Super Usuários oficiais existam com senha bcrypt.
+    //    ON CONFLICT DO NOTHING: NUNCA sobrescreve a senha/permissões já alteradas pelo administrador.
     const superAdminHash = '$2b$10$fngkbVvcbicIlBm.BPw7TOEYDiwJEb7qyC.qFTgTxLDKMGEDm8bIW'; // Iane@2026
     const allPerms = ['all', 'dashboard', 'dispositivos', 'dispositivos_edit', 'linhas', 'linhas_edit', 'colaboradores', 'colaboradores_edit', 'movimentacoes', 'termos', 'relatorios', 'configuracoes', 'manage_users'];
 
@@ -302,10 +312,7 @@ async function autoMigrateDatabase(client: pg.PoolClient) {
       VALUES 
         ('user-iane-super-1', 'tecnologia@iane.ind.br', $1, 'TI IANE - Super Usuário', 'tecnologia@iane.ind.br', 'admin', $2, true),
         ('user-iane-super-2', 'tecnologia', $1, 'TI IANE - Super Usuário', 'tecnologia@iane.ind.br', 'admin', $2, true)
-      ON CONFLICT (username) DO UPDATE
-      SET password_hash = EXCLUDED.password_hash,
-          permissions = EXCLUDED.permissions,
-          role = EXCLUDED.role;
+      ON CONFLICT DO NOTHING;
     `, [superAdminHash, allPerms]);
 
     console.log('✅ [PostgreSQL] Todas as tabelas e migrações do sistema verificadas com sucesso!');
@@ -490,14 +497,72 @@ function authenticateToken(req: Request, res: Response, next: NextFunction) {
     return next();
   }
 
-  jwt.verify(token, EFFECTIVE_JWT_SECRET, (err, decoded: any) => {
-    if (!err && decoded) {
-      (req as any).user = decoded;
-    } else {
-      (req as any).user = null;
+  let decoded: any;
+  try {
+    decoded = jwt.verify(token, EFFECTIVE_JWT_SECRET);
+  } catch {
+    (req as any).user = null;
+    return next();
+  }
+
+  // Revogação de sessão: o token carrega a versão emitida no login (claim "tv").
+  // Alterar senha/permissões, desativar a conta ou sair revoga imediatamente os tokens antigos.
+  const tokenVersion = Number(decoded?.tv ?? 0);
+
+  const applyToken = async () => {
+    if (pool && isDbConnected) {
+      try {
+        const r = await pool.query(
+          `SELECT full_name as "fullName", username, email, role, permissions, active, token_version
+           FROM system_users WHERE id = $1`,
+          [decoded.id]
+        );
+        const dbUser = r.rows[0];
+        if (!dbUser || dbUser.active === false || Number(dbUser.token_version ?? 0) !== tokenVersion) {
+          (req as any).user = null;
+          return;
+        }
+        // Papel/permissões atuais do banco prevalecem sobre o que foi assinado no token.
+        (req as any).user = {
+          ...decoded,
+          fullName: dbUser.fullName,
+          username: dbUser.username,
+          email: dbUser.email,
+          role: dbUser.role,
+          permissions: Array.isArray(dbUser.permissions) ? dbUser.permissions : [],
+        };
+      } catch {
+        // Falha transitória do banco: mantém o token; as rotas de dados respondem 503.
+        (req as any).user = decoded;
+      }
+      return;
     }
-    next();
-  });
+
+    const memUser = memoryStore.users.find((u) => u.id === decoded.id);
+    if (!memUser) {
+      // Sem banco, um usuário removido do store também tem a sessão invalidada.
+      (req as any).user = null;
+      return;
+    }
+    if (!memUser.active || (memUser.tokenVersion || 0) !== tokenVersion) {
+      (req as any).user = null;
+      return;
+    }
+    (req as any).user = {
+      ...decoded,
+      fullName: memUser.fullName,
+      username: memUser.username,
+      email: memUser.email,
+      role: memUser.role,
+      permissions: memUser.permissions,
+    };
+  };
+
+  applyToken()
+    .catch(() => {
+      (req as any).user = decoded;
+    })
+    .finally(next);
 }
 
 app.use(authenticateToken);
@@ -523,6 +588,38 @@ function requirePermission(permission: string) {
     return res.status(403).json({ success: false, message: 'Acesso negado. Permissão insuficiente.' });
   };
 }
+
+/**
+ * Permite a leitura quando o usuário possui QUALQUER um dos módulos informados.
+ * A sincronização do front-end lê as seis bases de uma vez, por isso a leitura é
+ * liberada para quem tem acesso a pelo menos um módulo (as escritas continuam restritas).
+ */
+function requireAnyPermission(permissions: string[]) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'Não autorizado. Faça login para continuar.' });
+    }
+    if (user.role === 'admin') return next();
+    const perms = Array.isArray(user.permissions) ? user.permissions : [];
+    if (perms.includes('all') || permissions.some((p) => perms.includes(p))) {
+      return next();
+    }
+    return res.status(403).json({ success: false, message: 'Acesso negado. Permissão insuficiente.' });
+  };
+}
+
+const READ_PERMISSIONS = [
+  'dashboard',
+  'dispositivos',
+  'linhas',
+  'colaboradores',
+  'movimentacoes',
+  'termos',
+  'relatorios',
+  'configuracoes',
+];
+const requireReadAccess = requireAnyPermission(READ_PERMISSIONS);
 
 // Operações que expõem a base inteira (backup/restauração) são exclusivas do super administrador.
 function requireAdmin(req: Request, res: Response, next: NextFunction) {
@@ -588,9 +685,13 @@ app.post('/api/auth/login', async (req, res) => {
   if (pool && isDbConnected) {
     try {
       const userRes = await pool.query(
-        'SELECT id, username, password_hash, full_name as "fullName", email, role, permissions, active FROM system_users WHERE LOWER(username) = $1 OR LOWER(email) = $1',
+        'SELECT id, username, password_hash, full_name as "fullName", email, role, permissions, active, token_version FROM system_users WHERE LOWER(username) = $1 OR LOWER(email) = $1',
         [trimmedUser]
       );
+
+      if (userRes.rows.length === 0) {
+        return res.status(401).json({ success: false, message: 'Usuário ou senha inválidos.' });
+      }
 
       if (userRes.rows.length > 0) {
         const dbUser = userRes.rows[0];
@@ -619,7 +720,11 @@ app.post('/api/auth/login', async (req, res) => {
             permissions: dbUser.permissions || ['all'],
           };
 
-          const token = jwt.sign(userPayload, EFFECTIVE_JWT_SECRET, { expiresIn: '7d' });
+          const token = jwt.sign(
+            { ...userPayload, tv: Number(dbUser.token_version ?? 0) },
+            EFFECTIVE_JWT_SECRET,
+            { expiresIn: JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'] }
+          );
 
           return res.json({
             success: true,
@@ -627,15 +732,26 @@ app.post('/api/auth/login', async (req, res) => {
             token,
           });
         } else {
-          return res.status(401).json({ success: false, message: 'Senha incorreta.' });
+          return res.status(401).json({ success: false, message: 'Usuário ou senha inválidos.' });
         }
       }
     } catch (e: any) {
       console.warn('⚠️ [Auth] Erro ao consultar banco:', e.message);
+      return res.status(503).json({
+        success: false,
+        message: 'Não foi possível validar as credenciais agora. Tente novamente em instantes.',
+      });
     }
   }
 
-  // Fallback em memória (ou sem DB)
+  // Fallback em memória: SOMENTE quando o banco está indisponível e o modo contingência foi autorizado.
+  if (!ALLOW_MEMORY_FALLBACK) {
+    return res.status(503).json({
+      success: false,
+      message: 'Banco de dados indisponível. Não é possível autenticar no momento.',
+    });
+  }
+
   const user = memoryStore.users.find(
     (u) => (u.username.toLowerCase() === trimmedUser || u.email?.toLowerCase() === trimmedUser)
   );
@@ -654,12 +770,35 @@ app.post('/api/auth/login', async (req, res) => {
         role: user.role as any,
         permissions: user.permissions,
       };
-      const token = jwt.sign(userPayload, EFFECTIVE_JWT_SECRET, { expiresIn: '7d' });
+      const token = jwt.sign(
+        { ...userPayload, tv: user.tokenVersion || 0 },
+        EFFECTIVE_JWT_SECRET,
+        { expiresIn: JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'] }
+      );
       return res.json({ success: true, user: userPayload, token });
     }
   }
 
   return res.status(401).json({ success: false, message: 'Usuário ou senha inválidos.' });
+});
+
+// Encerra a sessão revogando os tokens já emitidos (inclusive em outros dispositivos).
+app.post('/api/auth/logout', requireAuth, async (req, res) => {
+  const user = (req as any).user;
+  try {
+    if (pool && isDbConnected) {
+      await pool.query(
+        'UPDATE system_users SET token_version = token_version + 1 WHERE id = $1',
+        [user.id]
+      );
+    } else {
+      const memUser = memoryStore.users.find((u) => u.id === user.id);
+      if (memUser) memUser.tokenVersion = (memUser.tokenVersion || 0) + 1;
+    }
+    return res.json({ success: true, message: 'Sessão encerrada com sucesso.' });
+  } catch (e: any) {
+    return res.status(500).json({ success: false, message: 'Não foi possível encerrar a sessão no servidor.' });
+  }
 });
 
 // 3. Gestão de Usuários (RBAC / CRUD de Operadores)
@@ -728,6 +867,7 @@ app.post('/api/users', requirePermission('manage_users'), async (req, res) => {
     role: userRole,
     permissions: userPerms,
     active: userActive,
+    tokenVersion: 0,
     createdAt: new Date().toISOString(),
   };
   memoryStore.users.push(newUser);
@@ -765,6 +905,14 @@ app.put('/api/users/:id', requirePermission('manage_users'), async (req, res) =>
         return res.status(404).json({ success: false, message: 'Usuário não encontrado.' });
       }
 
+      // Senha, papel, permissões ou status alterados: revoga tokens emitidos antes da mudança.
+      if ((password && password.trim()) || role || permissions || active !== undefined) {
+        await pool.query(
+          'UPDATE system_users SET token_version = token_version + 1 WHERE id = $1',
+          [id]
+        );
+      }
+
       return res.json({ success: true, data: result.rows[0], message: 'Usuário atualizado com sucesso.' });
     } catch (err: any) {
       return res.status(500).json({ success: false, error: err.message });
@@ -780,6 +928,9 @@ app.put('/api/users/:id', requirePermission('manage_users'), async (req, res) =>
   if (permissions) user.permissions = permissions;
   if (active !== undefined) user.active = active;
   if (password && password.trim()) user.passwordHash = await bcrypt.hash(password.trim(), 10);
+  if ((password && password.trim()) || role || permissions || active !== undefined) {
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
+  }
 
   const { passwordHash: _, ...safeUser } = user;
   res.json({ success: true, data: safeUser, message: 'Usuário atualizado com sucesso.' });
@@ -829,7 +980,12 @@ const num = (v: any): number => {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 };
-const todayISO = () => new Date().toISOString().split('T')[0];
+const todayISO = (date: Date = new Date()) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
 const withId = (body: any, prefix: string) => ({ ...(body || {}), id: body?.id || `${prefix}-${Date.now()}` });
 
 // Junta o objeto completo (JSONB) com as colunas relacionais; coluna preenchida prevalece
@@ -1067,7 +1223,7 @@ async function insertAudit(q: Queryable, a: any) {
   );
 }
 
-app.get('/api/devices', route(async (_req, res) => {
+app.get('/api/devices', requireReadAccess, route(async (_req, res) => {
   if (pool && isDbConnected) {
     const result = await pool.query(`
       SELECT
@@ -1091,7 +1247,7 @@ app.get('/api/devices', route(async (_req, res) => {
   res.json({ success: true, data: memoryStore.devices });
 }));
 
-app.post('/api/devices', route(async (req, res) => {
+app.post('/api/devices', requirePermission('dispositivos_edit'), route(async (req, res) => {
   const d = withId(req.body, 'dev');
 
   if (pool && isDbConnected) {
@@ -1109,7 +1265,7 @@ app.post('/api/devices', route(async (req, res) => {
   res.status(201).json({ success: true, data: d });
 }));
 
-app.delete('/api/devices/:id', async (req, res) => {
+app.delete('/api/devices/:id', requirePermission('dispositivos_edit'), async (req, res) => {
   const { id } = req.params;
   if (pool && isDbConnected) {
     try {
@@ -1124,7 +1280,7 @@ app.delete('/api/devices/:id', async (req, res) => {
 });
 
 // 5. Linhas Telefônicas
-app.get('/api/lines', route(async (_req, res) => {
+app.get('/api/lines', requireReadAccess, route(async (_req, res) => {
   if (pool && isDbConnected) {
     const result = await pool.query(`
       SELECT
@@ -1147,7 +1303,7 @@ app.get('/api/lines', route(async (_req, res) => {
   res.json({ success: true, data: memoryStore.lines });
 }));
 
-app.post('/api/lines', route(async (req, res) => {
+app.post('/api/lines', requirePermission('linhas_edit'), route(async (req, res) => {
   const l = withId(req.body, 'line');
 
   if (pool && isDbConnected) {
@@ -1165,7 +1321,7 @@ app.post('/api/lines', route(async (req, res) => {
   res.status(201).json({ success: true, data: l });
 }));
 
-app.delete('/api/lines/:id', async (req, res) => {
+app.delete('/api/lines/:id', requirePermission('linhas_edit'), async (req, res) => {
   const { id } = req.params;
   if (pool && isDbConnected) {
     try {
@@ -1180,7 +1336,7 @@ app.delete('/api/lines/:id', async (req, res) => {
 });
 
 // 6. Colaboradores
-app.get('/api/collaborators', route(async (_req, res) => {
+app.get('/api/collaborators', requireReadAccess, route(async (_req, res) => {
   if (pool && isDbConnected) {
     const result = await pool.query(`
       SELECT
@@ -1199,7 +1355,7 @@ app.get('/api/collaborators', route(async (_req, res) => {
   res.json({ success: true, data: memoryStore.collaborators });
 }));
 
-app.post('/api/collaborators', route(async (req, res) => {
+app.post('/api/collaborators', requirePermission('colaboradores_edit'), route(async (req, res) => {
   const c = withId(req.body, 'col');
 
   if (pool && isDbConnected) {
@@ -1217,7 +1373,7 @@ app.post('/api/collaborators', route(async (req, res) => {
   res.status(201).json({ success: true, data: c });
 }));
 
-app.delete('/api/collaborators/:id', async (req, res) => {
+app.delete('/api/collaborators/:id', requirePermission('colaboradores_edit'), async (req, res) => {
   const { id } = req.params;
   if (pool && isDbConnected) {
     try {
@@ -1232,7 +1388,7 @@ app.delete('/api/collaborators/:id', async (req, res) => {
 });
 
 // 7. Movimentações Patrimoniais
-app.get('/api/movements', route(async (_req, res) => {
+app.get('/api/movements', requireReadAccess, route(async (_req, res) => {
   if (pool && isDbConnected) {
     const result = await pool.query(`
       SELECT
@@ -1255,7 +1411,7 @@ app.get('/api/movements', route(async (_req, res) => {
   res.json({ success: true, data: memoryStore.movements });
 }));
 
-app.post('/api/movements', route(async (req, res) => {
+app.post('/api/movements', requirePermission('movimentacoes'), route(async (req, res) => {
   const m = withId(req.body, 'mov');
 
   if (pool && isDbConnected) {
@@ -1269,7 +1425,7 @@ app.post('/api/movements', route(async (req, res) => {
 }));
 
 // 8. Transação Atômica Oficial: Transferência entre Colaboradores (2 Etapas)
-app.post('/api/movements/transfer', async (req, res) => {
+app.post('/api/movements/transfer', requirePermission('movimentacoes'), async (req, res) => {
   if (!pool || !isDbConnected) {
     return res.json({ success: true, message: 'Transferência registrada localmente (Modo Fallback).' });
   }
@@ -1378,7 +1534,7 @@ app.post('/api/movements/transfer', async (req, res) => {
 });
 
 // 9. Termos e Documentos Oficiais
-app.get('/api/terms', route(async (_req, res) => {
+app.get('/api/terms', requireReadAccess, route(async (_req, res) => {
   if (pool && isDbConnected) {
     const result = await pool.query(`
       SELECT
@@ -1426,7 +1582,7 @@ function readPdfBase64(input: any): string | null {
   return base64;
 }
 
-app.post('/api/terms', route(async (req, res) => {
+app.post('/api/terms', requirePermission('termos'), route(async (req, res) => {
   const body = req.body || {};
   const fileData = body.fileData ? readPdfBase64(body.fileData) : null;
   const t = withId(body, 'term');
@@ -1462,7 +1618,7 @@ app.post('/api/terms', route(async (req, res) => {
 }));
 
 // Download/visualização do PDF anexado ao termo (protegido pelo middleware global de /api)
-app.get('/api/terms/:id/file', route(async (req, res) => {
+app.get('/api/terms/:id/file', requireReadAccess, route(async (req, res) => {
   const { id } = req.params;
   let fileName = 'termo.pdf';
   let fileData: string | null = null;
@@ -1494,7 +1650,7 @@ app.get('/api/terms/:id/file', route(async (req, res) => {
 }));
 
 // 10. Trilha de Auditoria
-app.get('/api/audit-logs', route(async (_req, res) => {
+app.get('/api/audit-logs', requireReadAccess, route(async (_req, res) => {
   if (pool && isDbConnected) {
     const result = await pool.query(`
       SELECT id, action, entity_type as "entityType", entity_id as "entityId",
@@ -1509,8 +1665,15 @@ app.get('/api/audit-logs', route(async (_req, res) => {
   res.json({ success: true, data: memoryStore.auditLogs });
 }));
 
+// 10. Trilha de Auditoria
 app.post('/api/audit-logs', route(async (req, res) => {
-  const a = { ...(req.body || {}), id: req.body?.id || `audit-${Date.now()}-${Math.random().toString(36).substring(2, 6)}` };
+  // O autor da ação vem do token autenticado — nunca do corpo enviado pelo cliente.
+  const authenticatedUser = (req as any).user;
+  const a = {
+    ...(req.body || {}),
+    id: req.body?.id || `audit-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+    user: authenticatedUser?.fullName || authenticatedUser?.username || 'Operador',
+  };
 
   if (pool && isDbConnected) {
     await insertAudit(pool, a);
@@ -1538,15 +1701,66 @@ app.post('/api/sync/batch-upload', route(async (req, res) => {
   const { devices, lines, collaborators, movements, terms, auditLogs, mode } = req.body || {};
   const overwrite = mode !== 'insert-missing';
 
+  const rejected: { entity: string; id: string; label: string; message: string }[] = [];
+  const saved = { collaborators: 0, lines: 0, devices: 0, movements: 0, terms: 0, auditLogs: 0 };
+
+  // RBAC no lote: o login de qualquer usuário envia a base local inteira. Só são
+  // gravadas as entidades para as quais o usuário tem permissão de escrita.
+  const authenticatedUser = (req as any).user;
+  const userPerms: string[] = Array.isArray(authenticatedUser?.permissions)
+    ? authenticatedUser.permissions
+    : [];
+  const canWrite = (permission: string) =>
+    authenticatedUser?.role === 'admin' ||
+    userPerms.includes('all') ||
+    userPerms.includes(permission);
+  const allowed = {
+    collaborators: canWrite('colaboradores_edit'),
+    lines: canWrite('linhas_edit'),
+    devices: canWrite('dispositivos_edit'),
+    movements: canWrite('movimentacoes'),
+    terms: canWrite('termos'),
+    auditLogs: true,
+  };
+  const skipped: { entity: string; count: number; reason: string }[] = [];
+  const auditUser =
+    authenticatedUser?.fullName || authenticatedUser?.username || 'Operador';
+
   if (!pool || !isDbConnected) {
     if (!ALLOW_MEMORY_FALLBACK) {
       throw new HttpError(503, 'Banco de dados PostgreSQL indisponível. Nada foi gravado.');
     }
-    return res.json({ success: true, message: 'Dados salvos em modo contingência/memória.' });
+    // Modo contingência: nada é persistido no servidor (os dados continuam no navegador),
+    // mas a resposta mantém o mesmo formato do modo PostgreSQL para o front-end.
+    const payloadByEntity: Record<string, any> = { collaborators, lines, devices, movements, terms };
+    for (const [entity, items] of Object.entries(payloadByEntity)) {
+      if (Array.isArray(items) && items.length > 0 && !allowed[entity as keyof typeof allowed]) {
+        skipped.push({
+          entity,
+          count: items.length,
+          reason: 'Usuário sem permissão de escrita neste módulo.',
+        });
+      }
+    }
+    const accepted = (entity: keyof typeof saved, items: any) =>
+      allowed[entity] && Array.isArray(items) ? items.length : 0;
+    return res.json({
+      success: true,
+      message: 'Dados mantidos em modo contingência/memória.',
+      data: {
+        saved: {
+          collaborators: accepted('collaborators', collaborators),
+          lines: accepted('lines', lines),
+          devices: accepted('devices', devices),
+          movements: accepted('movements', movements),
+          terms: accepted('terms', terms),
+          auditLogs: Array.isArray(auditLogs) ? auditLogs.length : 0,
+        },
+        rejected: [],
+        skipped,
+      },
+    });
   }
-
-  const rejected: { entity: string; id: string; label: string; message: string }[] = [];
-  const saved = { collaborators: 0, lines: 0, devices: 0, movements: 0, terms: 0, auditLogs: 0 };
 
   const client = await pool.connect();
   try {
@@ -1559,6 +1773,16 @@ app.post('/api/sync/batch-upload', route(async (req, res) => {
       fn: (x: any) => Promise<void>
     ) => {
       if (!Array.isArray(items)) return;
+      if (!allowed[entity]) {
+        if (items.length > 0) {
+          skipped.push({
+            entity,
+            count: items.length,
+            reason: 'Usuário sem permissão de escrita neste módulo.',
+          });
+        }
+        return;
+      }
       for (const item of items) {
         if (!item?.id) {
           rejected.push({ entity, id: '', label: labelOf(item), message: 'Registro sem identificador (id).' });
@@ -1582,16 +1806,16 @@ app.post('/api/sync/batch-upload', route(async (req, res) => {
     await run('devices', devices, d => d.assetTag || d.id, d => upsertDevice(client, d, overwrite));
     await run('movements', movements, m => m.code || m.id, m => upsertMovement(client, m, overwrite));
     await run('terms', terms, t => t.code || t.id, t => upsertTerm(client, t, overwrite));
-    await run('auditLogs', auditLogs, a => a.id, a => insertAudit(client, a));
+    await run('auditLogs', auditLogs, a => a.id, a => insertAudit(client, { ...a, user: auditUser }));
 
     await client.query('COMMIT');
-    console.log(`✅ [PostgreSQL] Lote (${overwrite ? 'overwrite' : 'insert-missing'}): ${JSON.stringify(saved)}; rejeitados: ${rejected.length}`);
+    console.log(`✅ [PostgreSQL] Lote (${overwrite ? 'overwrite' : 'insert-missing'}): ${JSON.stringify(saved)}; rejeitados: ${rejected.length}; ignorados: ${skipped.length}`);
     return res.json({
       success: true,
       message: rejected.length
         ? `${rejected.length} registro(s) foram rejeitados pelo banco de dados.`
         : 'Dados sincronizados com o PostgreSQL com sucesso!',
-      data: { saved, rejected },
+      data: { saved, rejected, skipped },
     });
   } catch (err: any) {
     try { await client.query('ROLLBACK'); } catch { /* ignora */ }
@@ -1689,27 +1913,40 @@ app.get('/api/backup/:fileName', requireAdmin, async (req, res) => {
 // ----------------------------------------------------------------------------
 // Integração Frontend: Vite Middleware (Dev) ou Arquivos Estáticos (Prod)
 // ----------------------------------------------------------------------------
-async function startServer() {
-  if (!isProduction) {
-    const { createServer: createViteServer } = await import('vite');
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
-    console.log('⚡ [Vite] Servidor de desenvolvimento montado via middleware.');
+async function startServer(): Promise<import('http').Server> {
+  if (process.env.SKIP_VITE !== 'true') {
+    if (!isProduction) {
+      const { createServer: createViteServer } = await import('vite');
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: 'spa',
+      });
+      app.use(vite.middlewares);
+      console.log('⚡ [Vite] Servidor de desenvolvimento montado via middleware.');
+    } else {
+      const distPath = path.resolve(__dirname, 'dist');
+      app.use(express.static(distPath));
+      app.get('*', (_req, res) => {
+        res.sendFile(path.resolve(distPath, 'index.html'));
+      });
+      console.log(`📦 [Produção] Servindo arquivos compilados da pasta: ${distPath}`);
+    }
   } else {
-    const distPath = path.resolve(__dirname, 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (_req, res) => {
-      res.sendFile(path.resolve(distPath, 'index.html'));
-    });
-    console.log(`📦 [Produção] Servindo arquivos compilados da pasta: ${distPath}`);
+    console.log('ℹ️ [Vite] Frontend ignorado (SKIP_VITE=true). API disponível.');
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 [IANE - Gestão de Dispositivos] Servidor ativo em http://0.0.0.0:${PORT}`);
+  return new Promise((resolve) => {
+    const server = app.listen(PORT, '0.0.0.0', () => {
+      console.log(`🚀 [IANE - Gestão de Dispositivos] Servidor ativo em http://0.0.0.0:${PORT}`);
+      resolve(server);
+    });
   });
 }
 
-startServer();
+// Em testes (NODE_ENV=test) o servidor só é iniciado quando o teste chamar startServer(),
+// permitindo usar porta efêmera e encerrar o processo sem travar a suíte.
+if (process.env.NODE_ENV !== 'test') {
+  void startServer();
+}
+
+export { app, startServer };

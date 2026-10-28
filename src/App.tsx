@@ -1,27 +1,63 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { Loader2 } from 'lucide-react';
 import { Sidebar, NavTab } from './components/Sidebar';
 import { Header } from './components/Header';
-import { DashboardView } from './views/DashboardView';
-import { DevicesView } from './views/DevicesView';
-import { LinesView } from './views/LinesView';
-import { CollaboratorsView } from './views/CollaboratorsView';
-import { MovementsView } from './views/MovementsView';
-import { TermsView } from './views/TermsView';
-import { ReportsView } from './views/ReportsView';
-import { SettingsView } from './views/SettingsView';
-
-import { MovementModal } from './components/modals/MovementModal';
-import { DeviceModal } from './components/modals/DeviceModal';
-import { LineModal } from './components/modals/LineModal';
-import { CollaboratorModal } from './components/modals/CollaboratorModal';
-import { TermViewerModal } from './components/modals/TermViewerModal';
-
 import { Device, PhoneLine, Collaborator, DocumentTerm, MovementType, User } from './types';
 import { dataService } from './services/dataStorage';
 import { authService } from './services/authService';
 import { apiClient, ApiNotification } from './services/apiClient';
 import { LoginView } from './views/LoginView';
+
+// Views e modais são carregados sob demanda (React.lazy): o bundle inicial fica
+// pequeno e cada tela baixa seu próprio chunk somente quando é aberta.
+const DashboardView = React.lazy(() =>
+  import('./views/DashboardView').then((m) => ({ default: m.DashboardView }))
+);
+const DevicesView = React.lazy(() =>
+  import('./views/DevicesView').then((m) => ({ default: m.DevicesView }))
+);
+const LinesView = React.lazy(() =>
+  import('./views/LinesView').then((m) => ({ default: m.LinesView }))
+);
+const CollaboratorsView = React.lazy(() =>
+  import('./views/CollaboratorsView').then((m) => ({ default: m.CollaboratorsView }))
+);
+const MovementsView = React.lazy(() =>
+  import('./views/MovementsView').then((m) => ({ default: m.MovementsView }))
+);
+const TermsView = React.lazy(() =>
+  import('./views/TermsView').then((m) => ({ default: m.TermsView }))
+);
+const ReportsView = React.lazy(() =>
+  import('./views/ReportsView').then((m) => ({ default: m.ReportsView }))
+);
+const SettingsView = React.lazy(() =>
+  import('./views/SettingsView').then((m) => ({ default: m.SettingsView }))
+);
+
+const MovementModal = React.lazy(() =>
+  import('./components/modals/MovementModal').then((m) => ({ default: m.MovementModal }))
+);
+const DeviceModal = React.lazy(() =>
+  import('./components/modals/DeviceModal').then((m) => ({ default: m.DeviceModal }))
+);
+const LineModal = React.lazy(() =>
+  import('./components/modals/LineModal').then((m) => ({ default: m.LineModal }))
+);
+const CollaboratorModal = React.lazy(() =>
+  import('./components/modals/CollaboratorModal').then((m) => ({ default: m.CollaboratorModal }))
+);
+const TermViewerModal = React.lazy(() =>
+  import('./components/modals/TermViewerModal').then((m) => ({ default: m.TermViewerModal }))
+);
+
+const ViewFallback: React.FC = () => (
+  <div className="flex items-center justify-center gap-3 py-24 text-ink-400" role="status">
+    <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
+    <span className="text-sm font-medium">Carregando…</span>
+  </div>
+);
 
 const tabToPath: Record<NavTab, string> = {
   dashboard: '/dashboard',
@@ -100,7 +136,7 @@ export default function App() {
     return apiClient.subscribeError((notif) => {
       // Token inválido/expirado: encerra a sessão para o usuário autenticar novamente
       if (notif.status === 401 && authService.getCurrentUser()) {
-        authService.logout();
+        authService.logout({ revoke: false });
         setCurrentUser(null);
         return;
       }
@@ -259,6 +295,7 @@ export default function App() {
         />
 
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+          <React.Suspense fallback={<ViewFallback />}>
           {activeTab === 'dashboard' && (
             <DashboardView
               key={refreshKey}
@@ -320,46 +357,59 @@ export default function App() {
               currentUser={currentUser}
             />
           )}
+          </React.Suspense>
         </main>
       </div>
 
-      {/* Modals mounted at root level */}
-      <MovementModal
-        isOpen={isMovementModalOpen}
-        onClose={() => setIsMovementModalOpen(false)}
-        onSuccess={triggerRefresh}
-        preselectedDeviceId={movementPreselectDeviceId}
-        preselectedCollaboratorId={movementPreselectCollaboratorId}
-        defaultFlow={movementDefaultFlow}
-      />
+      {/* Modals mounted at root level (carregados somente quando abertos) */}
+      <React.Suspense fallback={null}>
+        {isMovementModalOpen && (
+          <MovementModal
+            isOpen={isMovementModalOpen}
+            onClose={() => setIsMovementModalOpen(false)}
+            onSuccess={triggerRefresh}
+            preselectedDeviceId={movementPreselectDeviceId}
+            preselectedCollaboratorId={movementPreselectCollaboratorId}
+            defaultFlow={movementDefaultFlow}
+          />
+        )}
 
-      <DeviceModal
-        isOpen={isDeviceModalOpen}
-        onClose={() => setIsDeviceModalOpen(false)}
-        onSuccess={triggerRefresh}
-        deviceToEdit={deviceToEdit}
-      />
+        {isDeviceModalOpen && (
+          <DeviceModal
+            isOpen={isDeviceModalOpen}
+            onClose={() => setIsDeviceModalOpen(false)}
+            onSuccess={triggerRefresh}
+            deviceToEdit={deviceToEdit}
+          />
+        )}
 
-      <LineModal
-        isOpen={isLineModalOpen}
-        onClose={() => setIsLineModalOpen(false)}
-        onSuccess={triggerRefresh}
-        lineToEdit={lineToEdit}
-      />
+        {isLineModalOpen && (
+          <LineModal
+            isOpen={isLineModalOpen}
+            onClose={() => setIsLineModalOpen(false)}
+            onSuccess={triggerRefresh}
+            lineToEdit={lineToEdit}
+          />
+        )}
 
-      <CollaboratorModal
-        isOpen={isCollaboratorModalOpen}
-        onClose={() => setIsCollaboratorModalOpen(false)}
-        onSuccess={triggerRefresh}
-        collaboratorToEdit={collaboratorToEdit}
-      />
+        {isCollaboratorModalOpen && (
+          <CollaboratorModal
+            isOpen={isCollaboratorModalOpen}
+            onClose={() => setIsCollaboratorModalOpen(false)}
+            onSuccess={triggerRefresh}
+            collaboratorToEdit={collaboratorToEdit}
+          />
+        )}
 
-      <TermViewerModal
-        isOpen={isTermViewerOpen}
-        onClose={() => setIsTermViewerOpen(false)}
-        term={selectedTerm}
-        onTermUpdated={triggerRefresh}
-      />
+        {isTermViewerOpen && selectedTerm && (
+          <TermViewerModal
+            isOpen={isTermViewerOpen}
+            onClose={() => setIsTermViewerOpen(false)}
+            term={selectedTerm}
+            onTermUpdated={triggerRefresh}
+          />
+        )}
+      </React.Suspense>
 
       {/* Notificações Flutuantes Globais do ApiClient (401, 403, 500, Servidor Indisponível) */}
       <aside aria-label="Notificações do Sistema" className="fixed bottom-5 right-5 z-50 flex flex-col gap-2.5 max-w-sm w-full pointer-events-none">
