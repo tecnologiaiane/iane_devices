@@ -34,8 +34,6 @@ import { User as UserType } from '../types';
 interface SidebarProps {
   activeTab: NavTab;
   onSelectTab: (tab: NavTab) => void;
-  isOpenMobile: boolean;
-  onToggleMobile: () => void;
   pendingTermsCount: number;
   maintenanceCount: number;
   currentUser?: UserType | null;
@@ -59,7 +57,7 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 const NOVIDADES = [
-  'Menu lateral recolhível com busca rápida entre os módulos.',
+  'Menu lateral fixo, com busca rápida entre os módulos.',
   'Configurações organizadas em seções recolhíveis.',
   'Backup automático do banco com cópias para download.',
 ];
@@ -75,8 +73,6 @@ const normalize = (value: string) =>
 export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   onSelectTab,
-  isOpenMobile,
-  onToggleMobile,
   pendingTermsCount,
   maintenanceCount,
   currentUser,
@@ -92,6 +88,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const newsRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const shouldFocusSearchRef = useRef(false);
+
+  const isExpanded = !isCollapsed;
 
   // Fecha os popovers ao clicar fora ou pressionar Esc
   useEffect(() => {
@@ -130,11 +128,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   // Foca a busca depois que a barra é expandida pelo ícone de pesquisa
   useEffect(() => {
-    if (!isCollapsed && shouldFocusSearchRef.current) {
+    if (isExpanded && shouldFocusSearchRef.current) {
       shouldFocusSearchRef.current = false;
       searchInputRef.current?.focus();
     }
-  }, [isCollapsed]);
+  }, [isExpanded]);
 
   const navItems: NavItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -162,17 +160,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const permittedItems = navItems.filter((item) => isAdmin || userPerms.includes(item.id));
 
-  const filteredItems = (() => {
-    const term = normalize(searchTerm);
-    if (!term) return permittedItems;
-    return permittedItems.filter((item) => normalize(item.label).includes(term));
-  })();
+  const term = normalize(searchTerm);
+  const filteredItems = term
+    ? permittedItems.filter((item) => normalize(item.label).includes(term))
+    : permittedItems;
 
   const handleSelect = (tab: NavTab) => {
     onSelectTab(tab);
     setIsUserMenuOpen(false);
     setIsNewsOpen(false);
-    if (isOpenMobile) onToggleMobile();
   };
 
   const handleSearchSubmit = (event: React.FormEvent) => {
@@ -192,79 +188,49 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <>
-      {/* Mobile Backdrop */}
-      {isOpenMobile && (
-        <div
-          className="fixed inset-0 bg-deep-950/70 z-40 lg:hidden"
-          onClick={onToggleMobile}
-        />
-      )}
-
-      {/* Sidebar Container */}
+      {/* Sidebar fixa (sempre visível) */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-40 w-64 bg-deep-900 text-mist-300 flex flex-col transition-[width,transform] duration-200 ease-in-out ${
-          isCollapsed ? 'lg:w-[76px]' : 'lg:w-64'
-        } ${isOpenMobile ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}
+        className={`fixed top-0 bottom-0 left-0 z-40 bg-navy-900 text-ink-100 flex flex-col border-r border-navy-800 transition-[width] duration-200 ease-in-out ${
+          isExpanded ? 'w-64' : 'w-[76px]'
+        }`}
       >
-        {/* Controle de minimizar / expandir (desktop) */}
+        {/* Controle de minimizar / expandir */}
         <button
           type="button"
           onClick={onToggleCollapse}
-          title={isCollapsed ? 'Expandir menu lateral' : 'Minimizar menu lateral'}
-          aria-label={isCollapsed ? 'Expandir menu lateral' : 'Minimizar menu lateral'}
-          className="hidden lg:flex absolute -right-3 top-24 z-50 h-6 w-6 items-center justify-center rounded-full border border-ink-200 bg-white text-ink-500 shadow-md hover:text-iane-600 hover:border-iane-300 transition-colors cursor-pointer"
+          title={isExpanded ? 'Recolher menu lateral' : 'Expandir menu lateral'}
+          aria-label={isExpanded ? 'Recolher menu lateral' : 'Expandir menu lateral'}
+          className="flex absolute -right-3 top-24 z-50 h-6 w-6 items-center justify-center rounded-full border border-ink-200 bg-white text-ink-500 shadow-md hover:text-iane-600 hover:border-iane-300 transition-colors cursor-pointer"
         >
-          {isCollapsed ? (
-            <ChevronRight className="w-3.5 h-3.5" />
-          ) : (
+          {isExpanded ? (
             <ChevronLeft className="w-3.5 h-3.5" />
+          ) : (
+            <ChevronRight className="w-3.5 h-3.5" />
           )}
         </button>
 
         {/* Marca */}
         <div
-          className={`h-16 px-4 flex items-center ${
-            isCollapsed ? 'lg:justify-center lg:px-2' : 'justify-between'
+          className={`h-16 flex items-center ${
+            isExpanded ? 'px-4 gap-2.5' : 'justify-center px-2'
           }`}
         >
-          <div className={`flex items-center gap-2.5 min-w-0 ${isCollapsed ? 'lg:gap-0' : ''}`}>
-            <img
-              src="/icone.png"
-              alt="IANE"
-              className="h-7 w-auto object-contain shrink-0"
-            />
-            <div className={`flex flex-col min-w-0 ${isCollapsed ? 'lg:hidden' : ''}`}>
+          <img src="/icone.png" alt="IANE" className="h-7 w-auto object-contain shrink-0" />
+          {isExpanded && (
+            <div className="flex flex-col min-w-0">
               <span className="font-bold text-sm tracking-tight text-white leading-tight truncate">
                 IANE
               </span>
-              <span className="text-[9px] text-aqua-400 font-semibold uppercase tracking-[0.14em] truncate">
+              <span className="text-[9px] text-sky font-semibold uppercase tracking-[0.14em] truncate">
                 Gestão de Dispositivos
               </span>
             </div>
-          </div>
-          <button
-            type="button"
-            onClick={onToggleMobile}
-            className="lg:hidden text-mist-400 hover:text-white p-1 rounded-md cursor-pointer"
-            aria-label="Fechar menu"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          )}
         </div>
 
         {/* Busca no menu */}
-        <div className={`px-4 pb-2 ${isCollapsed ? 'lg:px-2' : ''}`}>
-          {isCollapsed && !isOpenMobile ? (
-            <button
-              type="button"
-              onClick={handleExpandForSearch}
-              title="Buscar no menu"
-              aria-label="Buscar no menu"
-              className="hidden lg:flex mx-auto h-9 w-9 items-center justify-center rounded-lg text-mist-400 hover:text-white hover:bg-deep-800 transition-colors cursor-pointer"
-            >
-              <Search className="w-4 h-4" />
-            </button>
-          ) : (
+        <div className={`pb-2 ${isExpanded ? 'px-4' : 'px-2'}`}>
+          {isExpanded ? (
             <form onSubmit={handleSearchSubmit} className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-400 pointer-events-none" />
               <input
@@ -274,7 +240,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onChange={(event) => setSearchTerm(event.target.value)}
                 placeholder="Buscar..."
                 aria-label="Buscar item do menu"
-                className="h-9 w-full rounded-lg bg-white pl-9 pr-3 text-xs text-ink-800 placeholder:text-ink-500 outline-none border border-transparent focus:border-aqua-500 focus:ring-2 focus:ring-aqua-500/30 transition [&::-webkit-search-cancel-button]:hidden"
+                className="h-9 w-full rounded-lg bg-white pl-9 pr-3 text-xs text-ink-800 placeholder:text-ink-500 outline-none border border-transparent focus:border-iane-500 focus:ring-2 focus:ring-iane-500/30 transition [&::-webkit-search-cancel-button]:hidden"
               />
               {searchTerm && (
                 <button
@@ -290,15 +256,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </button>
               )}
             </form>
+          ) : (
+            <button
+              type="button"
+              onClick={handleExpandForSearch}
+              title="Buscar no menu"
+              aria-label="Buscar no menu"
+              className="mx-auto h-9 w-9 flex items-center justify-center rounded-lg text-ink-300 hover:text-white hover:bg-navy-800 transition-colors cursor-pointer"
+            >
+              <Search className="w-4 h-4" />
+            </button>
           )}
         </div>
 
         {/* Navegação */}
         <nav
           aria-label="Menu principal"
-          className={`flex-1 overflow-y-auto py-3 px-3 ${isCollapsed ? 'lg:px-2' : ''}`}
+          className={`flex-1 overflow-y-auto overflow-x-hidden py-3 ${isExpanded ? 'px-3' : 'px-2'}`}
         >
-          <div className={`space-y-2.5 ${isCollapsed ? 'lg:space-y-2' : ''}`}>
+          <div className={isExpanded ? 'space-y-2.5' : 'space-y-2'}>
             {filteredItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
@@ -309,43 +285,43 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   key={item.id}
                   type="button"
                   onClick={() => handleSelect(item.id)}
-                  title={isCollapsed ? item.label : undefined}
-                  aria-label={isCollapsed ? item.label : undefined}
+                  title={isExpanded ? undefined : item.label}
+                  aria-label={isExpanded ? undefined : item.label}
                   aria-current={isActive ? 'page' : undefined}
                   className={`group relative w-full h-11 flex items-center rounded-lg text-[13px] transition-colors cursor-pointer ${
-                    isCollapsed ? 'lg:justify-center lg:px-0 px-4' : 'px-4'
-                  } gap-3 ${
+                    isExpanded ? 'px-4 gap-3' : 'justify-center px-0'
+                  } ${
                     isActive
-                      ? 'bg-deep-700 text-white font-semibold'
-                      : 'text-mist-400 hover:bg-deep-800/80 hover:text-white'
+                      ? 'bg-iane-600 text-white font-semibold shadow-xs'
+                      : 'text-ink-300 hover:bg-navy-800/70 hover:text-white'
                   }`}
                 >
                   <Icon
                     className={`w-[18px] h-[18px] shrink-0 transition-colors ${
-                      isActive
-                        ? 'text-aqua-400'
-                        : 'text-mist-400 group-hover:text-aqua-400'
+                      isActive ? 'text-sky' : 'text-ink-400 group-hover:text-sky'
                     }`}
                   />
 
-                  <span className={`truncate flex-1 text-left ${isCollapsed ? 'lg:hidden' : ''}`}>
-                    {item.label}
-                  </span>
+                  {isExpanded && (
+                    <>
+                      <span className="truncate flex-1 text-left">{item.label}</span>
 
-                  {badge !== null && (
-                    <span
-                      className={`shrink-0 min-w-5 h-5 px-1.5 rounded-full text-[10px] font-bold flex items-center justify-center ${
-                        isActive ? 'bg-aqua-500 text-deep-950' : 'bg-sun-400 text-deep-950'
-                      } ${isCollapsed ? 'lg:hidden' : ''}`}
-                    >
-                      {badge}
-                    </span>
+                      {badge !== null && (
+                        <span
+                          className={`shrink-0 min-w-5 h-5 px-1.5 rounded-full text-[10px] font-bold flex items-center justify-center ${
+                            isActive ? 'bg-white text-iane-700' : 'bg-sun-400 text-navy-900'
+                          }`}
+                        >
+                          {badge}
+                        </span>
+                      )}
+                    </>
                   )}
 
-                  {/* Indicador compacto de pendência quando minimizado */}
-                  {badge !== null && isCollapsed && (
+                  {/* Indicador compacto de pendência quando recolhido */}
+                  {!isExpanded && badge !== null && (
                     <span
-                      className="hidden lg:block absolute right-2 top-2 w-1.5 h-1.5 rounded-full bg-sun-400"
+                      className="absolute right-2 top-2 w-1.5 h-1.5 rounded-full bg-sun-400"
                       aria-hidden="true"
                     />
                   )}
@@ -353,8 +329,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               );
             })}
 
-            {filteredItems.length === 0 && (
-              <p className={`px-3.5 py-3 text-[11px] text-mist-400 ${isCollapsed ? 'lg:hidden' : ''}`}>
+            {filteredItems.length === 0 && isExpanded && (
+              <p className="px-4 py-3 text-[11px] text-ink-300">
                 Nenhum item encontrado para “{searchTerm}”.
               </p>
             )}
@@ -362,7 +338,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </nav>
 
         {/* Rodapé: novidades + usuário */}
-        <div className={`px-3 pb-3 pt-2 border-t border-white/10 ${isCollapsed ? 'lg:px-2' : ''}`}>
+        <div className={`pb-3 pt-2 border-t border-navy-800 ${isExpanded ? 'px-3' : 'px-2'}`}>
           {/* Novidades */}
           <div ref={newsRef} className="relative">
             {isNewsOpen && (
@@ -370,7 +346,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 role="dialog"
                 aria-label="Novidades da versão"
                 className={`absolute z-50 bottom-full mb-2 bg-white text-ink-900 rounded-xl border border-ink-200 shadow-xl overflow-hidden ${
-                  isCollapsed ? 'left-0 w-72' : 'left-0 right-0'
+                  isExpanded ? 'left-0 right-0' : 'left-0 w-72'
                 }`}
               >
                 <div className="flex items-center gap-2 px-3.5 py-3 border-b border-ink-100 bg-ink-50">
@@ -380,7 +356,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <ul className="px-3.5 py-3 space-y-2">
                   {NOVIDADES.map((item) => (
                     <li key={item} className="flex gap-2 text-[11px] text-ink-600 leading-snug">
-                      <span className="mt-1.5 w-1 h-1 rounded-full bg-aqua-500 shrink-0" />
+                      <span className="mt-1.5 w-1 h-1 rounded-full bg-iane-500 shrink-0" />
                       <span>{item}</span>
                     </li>
                   ))}
@@ -395,16 +371,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 setIsUserMenuOpen(false);
               }}
               aria-expanded={isNewsOpen}
-              title={isCollapsed ? 'Novidades' : undefined}
-              className={`group w-full h-11 flex items-center gap-3 rounded-lg px-4 text-[13px] text-mist-400 hover:bg-deep-800/80 hover:text-white transition-colors cursor-pointer ${
-                isCollapsed ? 'lg:justify-center lg:px-0' : ''
+              title={isExpanded ? undefined : 'Novidades'}
+              className={`group w-full h-11 flex items-center gap-3 rounded-lg text-[13px] text-ink-300 hover:bg-navy-800/70 hover:text-white transition-colors cursor-pointer ${
+                isExpanded ? 'px-4' : 'justify-center px-0'
               }`}
             >
               <span className="relative shrink-0">
-                <Megaphone className="w-[18px] h-[18px] group-hover:text-aqua-400 transition-colors" />
-                <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-aqua-500" />
+                <Megaphone className="w-[18px] h-[18px] group-hover:text-sky transition-colors" />
+                <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-sun-400" />
               </span>
-              <span className={`truncate ${isCollapsed ? 'lg:hidden' : ''}`}>Novidades</span>
+              {isExpanded && <span className="truncate">Novidades</span>}
             </button>
           </div>
 
@@ -413,7 +389,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {isUserMenuOpen && (
               <div
                 className={`absolute z-50 bottom-full mb-2 bg-white text-ink-900 rounded-xl border border-ink-200 shadow-xl overflow-hidden ${
-                  isCollapsed ? 'left-0 w-64' : 'left-0 right-0'
+                  isExpanded ? 'left-0 right-0' : 'left-0 w-64'
                 }`}
                 role="menu"
                 aria-label="Opções do usuário"
@@ -462,23 +438,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
               }}
               aria-haspopup="menu"
               aria-expanded={isUserMenuOpen}
-              title={isCollapsed ? userFullName : 'Abrir opções do usuário'}
-              className={`w-full flex items-center rounded-lg p-1.5 hover:bg-deep-800/80 transition-colors cursor-pointer ${
-                isCollapsed ? 'lg:justify-center' : 'gap-2.5'
+              title={isExpanded ? 'Abrir opções do usuário' : userFullName}
+              className={`w-full flex items-center rounded-lg p-1.5 hover:bg-navy-800/70 transition-colors cursor-pointer ${
+                isExpanded ? 'gap-2.5' : 'justify-center'
               }`}
             >
-              <div className="w-8 h-8 rounded-full bg-iane-600/25 border border-aqua-500/40 flex items-center justify-center text-[11px] font-bold text-aqua-400 shrink-0">
+              <div className="w-8 h-8 rounded-full bg-navy-950 border border-iane-600/50 flex items-center justify-center text-[11px] font-bold text-iane-200 shrink-0">
                 {initials}
               </div>
-              <div className={`flex flex-col min-w-0 text-left flex-1 ${isCollapsed ? 'lg:hidden' : ''}`}>
-                <span className="text-xs font-semibold text-white/90 truncate">{userFullName}</span>
-                <span className="text-[10px] text-mist-300 truncate">{userRole}</span>
-              </div>
-              <ChevronUp
-                className={`w-3.5 h-3.5 shrink-0 text-mist-400 transition-transform ${
-                  isUserMenuOpen ? 'rotate-180' : ''
-                } ${isCollapsed ? 'lg:hidden' : ''}`}
-              />
+              {isExpanded && (
+                <>
+                  <div className="flex flex-col min-w-0 text-left flex-1">
+                    <span className="text-xs font-semibold text-white truncate">{userFullName}</span>
+                    <span className="text-[10px] text-ink-300 truncate">{userRole}</span>
+                  </div>
+                  <ChevronUp
+                    className={`w-3.5 h-3.5 shrink-0 text-ink-400 transition-transform ${
+                      isUserMenuOpen ? 'rotate-180' : ''
+                    }`}
+                  />
+                </>
+              )}
             </button>
           </div>
         </div>

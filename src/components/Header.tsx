@@ -1,10 +1,9 @@
 import React from 'react';
-import { Menu, ArrowLeftRight, Smartphone } from 'lucide-react';
+import { ArrowLeftRight, Smartphone } from 'lucide-react';
 import { NavTab } from './Sidebar';
 
 interface HeaderProps {
   activeTab: NavTab;
-  onToggleMobile: () => void;
   onOpenMovementModal: () => void;
   onOpenDeviceModal: () => void;
 }
@@ -22,7 +21,6 @@ const TAB_TITLES: Record<NavTab, { title: string; category: string }> = {
 
 export const Header: React.FC<HeaderProps> = ({
   activeTab,
-  onToggleMobile,
   onOpenMovementModal,
   onOpenDeviceModal,
 }) => {
@@ -30,16 +28,8 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-xs border-b border-ink-200 h-16 px-4 sm:px-6 flex items-center justify-between gap-4">
-      {/* Left: Mobile hamburger & Breadcrumbs */}
+      {/* Left: Breadcrumbs */}
       <div className="flex items-center gap-3 min-w-0">
-        <button
-          onClick={onToggleMobile}
-          className="lg:hidden p-2 rounded-lg text-ink-600 hover:text-ink-900 hover:bg-ink-100"
-          aria-label="Abrir menu"
-        >
-          <Menu className="w-5 h-5" />
-        </button>
-
         <div className="flex flex-col min-w-0">
           <div className="flex items-center gap-1.5 text-xs text-ink-500 font-medium">
             <span className="hidden sm:inline font-bold text-ink-700">IANE</span>

@@ -50,10 +50,13 @@ const SIDEBAR_COLLAPSED_KEY = 'iane_sidebar_collapsed_v1';
 
 const readSidebarCollapsed = (): boolean => {
   try {
-    return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true';
+    const stored = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+    if (stored !== null) return stored === 'true';
   } catch {
-    return false;
+    // Armazenamento indisponível: usa o padrão abaixo
   }
+  // Sem preferência salva, telas estreitas começam com o menu compacto
+  return typeof window !== 'undefined' && window.innerWidth < 1024;
 };
 
 export default function App() {
@@ -65,7 +68,6 @@ export default function App() {
   const setActiveTab = (tab: NavTab) => {
     navigate(tabToPath[tab]);
   };
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(readSidebarCollapsed);
   const [refreshKey, setRefreshKey] = useState(0);
   const [apiNotifications, setApiNotifications] = useState<ApiNotification[]>([]);
@@ -81,6 +83,17 @@ export default function App() {
       return next;
     });
   };
+
+  // Em telas muito estreitas o menu compacto evita espremer o conteúdo.
+  // Reage apenas a redimensionamentos: se o usuário expandir manualmente, continua expandido.
+  React.useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 768) setIsSidebarCollapsed(true);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Notificações globais de erros HTTP e indisponibilidade do backend
   React.useEffect(() => {
@@ -225,8 +238,6 @@ export default function App() {
       <Sidebar
         activeTab={activeTab}
         onSelectTab={setActiveTab}
-        isOpenMobile={isMobileMenuOpen}
-        onToggleMobile={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         pendingTermsCount={metrics.pendingTermsCount}
         maintenanceCount={metrics.stockMaintenance}
         currentUser={currentUser}
@@ -238,12 +249,11 @@ export default function App() {
       {/* Main Content Area */}
       <div
         className={`flex-1 flex flex-col min-w-0 transition-[padding] duration-200 ${
-          isSidebarCollapsed ? 'lg:pl-[76px]' : 'lg:pl-64'
+          isSidebarCollapsed ? 'pl-[76px]' : 'pl-64'
         }`}
       >
         <Header
           activeTab={activeTab}
-          onToggleMobile={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           onOpenMovementModal={() => handleOpenMovementModal()}
           onOpenDeviceModal={() => handleOpenDeviceModal()}
         />
