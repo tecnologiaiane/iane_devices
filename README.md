@@ -154,6 +154,41 @@ docker compose up -d --build
 
 O compose recusa iniciar sem `POSTGRES_PASSWORD`, `DATABASE_URL` e `JWT_SECRET` definidos. A porta do PostgreSQL é publicada apenas em `127.0.0.1:5432` (acesso administrativo local); remova essa seção ou ajuste conscientemente para expor na rede. O container da aplicação define `TZ=America/Sao_Paulo` e `ALLOW_MEMORY_FALLBACK=false`. Senhas com caracteres especiais (`@`, `#`, `/`, `:`) precisam ser codificadas na URL do `DATABASE_URL` (ex.: `@` → `%40`).
 
+#### Login retorna 503 e o log mostra `password authentication failed`
+
+O volume do PostgreSQL guarda a senha definida na **primeira** inicialização. Se o `.env` foi recriado depois, a senha do arquivo não é a mesma do banco — e o app fica em retry eterno. Confirme com uma conexão TCP (o `psql` sem `-h` usa o socket local em `trust` e **não** valida senha):
+
+```bash
+cd /opt/iane_devices
+PGPASS="$(grep '^POSTGRES_PASSWORD=' .env | cut -d= -f2-)"
+
+# Deve falhar se a senha do .env divergir do volume
+docker compose exec -T -e PGPASSWORD="$PGPASS" postgres \
+  psql -h 127.0.0.1 -U iane_admin -d telecom_assets -c 'select 1;'
+```
+
+Para alinhar o banco ao `.env` **sem perder dados** (conexão local em `trust` permite alterar a senha):
+
+```bash
+docker compose exec -T postgres psql -U iane_admin -d telecom_assets \
+  -c "ALTER USER iane_admin WITH PASSWORD '$PGPASS';"
+
+docker compose restart app
+curl -s http://localhost:3000/api/health   # database: "connected"
+```
+
+Alternativa (somente se não houver dados a preservar): `docker compose down -v && docker compose up -d --build`.
+
+#### DBeaver / acesso externo ao PostgreSQL
+
+Como a porta está publicada em `127.0.0.1`, conexões de outra máquina são recusadas por padrão. Use túnel SSH:
+
+```bash
+ssh -L 5433:127.0.0.1:5432 iane@app04
+# no DBeaver: host localhost, porta 5433, banco telecom_assets, usuário iane_admin
+```
+
+
 ---
 
 ## 🔒 Licença
