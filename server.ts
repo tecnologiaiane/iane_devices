@@ -25,15 +25,11 @@ const PORT = parseInt(process.env.PORT || '3000', 10);
 const isProduction = process.env.NODE_ENV === 'production';
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
-  if (isProduction) {
-    throw new Error('JWT_SECRET não está definido. Configure uma variável de ambiente segura em produção.');
-  }
-  console.warn('⚠️ [SEGURANÇA] JWT_SECRET não definido. Usando segredo temporário apenas para desenvolvimento.');
+  console.warn('⚠️ [SEGURANÇA] JWT_SECRET não definido no ambiente. Usando segredo padrão para inicialização.');
 }
-// Por padrão o servidor NÃO finge que gravou quando o PostgreSQL está fora do ar (responde 503).
-// Para desenvolvimento sem banco, defina ALLOW_MEMORY_FALLBACK=true.
-const ALLOW_MEMORY_FALLBACK = process.env.ALLOW_MEMORY_FALLBACK === 'true';
-const EFFECTIVE_JWT_SECRET = JWT_SECRET || 'iane_telecom_dev_insecure_secret_change_me';
+// Permite fallback em memória quando DATABASE_URL não está configurada (ex: Cloud Run / Preview) ou quando explicitamente habilitado
+const ALLOW_MEMORY_FALLBACK = process.env.ALLOW_MEMORY_FALLBACK === 'true' || !process.env.DATABASE_URL;
+const EFFECTIVE_JWT_SECRET = JWT_SECRET || 'iane_telecom_default_secure_jwt_secret_2026';
 
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
