@@ -254,7 +254,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Busca no menu */}
         <div className={`px-4 pb-2 ${isCollapsed ? 'lg:px-2' : ''}`}>
-          {isCollapsed ? (
+          {isCollapsed && !isOpenMobile ? (
             <button
               type="button"
               onClick={handleExpandForSearch}
