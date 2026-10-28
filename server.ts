@@ -10,9 +10,12 @@ import pg from 'pg';
 import dotenv from 'dotenv';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { randomBytes } from 'crypto';
 
 dotenv.config();
+
+// DATE -> 'YYYY-MM-DD' (evita deslocamento de fuso) e NUMERIC -> number (o front-end espera números)
+pg.types.setTypeParser(1082, (v: string) => v);
+pg.types.setTypeParser(1700, (v: string) => parseFloat(v));
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -21,6 +24,9 @@ const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const isProduction = process.env.NODE_ENV === 'production';
 const JWT_SECRET = process.env.JWT_SECRET || 'iane_telecom_asset_secret_key_2026';
+// Por padrão o servidor NÃO finge que gravou quando o PostgreSQL está fora do ar (responde 503).
+// Para desenvolvimento sem banco, defina ALLOW_MEMORY_FALLBACK=true.
+const ALLOW_MEMORY_FALLBACK = process.env.ALLOW_MEMORY_FALLBACK === 'true';
 
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
@@ -67,10 +73,6 @@ const memoryStore = {
   terms: [] as any[],
   auditLogs: [] as any[],
 };
-
-// Marcador único para IMEI/serial ausentes (planilhas incompletas). Máx. 20 caracteres,
-// pois imei_1 é VARCHAR(20) no init-db.sql. Evita colisão do UNIQUE com string vazia.
-const pendingValue = (prefix: string) => `${prefix}-${randomBytes(6).toString('hex')}`;
 
 async function autoMigrateDatabase(client: pg.PoolClient) {
   try {
@@ -206,6 +208,34 @@ async function autoMigrateDatabase(client: pg.PoolClient) {
       );
     `);
 
+    // 8. Compatibilidade: bancos criados pelo init-db.sql antigo tinham restrições que rejeitavam as gravações do app
+    //    (serial_number/imei obrigatórios e únicos, FKs RESTRICT). Aqui o schema é relaxado e a coluna JSONB "data" é criada.
+    const compatStatements = [
+      `ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS data JSONB NOT NULL DEFAULT '{}'::jsonb`,
+      `ALTER TABLE phone_lines ADD COLUMN IF NOT EXISTS data JSONB NOT NULL DEFAULT '{}'::jsonb`,
+      `ALTER TABLE devices ADD COLUMN IF NOT EXISTS data JSONB NOT NULL DEFAULT '{}'::jsonb`,
+      `ALTER TABLE movements ADD COLUMN IF NOT EXISTS data JSONB NOT NULL DEFAULT '{}'::jsonb`,
+      `ALTER TABLE terms_documents ADD COLUMN IF NOT EXISTS data JSONB NOT NULL DEFAULT '{}'::jsonb`,
+      `ALTER TABLE devices ALTER COLUMN serial_number DROP NOT NULL`,
+      `ALTER TABLE devices DROP CONSTRAINT IF EXISTS devices_serial_number_key`,
+      `ALTER TABLE devices ALTER COLUMN imei_1 DROP NOT NULL`,
+      `ALTER TABLE devices DROP CONSTRAINT IF EXISTS devices_imei_1_key`,
+      `ALTER TABLE devices ALTER COLUMN imei_1 TYPE VARCHAR(30)`,
+      `ALTER TABLE devices ALTER COLUMN imei_2 TYPE VARCHAR(30)`,
+      `ALTER TABLE movements ALTER COLUMN device_imei TYPE VARCHAR(30)`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS ux_devices_imei_1 ON devices(imei_1) WHERE imei_1 IS NOT NULL AND imei_1 <> ''`,
+      `ALTER TABLE movements DROP CONSTRAINT IF EXISTS movements_device_id_fkey`,
+      `ALTER TABLE terms_documents DROP CONSTRAINT IF EXISTS terms_documents_device_id_fkey`,
+      `ALTER TABLE terms_documents DROP CONSTRAINT IF EXISTS terms_documents_collaborator_id_fkey`,
+    ];
+    for (const stmt of compatStatements) {
+      try {
+        await client.query(stmt);
+      } catch (e: any) {
+        console.warn(`⚠️ [PostgreSQL] Ajuste de schema ignorado (${e.message}): ${stmt}`);
+      }
+    }
+
     // Índices de otimização
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_devices_tag ON devices(tag);
@@ -236,6 +266,24 @@ async function autoMigrateDatabase(client: pg.PoolClient) {
   }
 }
 
+async function connectDatabase(attempt = 1): Promise<void> {
+  if (!pool) return;
+  try {
+    const client = await pool.connect();
+    try {
+      await autoMigrateDatabase(client);
+    } finally {
+      client.release();
+    }
+    isDbConnected = true;
+    console.log('✅ [PostgreSQL] Conexão com o banco de dados corporativo estabelecida com sucesso!');
+  } catch (err: any) {
+    isDbConnected = false;
+    console.warn(`⚠️ [PostgreSQL] Tentativa ${attempt} de conexão falhou: ${err.message}. Nova tentativa em 5s...`);
+    setTimeout(() => connectDatabase(attempt + 1), 5000);
+  }
+}
+
 if (databaseUrl) {
   pool = new Pool({
     connectionString: databaseUrl,
@@ -243,24 +291,10 @@ if (databaseUrl) {
     idleTimeoutMillis: 10000,
     max: 10,
   });
-
-  const connectToDatabase = async (attempt = 1): Promise<void> => {
-    try {
-      const client = await pool!.connect();
-      isDbConnected = true;
-      console.log('✅ [PostgreSQL] Conexão com o banco de dados corporativo estabelecida com sucesso!');
-      await autoMigrateDatabase(client);
-      client.release();
-    } catch (err: any) {
-      const waitMs = Math.min(30000, 3000 * attempt);
-      console.warn(`⚠️ [PostgreSQL] Tentativa ${attempt}: não foi possível conectar via DATABASE_URL: ${err.message}`);
-      console.warn(`💡 Gravações NÃO estão indo para o PostgreSQL (modo memória). Nova tentativa em ${waitMs / 1000}s.`);
-      setTimeout(() => { void connectToDatabase(attempt + 1); }, waitMs);
-    }
-  };
-  void connectToDatabase();
+  pool.on('error', (err) => console.error('⚠️ [PostgreSQL] Erro em conexão ociosa do pool:', err.message));
+  connectDatabase();
 } else {
-  console.log('ℹ️ [PostgreSQL] DATABASE_URL não definida. Modo local habilitado.');
+  console.log('ℹ️ [PostgreSQL] DATABASE_URL não definida. Defina-a para gravar no banco (ou use ALLOW_MEMORY_FALLBACK=true apenas em desenvolvimento).');
 }
 
 // ----------------------------------------------------------------------------
@@ -283,6 +317,19 @@ function authenticateToken(req: Request, res: Response, next: NextFunction) {
 }
 
 app.use(authenticateToken);
+
+// Rotas de dados exigem o PostgreSQL. Sem banco, respondem 503 para que o front-end mantenha a gravação
+// na fila e tente de novo (antes o servidor respondia "sucesso" gravando só em memória).
+const DB_REQUIRED_PREFIXES = ['/api/devices', '/api/lines', '/api/collaborators', '/api/movements', '/api/terms', '/api/audit-logs', '/api/sync', '/api/database'];
+app.use((req, res, next) => {
+  if (!ALLOW_MEMORY_FALLBACK && !isDbConnected && DB_REQUIRED_PREFIXES.some(p => req.path.startsWith(p))) {
+    return res.status(503).json({
+      success: false,
+      message: 'Banco de dados PostgreSQL indisponível no momento. A gravação será tentada novamente.',
+    });
+  }
+  next();
+});
 
 // ----------------------------------------------------------------------------
 // ROTAS DA API REST (/api/*)
@@ -532,91 +579,301 @@ app.delete('/api/users/:id', async (req, res) => {
 });
 
 // 4. Dispositivos (Smartphones)
-app.get('/api/devices', async (_req, res) => {
-  if (pool && isDbConnected) {
+// ----------------------------------------------------------------------------
+// Persistência: helpers compartilhados (rotas individuais + batch-upload)
+// Cada registro é gravado nas colunas relacionais E no campo JSONB "data", que
+// guarda o objeto completo enviado pelo front-end (nenhum campo se perde).
+// ----------------------------------------------------------------------------
+class HttpError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
+type Queryable = { query: (text: string, params?: any[]) => Promise<any> };
+
+const str = (v: any): string | null =>
+  v === undefined || v === null || String(v).trim() === '' ? null : String(v).trim();
+const num = (v: any): number => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+const todayISO = () => new Date().toISOString().split('T')[0];
+const withId = (body: any, prefix: string) => ({ ...(body || {}), id: body?.id || `${prefix}-${Date.now()}` });
+
+// Junta o objeto completo (JSONB) com as colunas relacionais; coluna preenchida prevalece
+function mergeRow(row: any): any {
+  const { data, ...cols } = row;
+  const out: any = { ...(data || {}) };
+  for (const [k, v] of Object.entries(cols)) {
+    if (v !== null && v !== undefined) out[k] = v;
+  }
+  // datas de criação/atualização: mantém o formato original gravado pelo front-end
+  for (const k of ['createdAt', 'updatedAt']) {
+    if (data && data[k]) out[k] = data[k];
+  }
+  return out;
+}
+
+function toHttpError(err: any): { status: number; message: string } {
+  if (err instanceof HttpError) return { status: err.status, message: err.message };
+  const code = String(err?.code || '');
+  if (code === '23505') return { status: 409, message: `Registro duplicado no banco de dados: ${err.detail || err.message}` };
+  if (code === '23503') return { status: 409, message: `Vínculo inválido, o registro relacionado não existe no banco: ${err.detail || err.message}` };
+  if (['23502', '22P02', '22001', '22007', '22003'].includes(code)) return { status: 400, message: `Dados inválidos: ${err.message}` };
+  return { status: 500, message: err?.message || 'Erro interno ao gravar no banco de dados.' };
+}
+
+// Envolve uma rota: qualquer erro vira JSON com status HTTP coerente (400/409 = rejeição definitiva, 5xx = tentar de novo)
+function route(fn: (req: Request, res: Response) => Promise<any>) {
+  return async (req: Request, res: Response) => {
     try {
-      const result = await pool.query(`
-        SELECT 
-          d.id, d.tag as "assetTag", d.brand, d.model, d.imei_1 as "imei1", d.imei_2 as "imei2",
-          d.serial_number as "serialNumber", d.purchase_value as "purchaseValue",
-          d.purchase_date as "purchaseDate", d.condition, d.status,
-          d.current_collaborator_id as "currentCollaboratorId",
-          c.name as "currentCollaboratorName",
-          d.current_line_id as "associatedLineId",
-          l.phone_number as "associatedPhoneNumber",
-          d.stock_custody_notes as "notes",
-          d.created_at as "createdAt", d.updated_at as "updatedAt"
-        FROM devices d
-        LEFT JOIN collaborators c ON d.current_collaborator_id = c.id
-        LEFT JOIN phone_lines l ON d.current_line_id = l.id
-        ORDER BY d.tag ASC
-      `);
-      return res.json({ success: true, data: result.rows });
+      await fn(req, res);
     } catch (err: any) {
-      return res.status(500).json({ success: false, error: err.message });
+      const { status, message } = toHttpError(err);
+      console.error(`⚠️ [${req.method} ${req.path}] ${status}: ${message}`);
+      if (!res.headersSent) res.status(status).json({ success: false, message, error: message });
     }
+  };
+}
+
+async function upsertCollaborator(q: Queryable, c: any, overwrite = true) {
+  const name = str(c.fullName ?? c.name);
+  if (!name) throw new HttpError(400, 'O nome do colaborador é obrigatório.');
+  const onConflict = overwrite
+    ? `DO UPDATE SET name = EXCLUDED.name, registration_id = EXCLUDED.registration_id, department = EXCLUDED.department,
+         role = EXCLUDED.role, email = EXCLUDED.email, phone = EXCLUDED.phone, active = EXCLUDED.active, data = EXCLUDED.data`
+    : 'DO NOTHING';
+  await q.query(
+    `INSERT INTO collaborators (id, name, registration_id, department, role, email, phone, active, data)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb)
+     ON CONFLICT (id) ${onConflict}`,
+    [
+      c.id,
+      name,
+      str(c.registrationNumber ?? c.registration_id) || `MAT-${c.id}`,
+      str(c.department) || 'Geral',
+      str(c.position ?? c.role) || 'Colaborador',
+      str(c.corporateEmail ?? c.email),
+      str(c.contactPhone ?? c.phone),
+      c.status ? c.status !== 'Desligado' : c.active !== false,
+      JSON.stringify(c),
+    ]
+  );
+}
+
+async function upsertLine(q: Queryable, l: any, overwrite = true) {
+  const phone = str(l.phoneNumber);
+  if (!phone) throw new HttpError(400, 'O número da linha telefônica é obrigatório.');
+  const onConflict = overwrite
+    ? `DO UPDATE SET phone_number = EXCLUDED.phone_number, operator = EXCLUDED.operator, account_number = EXCLUDED.account_number,
+         plan_name = EXCLUDED.plan_name, monthly_cost = EXCLUDED.monthly_cost, status = EXCLUDED.status,
+         current_device_id = EXCLUDED.current_device_id, current_collaborator_id = EXCLUDED.current_collaborator_id,
+         notes = EXCLUDED.notes, data = EXCLUDED.data, updated_at = CURRENT_TIMESTAMP`
+    : 'DO NOTHING';
+  await q.query(
+    `INSERT INTO phone_lines (id, phone_number, operator, account_number, plan_name, monthly_cost, status, current_device_id, current_collaborator_id, notes, data)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb)
+     ON CONFLICT (id) ${onConflict}`,
+    [
+      l.id,
+      phone,
+      str(l.carrier ?? l.operator) || 'Vivo',
+      str(l.accountNumber),
+      str(l.planName) || 'Corporativo',
+      num(l.monthlyCost),
+      str(l.status) || 'Disponível',
+      str(l.associatedDeviceId),
+      str(l.currentCollaboratorId),
+      str(l.notes),
+      JSON.stringify(l),
+    ]
+  );
+}
+
+async function upsertDevice(q: Queryable, d: any, overwrite = true) {
+  const tag = str(d.assetTag ?? d.tag);
+  if (!tag) throw new HttpError(400, 'O identificador do ativo (assetTag) é obrigatório.');
+  const model = str(d.model);
+  if (!model) throw new HttpError(400, `O modelo do aparelho ${tag} é obrigatório.`);
+  const onConflict = overwrite
+    ? `DO UPDATE SET tag = EXCLUDED.tag, brand = EXCLUDED.brand, model = EXCLUDED.model, imei_1 = EXCLUDED.imei_1,
+         imei_2 = EXCLUDED.imei_2, serial_number = EXCLUDED.serial_number, purchase_value = EXCLUDED.purchase_value,
+         purchase_date = EXCLUDED.purchase_date, condition = EXCLUDED.condition, status = EXCLUDED.status,
+         current_collaborator_id = EXCLUDED.current_collaborator_id, current_line_id = EXCLUDED.current_line_id,
+         stock_custody_notes = EXCLUDED.stock_custody_notes, data = EXCLUDED.data, updated_at = CURRENT_TIMESTAMP`
+    : 'DO NOTHING';
+  await q.query(
+    `INSERT INTO devices (id, tag, brand, model, imei_1, imei_2, serial_number, purchase_value, purchase_date, condition, status,
+                          current_collaborator_id, current_line_id, stock_custody_notes, data)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15::jsonb)
+     ON CONFLICT (id) ${onConflict}`,
+    [
+      d.id,
+      tag,
+      str(d.brand) || 'Samsung',
+      model,
+      str(d.imei1 ?? d.imei_1),
+      str(d.imei2 ?? d.imei_2),
+      str(d.serialNumber ?? d.serial_number),
+      num(d.purchaseValue),
+      str(d.purchaseDate),
+      str(d.condition) || 'Novo',
+      str(d.status) || 'Disponível',
+      str(d.currentCollaboratorId),
+      str(d.associatedLineId ?? d.current_line_id),
+      str(d.notes ?? d.stockCustodyNotes),
+      JSON.stringify(d),
+    ]
+  );
+}
+
+const flowFromType = (type: any) =>
+  String(type || 'entrega')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .slice(0, 50);
+
+async function upsertMovement(q: Queryable, m: any, overwrite = true) {
+  if (!str(m.deviceId)) throw new HttpError(400, 'A movimentação não informa o aparelho (deviceId).');
+  const onConflict = overwrite
+    ? `DO UPDATE SET batch_operation_id = EXCLUDED.batch_operation_id, flow_type = EXCLUDED.flow_type, device_id = EXCLUDED.device_id,
+         device_tag = EXCLUDED.device_tag, device_model = EXCLUDED.device_model, device_imei = EXCLUDED.device_imei,
+         origin_collaborator_id = EXCLUDED.origin_collaborator_id, origin_collaborator_name = EXCLUDED.origin_collaborator_name,
+         destination_collaborator_id = EXCLUDED.destination_collaborator_id, destination_collaborator_name = EXCLUDED.destination_collaborator_name,
+         movement_type = EXCLUDED.movement_type, movement_date = EXCLUDED.movement_date, operator_name = EXCLUDED.operator_name,
+         condition_at_movement = EXCLUDED.condition_at_movement, accessories_returned = EXCLUDED.accessories_returned,
+         reason = EXCLUDED.reason, document_term_id = EXCLUDED.document_term_id, stock_transit = EXCLUDED.stock_transit, data = EXCLUDED.data`
+    : 'DO NOTHING';
+  await q.query(
+    `INSERT INTO movements (
+        id, batch_operation_id, flow_type, device_id, device_tag, device_model, device_imei,
+        origin_collaborator_id, origin_collaborator_name, destination_collaborator_id, destination_collaborator_name,
+        movement_type, movement_date, operator_name, condition_at_movement, accessories_returned, reason, document_term_id,
+        stock_transit, data
+     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20::jsonb)
+     ON CONFLICT (id) ${onConflict}`,
+    [
+      m.id,
+      str(m.batchOperationId),
+      str(m.flowType) || flowFromType(m.type),
+      m.deviceId,
+      str(m.deviceTag),
+      str(m.deviceName ?? m.deviceModel),
+      str(m.imei),
+      str(m.originCollaboratorId),
+      str(m.originCollaboratorName),
+      str(m.destinationCollaboratorId),
+      str(m.destinationCollaboratorName),
+      str(m.type) || 'Entrega',
+      str(m.date) || todayISO(),
+      str(m.registeredBy) || 'Gestor de Telefonia',
+      str(m.conditionAtMovement),
+      Array.isArray(m.accessoriesIncluded) ? m.accessoriesIncluded.map(String) : [],
+      str(m.reason),
+      str(m.documentId),
+      !!m.stockTransit?.involved,
+      JSON.stringify(m),
+    ]
+  );
+}
+
+async function upsertTerm(q: Queryable, t: any, overwrite = true) {
+  const onConflict = overwrite
+    ? `DO UPDATE SET type = EXCLUDED.type, collaborator_id = EXCLUDED.collaborator_id, collaborator_name = EXCLUDED.collaborator_name,
+         device_id = EXCLUDED.device_id, device_tag = EXCLUDED.device_tag, device_model = EXCLUDED.device_model,
+         phone_line_number = EXCLUDED.phone_line_number, signed_status = EXCLUDED.signed_status,
+         file_name = EXCLUDED.file_name, notes = EXCLUDED.notes, data = EXCLUDED.data`
+    : 'DO NOTHING';
+  await q.query(
+    `INSERT INTO terms_documents (id, term_number, type, collaborator_id, collaborator_name, device_id, device_tag, device_model,
+                                  phone_line_number, generation_date, signed_status, file_name, notes, data)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb)
+     ON CONFLICT (id) ${onConflict}`,
+    [
+      t.id,
+      str(t.code ?? t.termNumber) || `TERMO-${t.id}`,
+      str(t.type) || 'Termo de Entrega',
+      str(t.collaboratorId),
+      str(t.collaboratorName),
+      str(t.deviceId),
+      str(t.deviceTag),
+      str(t.deviceModel),
+      str(t.phoneNumber),
+      str(t.date) || todayISO(),
+      str(t.status) || 'Pendente',
+      str(t.fileName),
+      str(t.notes),
+      JSON.stringify(t),
+    ]
+  );
+}
+
+async function insertAudit(q: Queryable, a: any) {
+  const parsed = a.timestamp ? new Date(a.timestamp) : new Date();
+  const ts = isNaN(parsed.getTime()) ? new Date() : parsed;
+  await q.query(
+    `INSERT INTO audit_logs (id, action, entity_type, entity_id, entity_label, details, user_name, timestamp)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+     ON CONFLICT (id) DO NOTHING`,
+    [
+      a.id,
+      str(a.action) || 'OPERAÇÃO',
+      str(a.entityType) || 'Geral',
+      str(a.entityId),
+      str(a.entityLabel),
+      a.details ?? null,
+      str(a.user) || 'Operador',
+      ts,
+    ]
+  );
+}
+
+app.get('/api/devices', route(async (_req, res) => {
+  if (pool && isDbConnected) {
+    const result = await pool.query(`
+      SELECT
+        d.id, d.tag as "assetTag", d.brand, d.model, d.imei_1 as "imei1", d.imei_2 as "imei2",
+        d.serial_number as "serialNumber", d.purchase_value as "purchaseValue",
+        d.purchase_date as "purchaseDate", d.condition, d.status,
+        d.current_collaborator_id as "currentCollaboratorId",
+        c.name as "currentCollaboratorName",
+        d.current_line_id as "associatedLineId",
+        l.phone_number as "associatedPhoneNumber",
+        d.stock_custody_notes as "notes",
+        d.created_at as "createdAt", d.updated_at as "updatedAt",
+        d.data
+      FROM devices d
+      LEFT JOIN collaborators c ON d.current_collaborator_id = c.id
+      LEFT JOIN phone_lines l ON d.current_line_id = l.id
+      ORDER BY d.tag ASC
+    `);
+    return res.json({ success: true, data: result.rows.map(mergeRow) });
   }
   res.json({ success: true, data: memoryStore.devices });
-});
+}));
 
-app.post('/api/devices', async (req, res) => {
-  const d = req.body;
-  const id = d.id || `dev-${Date.now()}`;
+app.post('/api/devices', route(async (req, res) => {
+  const d = withId(req.body, 'dev');
 
   if (pool && isDbConnected) {
-    try {
-      const query = `
-        INSERT INTO devices (id, tag, brand, model, imei_1, imei_2, serial_number, purchase_value, purchase_date, condition, status, current_collaborator_id, current_line_id, stock_custody_notes)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-        ON CONFLICT (id) DO UPDATE SET
-          tag = EXCLUDED.tag,
-          brand = EXCLUDED.brand,
-          model = EXCLUDED.model,
-          imei_1 = EXCLUDED.imei_1,
-          imei_2 = EXCLUDED.imei_2,
-          serial_number = EXCLUDED.serial_number,
-          purchase_value = EXCLUDED.purchase_value,
-          purchase_date = EXCLUDED.purchase_date,
-          condition = EXCLUDED.condition,
-          status = EXCLUDED.status,
-          current_collaborator_id = EXCLUDED.current_collaborator_id,
-          current_line_id = EXCLUDED.current_line_id,
-          stock_custody_notes = EXCLUDED.stock_custody_notes,
-          updated_at = CURRENT_TIMESTAMP
-        RETURNING *;
-      `;
-      const values = [
-        id,
-        d.assetTag || d.tag,
-        d.brand || 'Samsung',
-        d.model || 'Aparelho',
-        d.imei1 || d.imei_1 || pendingValue('PEND'),
-        d.imei2 || null,
-        d.serialNumber || d.serial_number || pendingValue('SN-PEND'),
-        d.purchaseValue || 0,
-        d.purchaseDate || null,
-        d.condition || 'Novo',
-        d.status || 'Disponível',
-        d.currentCollaboratorId || null,
-        d.associatedLineId || null,
-        d.notes || d.stockCustodyNotes || null,
-      ];
-      const result = await pool.query(query, values);
-      return res.status(201).json({ success: true, data: result.rows[0] });
-    } catch (err: any) {
-      return res.status(400).json({ success: false, error: err.message });
-    }
+    await upsertDevice(pool, d);
+    return res.status(201).json({ success: true, data: d });
   }
 
-  // Fallback
-  const existingIndex = memoryStore.devices.findIndex(x => x.id === id);
+  // Fallback (somente com ALLOW_MEMORY_FALLBACK=true)
+  const existingIndex = memoryStore.devices.findIndex(x => x.id === d.id);
   if (existingIndex >= 0) {
-    memoryStore.devices[existingIndex] = { ...memoryStore.devices[existingIndex], ...d, id };
+    memoryStore.devices[existingIndex] = { ...memoryStore.devices[existingIndex], ...d };
   } else {
-    memoryStore.devices.push({ ...d, id });
+    memoryStore.devices.push(d);
   }
   res.status(201).json({ success: true, data: d });
-});
+}));
 
 app.delete('/api/devices/:id', async (req, res) => {
   const { id } = req.params;
@@ -633,82 +890,46 @@ app.delete('/api/devices/:id', async (req, res) => {
 });
 
 // 5. Linhas Telefônicas
-app.get('/api/lines', async (_req, res) => {
+app.get('/api/lines', route(async (_req, res) => {
   if (pool && isDbConnected) {
-    try {
-      const result = await pool.query(`
-        SELECT 
-          l.id, l.phone_number as "phoneNumber", l.operator as "carrier", l.account_number as "accountNumber",
-          l.plan_name as "planName", l.monthly_cost as "monthlyCost", l.status,
-          l.current_device_id as "associatedDeviceId",
-          d.tag as "associatedDeviceTag",
-          d.model as "associatedDeviceModel",
-          l.current_collaborator_id as "currentCollaboratorId",
-          c.name as "currentCollaboratorName",
-          l.notes, l.updated_at as "updatedAt"
-        FROM phone_lines l
-        LEFT JOIN devices d ON l.current_device_id = d.id
-        LEFT JOIN collaborators c ON l.current_collaborator_id = c.id
-        ORDER BY l.phone_number ASC
-      `);
-      return res.json({ success: true, data: result.rows });
-    } catch (err: any) {
-      return res.status(500).json({ success: false, error: err.message });
-    }
+    const result = await pool.query(`
+      SELECT
+        l.id, l.phone_number as "phoneNumber", l.operator as "carrier", l.account_number as "accountNumber",
+        l.plan_name as "planName", l.monthly_cost as "monthlyCost", l.status,
+        l.current_device_id as "associatedDeviceId",
+        d.tag as "associatedDeviceTag",
+        concat_ws(' ', d.brand, d.model) as "associatedDeviceModel",
+        l.current_collaborator_id as "currentCollaboratorId",
+        c.name as "currentCollaboratorName",
+        l.notes, l.updated_at as "updatedAt",
+        l.data
+      FROM phone_lines l
+      LEFT JOIN devices d ON l.current_device_id = d.id
+      LEFT JOIN collaborators c ON l.current_collaborator_id = c.id
+      ORDER BY l.phone_number ASC
+    `);
+    return res.json({ success: true, data: result.rows.map(mergeRow) });
   }
   res.json({ success: true, data: memoryStore.lines });
-});
+}));
 
-app.post('/api/lines', async (req, res) => {
-  const l = req.body;
-  const id = l.id || `line-${Date.now()}`;
+app.post('/api/lines', route(async (req, res) => {
+  const l = withId(req.body, 'line');
 
   if (pool && isDbConnected) {
-    try {
-      const query = `
-        INSERT INTO phone_lines (id, phone_number, operator, account_number, plan_name, monthly_cost, status, current_device_id, current_collaborator_id, notes)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-        ON CONFLICT (id) DO UPDATE SET
-          phone_number = EXCLUDED.phone_number,
-          operator = EXCLUDED.operator,
-          account_number = EXCLUDED.account_number,
-          plan_name = EXCLUDED.plan_name,
-          monthly_cost = EXCLUDED.monthly_cost,
-          status = EXCLUDED.status,
-          current_device_id = EXCLUDED.current_device_id,
-          current_collaborator_id = EXCLUDED.current_collaborator_id,
-          notes = EXCLUDED.notes,
-          updated_at = CURRENT_TIMESTAMP
-        RETURNING *;
-      `;
-      const values = [
-        id,
-        l.phoneNumber,
-        l.carrier || l.operator || 'Vivo',
-        l.accountNumber || null,
-        l.planName || 'Corporativo',
-        l.monthlyCost || 0,
-        l.status || 'Disponível',
-        l.associatedDeviceId || null,
-        l.currentCollaboratorId || null,
-        l.notes || null,
-      ];
-      const result = await pool.query(query, values);
-      return res.status(201).json({ success: true, data: result.rows[0] });
-    } catch (err: any) {
-      return res.status(400).json({ success: false, error: err.message });
-    }
+    await upsertLine(pool, l);
+    return res.status(201).json({ success: true, data: l });
   }
 
-  // Fallback
-  const existingIdx = memoryStore.lines.findIndex(x => x.id === id);
+  // Fallback (somente com ALLOW_MEMORY_FALLBACK=true)
+  const existingIdx = memoryStore.lines.findIndex(x => x.id === l.id);
   if (existingIdx >= 0) {
-    memoryStore.lines[existingIdx] = { ...memoryStore.lines[existingIdx], ...l, id };
+    memoryStore.lines[existingIdx] = { ...memoryStore.lines[existingIdx], ...l };
   } else {
-    memoryStore.lines.push({ ...l, id });
+    memoryStore.lines.push(l);
   }
   res.status(201).json({ success: true, data: l });
-});
+}));
 
 app.delete('/api/lines/:id', async (req, res) => {
   const { id } = req.params;
@@ -725,70 +946,42 @@ app.delete('/api/lines/:id', async (req, res) => {
 });
 
 // 6. Colaboradores
-app.get('/api/collaborators', async (_req, res) => {
+app.get('/api/collaborators', route(async (_req, res) => {
   if (pool && isDbConnected) {
-    try {
-      const result = await pool.query(`
-        SELECT 
-          id, name as "fullName", registration_id as "registrationNumber",
-          department, role as "position", email as "corporateEmail",
-          phone as "contactPhone", active, created_at as "createdAt"
-        FROM collaborators
-        ORDER BY name ASC
-      `);
-      return res.json({ success: true, data: result.rows });
-    } catch (err: any) {
-      return res.status(500).json({ success: false, error: err.message });
-    }
+    const result = await pool.query(`
+      SELECT
+        id, name as "fullName", registration_id as "registrationNumber",
+        department, role as "position", email as "corporateEmail",
+        phone as "contactPhone", active, created_at as "createdAt", data
+      FROM collaborators
+      ORDER BY name ASC
+    `);
+    const rows = result.rows.map(mergeRow).map((c: any) => ({
+      ...c,
+      status: c.status || (c.active === false ? 'Desligado' : 'Ativo'),
+    }));
+    return res.json({ success: true, data: rows });
   }
   res.json({ success: true, data: memoryStore.collaborators });
-});
+}));
 
-app.post('/api/collaborators', async (req, res) => {
-  const c = req.body;
-  const id = c.id || `collab-${Date.now()}`;
+app.post('/api/collaborators', route(async (req, res) => {
+  const c = withId(req.body, 'col');
 
   if (pool && isDbConnected) {
-    try {
-      const query = `
-        INSERT INTO collaborators (id, name, registration_id, department, role, email, phone, active)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        ON CONFLICT (id) DO UPDATE SET
-          name = EXCLUDED.name,
-          registration_id = EXCLUDED.registration_id,
-          department = EXCLUDED.department,
-          role = EXCLUDED.role,
-          email = EXCLUDED.email,
-          phone = EXCLUDED.phone,
-          active = EXCLUDED.active
-        RETURNING *;
-      `;
-      const values = [
-        id,
-        c.fullName || c.name,
-        c.registrationNumber || c.registration_id,
-        c.department || 'Geral',
-        c.position || c.role || 'Colaborador',
-        c.corporateEmail || c.email || null,
-        c.contactPhone || c.phone || null,
-        c.status === 'Ativo' || c.active !== false,
-      ];
-      const result = await pool.query(query, values);
-      return res.status(201).json({ success: true, data: result.rows[0] });
-    } catch (err: any) {
-      return res.status(400).json({ success: false, error: err.message });
-    }
+    await upsertCollaborator(pool, c);
+    return res.status(201).json({ success: true, data: c });
   }
 
-  // Fallback
-  const existingIdx = memoryStore.collaborators.findIndex(x => x.id === id);
+  // Fallback (somente com ALLOW_MEMORY_FALLBACK=true)
+  const existingIdx = memoryStore.collaborators.findIndex(x => x.id === c.id);
   if (existingIdx >= 0) {
-    memoryStore.collaborators[existingIdx] = { ...memoryStore.collaborators[existingIdx], ...c, id };
+    memoryStore.collaborators[existingIdx] = { ...memoryStore.collaborators[existingIdx], ...c };
   } else {
-    memoryStore.collaborators.push({ ...c, id });
+    memoryStore.collaborators.push(c);
   }
   res.status(201).json({ success: true, data: c });
-});
+}));
 
 app.delete('/api/collaborators/:id', async (req, res) => {
   const { id } = req.params;
@@ -805,78 +998,41 @@ app.delete('/api/collaborators/:id', async (req, res) => {
 });
 
 // 7. Movimentações Patrimoniais
-app.get('/api/movements', async (_req, res) => {
+app.get('/api/movements', route(async (_req, res) => {
   if (pool && isDbConnected) {
-    try {
-      const result = await pool.query(`
-        SELECT 
-          id, batch_operation_id as "batchOperationId", flow_type as "flowType",
-          device_id as "deviceId", device_tag as "deviceTag", device_model as "deviceName",
-          device_imei as "imei", origin_collaborator_id as "originCollaboratorId",
-          origin_collaborator_name as "originCollaboratorName",
-          destination_collaborator_id as "destinationCollaboratorId",
-          destination_collaborator_name as "destinationCollaboratorName",
-          movement_type as "type", movement_date as "date",
-          operator_name as "registeredBy", condition_at_movement as "conditionAtMovement",
-          accessories_returned as "accessoriesIncluded", reason,
-          document_term_id as "documentId", stock_transit as "stockTransit",
-          created_at as "createdAt"
-        FROM movements
-        ORDER BY created_at DESC
-      `);
-      return res.json({ success: true, data: result.rows });
-    } catch (err: any) {
-      return res.status(500).json({ success: false, error: err.message });
-    }
+    const result = await pool.query(`
+      SELECT
+        id, batch_operation_id as "batchOperationId", flow_type as "flowType",
+        device_id as "deviceId", device_tag as "deviceTag", device_model as "deviceName",
+        device_imei as "imei", origin_collaborator_id as "originCollaboratorId",
+        origin_collaborator_name as "originCollaboratorName",
+        destination_collaborator_id as "destinationCollaboratorId",
+        destination_collaborator_name as "destinationCollaboratorName",
+        movement_type as "type", movement_date as "date",
+        operator_name as "registeredBy", condition_at_movement as "conditionAtMovement",
+        accessories_returned as "accessoriesIncluded", reason,
+        document_term_id as "documentId",
+        created_at as "createdAt", data
+      FROM movements
+      ORDER BY created_at DESC
+    `);
+    return res.json({ success: true, data: result.rows.map(mergeRow) });
   }
   res.json({ success: true, data: memoryStore.movements });
-});
+}));
 
-app.post('/api/movements', async (req, res) => {
-  const m = req.body;
-  const id = m.id || `mov-${Date.now()}`;
+app.post('/api/movements', route(async (req, res) => {
+  const m = withId(req.body, 'mov');
 
   if (pool && isDbConnected) {
-    try {
-      const query = `
-        INSERT INTO movements (
-          id, batch_operation_id, flow_type, device_id, device_tag, device_model, device_imei,
-          origin_collaborator_id, origin_collaborator_name, destination_collaborator_id, destination_collaborator_name,
-          movement_type, movement_date, operator_name, condition_at_movement, accessories_returned, reason, document_term_id
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
-        RETURNING *;
-      `;
-      const values = [
-        id,
-        m.batchOperationId || null,
-        m.flowType || 'entrega',
-        m.deviceId,
-        m.deviceTag || null,
-        m.deviceName || m.deviceModel || null,
-        m.imei || null,
-        m.originCollaboratorId || null,
-        m.originCollaboratorName || null,
-        m.destinationCollaboratorId || null,
-        m.destinationCollaboratorName || null,
-        m.type || 'Entrega',
-        m.date || new Date().toISOString().split('T')[0],
-        m.registeredBy || 'Gestor de Telefonia',
-        m.conditionAtMovement || 'Bom',
-        m.accessoriesIncluded || [],
-        m.reason || null,
-        m.documentId || null,
-      ];
-      const result = await pool.query(query, values);
-      return res.status(201).json({ success: true, data: result.rows[0] });
-    } catch (err: any) {
-      return res.status(400).json({ success: false, error: err.message });
-    }
+    await upsertMovement(pool, m);
+    return res.status(201).json({ success: true, data: m });
   }
 
-  // Fallback
-  memoryStore.movements.unshift({ ...m, id });
+  // Fallback (somente com ALLOW_MEMORY_FALLBACK=true)
+  memoryStore.movements.unshift(m);
   res.status(201).json({ success: true, data: m });
-});
+}));
 
 // 8. Transação Atômica Oficial: Transferência entre Colaboradores (2 Etapas)
 app.post('/api/movements/transfer', async (req, res) => {
@@ -988,323 +1144,156 @@ app.post('/api/movements/transfer', async (req, res) => {
 });
 
 // 9. Termos e Documentos Oficiais
-app.get('/api/terms', async (_req, res) => {
+app.get('/api/terms', route(async (_req, res) => {
   if (pool && isDbConnected) {
-    try {
-      const result = await pool.query(`
-        SELECT 
-          id, term_number as "code", type, collaborator_id as "collaboratorId",
-          collaborator_name as "collaboratorName", device_id as "deviceId",
-          device_tag as "deviceTag", device_model as "deviceModel",
-          phone_line_number as "phoneNumber", generation_date as "date",
-          signed_status as "status", file_name as "fileName", notes
-        FROM terms_documents
-        ORDER BY generation_date DESC
-      `);
-      return res.json({ success: true, data: result.rows });
-    } catch (err: any) {
-      return res.status(500).json({ success: false, error: err.message });
-    }
+    const result = await pool.query(`
+      SELECT
+        id, term_number as "code", type, collaborator_id as "collaboratorId",
+        collaborator_name as "collaboratorName", device_id as "deviceId",
+        device_tag as "deviceTag", device_model as "deviceModel",
+        phone_line_number as "phoneNumber", generation_date as "date",
+        signed_status as "status", file_name as "fileName", notes, data
+      FROM terms_documents
+      ORDER BY generation_date DESC, created_at DESC
+    `);
+    // Registros antigos (sem JSONB) não possuem cláusulas/acessórios: garante listas vazias para o visualizador de termos
+    const rows = result.rows.map(mergeRow).map((t: any) => ({
+      ...t,
+      clauses: Array.isArray(t.clauses) ? t.clauses : [],
+      accessoriesList: Array.isArray(t.accessoriesList) ? t.accessoriesList : [],
+    }));
+    return res.json({ success: true, data: rows });
   }
   res.json({ success: true, data: memoryStore.terms });
-});
+}));
 
-app.post('/api/terms', async (req, res) => {
-  const t = req.body;
-  const id = t.id || `term-${Date.now()}`;
+app.post('/api/terms', route(async (req, res) => {
+  const t = withId(req.body, 'term');
 
   if (pool && isDbConnected) {
-    try {
-      const query = `
-        INSERT INTO terms_documents (id, term_number, type, collaborator_id, collaborator_name, device_id, device_tag, device_model, phone_line_number, generation_date, signed_status, file_name, notes)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-        ON CONFLICT (id) DO UPDATE SET
-          signed_status = EXCLUDED.signed_status,
-          file_name = EXCLUDED.file_name,
-          notes = EXCLUDED.notes
-        RETURNING *;
-      `;
-      const values = [
-        id,
-        t.code || t.termNumber || `TERMO-${Date.now()}`,
-        t.type || 'Termo de Entrega',
-        t.collaboratorId || null,
-        t.collaboratorName || null,
-        t.deviceId || null,
-        t.deviceTag || null,
-        t.deviceModel || null,
-        t.phoneNumber || null,
-        t.date || new Date().toISOString().split('T')[0],
-        t.status || 'Pendente',
-        t.fileName || null,
-        t.notes || null,
-      ];
-      const result = await pool.query(query, values);
-      return res.status(201).json({ success: true, data: result.rows[0] });
-    } catch (err: any) {
-      return res.status(400).json({ success: false, error: err.message });
-    }
+    await upsertTerm(pool, t);
+    return res.status(201).json({ success: true, data: t });
   }
 
-  // Fallback
-  memoryStore.terms.unshift({ ...t, id });
+  // Fallback (somente com ALLOW_MEMORY_FALLBACK=true)
+  memoryStore.terms.unshift(t);
   res.status(201).json({ success: true, data: t });
-});
+}));
 
 // 10. Trilha de Auditoria
-app.get('/api/audit-logs', async (_req, res) => {
+app.get('/api/audit-logs', route(async (_req, res) => {
   if (pool && isDbConnected) {
-    try {
-      const result = await pool.query(`
-        SELECT id, action, entity_type as "entityType", entity_id as "entityId",
-               entity_label as "entityLabel", details, user_name as "user",
-               timestamp
-        FROM audit_logs
-        ORDER BY timestamp DESC
-        LIMIT 200
-      `);
-      return res.json({ success: true, data: result.rows });
-    } catch (err: any) {
-      return res.status(500).json({ success: false, error: err.message });
-    }
+    const result = await pool.query(`
+      SELECT id, action, entity_type as "entityType", entity_id as "entityId",
+             entity_label as "entityLabel", details, user_name as "user",
+             timestamp
+      FROM audit_logs
+      ORDER BY timestamp DESC
+      LIMIT 200
+    `);
+    return res.json({ success: true, data: result.rows });
   }
   res.json({ success: true, data: memoryStore.auditLogs });
-});
+}));
 
-app.post('/api/audit-logs', async (req, res) => {
-  const { action, entityType, entityId, entityLabel, details, user } = req.body || {};
-  const id = `audit-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+app.post('/api/audit-logs', route(async (req, res) => {
+  const a = { ...(req.body || {}), id: req.body?.id || `audit-${Date.now()}-${Math.random().toString(36).substring(2, 6)}` };
 
   if (pool && isDbConnected) {
-    try {
-      await pool.query(`
-        INSERT INTO audit_logs (id, action, entity_type, entity_id, entity_label, details, user_name)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-      `, [id, action || 'OPERAÇÃO', entityType || 'Geral', entityId || null, entityLabel || null, details || null, user || 'Operador']);
-      return res.status(201).json({ success: true });
-    } catch (err: any) {
-      return res.status(400).json({ success: false, error: err.message });
-    }
+    await insertAudit(pool, a);
+    return res.status(201).json({ success: true });
   }
 
+  // Fallback (somente com ALLOW_MEMORY_FALLBACK=true)
   memoryStore.auditLogs.unshift({
-    id,
-    action: action || 'OPERAÇÃO',
-    entityType: entityType || 'Geral',
-    entityId: entityId || '',
-    entityLabel: entityLabel || '',
-    details: details || '',
-    user: user || 'Operador',
+    id: a.id,
+    action: a.action || 'OPERAÇÃO',
+    entityType: a.entityType || 'Geral',
+    entityId: a.entityId || '',
+    entityLabel: a.entityLabel || '',
+    details: a.details || '',
+    user: a.user || 'Operador',
     timestamp: new Date().toISOString(),
   });
   res.status(201).json({ success: true });
-});
+}));
 
 // 11. Sincronização em Lote (Upload Completo do LocalStorage para o PostgreSQL)
-app.post('/api/sync/batch-upload', async (req, res) => {
-  const { devices, lines, collaborators, movements, terms, auditLogs } = req.body || {};
+// Parâmetro opcional "mode": 'overwrite' (padrão) regrava registros existentes; 'insert-missing' só insere os que ainda não existem no banco.
+// Cada registro é gravado em um SAVEPOINT próprio: um registro inválido NÃO derruba o lote inteiro; ele volta em "rejected" com o motivo.
+app.post('/api/sync/batch-upload', route(async (req, res) => {
+  const { devices, lines, collaborators, movements, terms, auditLogs, mode } = req.body || {};
+  const overwrite = mode !== 'insert-missing';
 
   if (!pool || !isDbConnected) {
+    if (!ALLOW_MEMORY_FALLBACK) {
+      throw new HttpError(503, 'Banco de dados PostgreSQL indisponível. Nada foi gravado.');
+    }
     return res.json({ success: true, message: 'Dados salvos em modo contingência/memória.' });
   }
+
+  const rejected: { entity: string; id: string; label: string; message: string }[] = [];
+  const saved = { collaborators: 0, lines: 0, devices: 0, movements: 0, terms: 0, auditLogs: 0 };
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
-    // 1. Colaboradores primeiro (para satisfazer relacionamentos)
-    if (Array.isArray(collaborators) && collaborators.length > 0) {
-      for (const c of collaborators) {
-        await client.query(`
-          INSERT INTO collaborators (id, name, registration_id, department, role, email, phone, active)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-          ON CONFLICT (id) DO UPDATE SET
-            name = EXCLUDED.name,
-            registration_id = EXCLUDED.registration_id,
-            department = EXCLUDED.department,
-            role = EXCLUDED.role,
-            email = EXCLUDED.email,
-            phone = EXCLUDED.phone,
-            active = EXCLUDED.active;
-        `, [
-          c.id,
-          c.fullName || c.name || 'Sem Nome',
-          c.registrationNumber || c.registration_id || `MAT-${c.id}`,
-          c.department || 'Geral',
-          c.position || c.role || 'Colaborador',
-          c.corporateEmail || c.email || null,
-          c.contactPhone || c.phone || null,
-          c.status === 'Ativo' || c.active !== false
-        ]);
+    const run = async (
+      entity: keyof typeof saved,
+      items: any,
+      labelOf: (x: any) => string,
+      fn: (x: any) => Promise<void>
+    ) => {
+      if (!Array.isArray(items)) return;
+      for (const item of items) {
+        if (!item?.id) {
+          rejected.push({ entity, id: '', label: labelOf(item), message: 'Registro sem identificador (id).' });
+          continue;
+        }
+        await client.query('SAVEPOINT sp_row');
+        try {
+          await fn(item);
+          await client.query('RELEASE SAVEPOINT sp_row');
+          saved[entity]++;
+        } catch (e: any) {
+          await client.query('ROLLBACK TO SAVEPOINT sp_row');
+          rejected.push({ entity, id: item.id, label: labelOf(item), message: toHttpError(e).message });
+        }
       }
-    }
+    };
 
-    // 2. Linhas Telefônicas
-    if (Array.isArray(lines) && lines.length > 0) {
-      for (const l of lines) {
-        await client.query(`
-          INSERT INTO phone_lines (id, phone_number, operator, account_number, plan_name, monthly_cost, status, current_device_id, current_collaborator_id, notes)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-          ON CONFLICT (id) DO UPDATE SET
-            phone_number = EXCLUDED.phone_number,
-            operator = EXCLUDED.operator,
-            account_number = EXCLUDED.account_number,
-            plan_name = EXCLUDED.plan_name,
-            monthly_cost = EXCLUDED.monthly_cost,
-            status = EXCLUDED.status,
-            current_device_id = EXCLUDED.current_device_id,
-            current_collaborator_id = EXCLUDED.current_collaborator_id,
-            notes = EXCLUDED.notes;
-        `, [
-          l.id,
-          l.phoneNumber,
-          l.carrier || l.operator || 'Vivo',
-          l.accountNumber || null,
-          l.planName || 'Corporativo',
-          l.monthlyCost || 0,
-          l.status || 'Disponível',
-          l.associatedDeviceId || null,
-          l.currentCollaboratorId || null,
-          l.notes || null
-        ]);
-      }
-    }
-
-    // 3. Dispositivos Móveis
-    if (Array.isArray(devices) && devices.length > 0) {
-      for (const d of devices) {
-        await client.query(`
-          INSERT INTO devices (id, tag, brand, model, imei_1, imei_2, serial_number, purchase_value, purchase_date, condition, status, current_collaborator_id, current_line_id, stock_custody_notes)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-          ON CONFLICT (id) DO UPDATE SET
-            tag = EXCLUDED.tag,
-            brand = EXCLUDED.brand,
-            model = EXCLUDED.model,
-            imei_1 = EXCLUDED.imei_1,
-            imei_2 = EXCLUDED.imei_2,
-            serial_number = EXCLUDED.serial_number,
-            purchase_value = EXCLUDED.purchase_value,
-            purchase_date = EXCLUDED.purchase_date,
-            condition = EXCLUDED.condition,
-            status = EXCLUDED.status,
-            current_collaborator_id = EXCLUDED.current_collaborator_id,
-            current_line_id = EXCLUDED.current_line_id,
-            stock_custody_notes = EXCLUDED.stock_custody_notes,
-            updated_at = CURRENT_TIMESTAMP;
-        `, [
-          d.id,
-          d.assetTag || d.tag,
-          d.brand || 'Samsung',
-          d.model || 'Aparelho',
-          d.imei1 || d.imei_1 || pendingValue('PEND'),
-          d.imei2 || d.imei_2 || null,
-          d.serialNumber || d.serial_number || pendingValue('SN-PEND'),
-          d.purchaseValue || 0,
-          d.purchaseDate || null,
-          d.condition || 'Novo',
-          d.status || 'Disponível',
-          d.currentCollaboratorId || null,
-          d.associatedLineId || d.current_line_id || null,
-          d.notes || d.stockCustodyNotes || null
-        ]);
-      }
-    }
-
-    // 4. Movimentações Patrimoniais
-    if (Array.isArray(movements) && movements.length > 0) {
-      for (const m of movements) {
-        await client.query(`
-          INSERT INTO movements (
-            id, batch_operation_id, flow_type, device_id, device_tag, device_model, device_imei,
-            origin_collaborator_id, origin_collaborator_name, destination_collaborator_id, destination_collaborator_name,
-            movement_type, movement_date, operator_name, condition_at_movement, accessories_returned, reason, document_term_id
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
-          ON CONFLICT (id) DO NOTHING;
-        `, [
-          m.id,
-          m.batchOperationId || null,
-          m.flowType || 'entrega',
-          m.deviceId,
-          m.deviceTag || null,
-          m.deviceName || m.deviceModel || null,
-          m.imei || null,
-          m.originCollaboratorId || null,
-          m.originCollaboratorName || null,
-          m.destinationCollaboratorId || null,
-          m.destinationCollaboratorName || null,
-          m.type || 'Entrega',
-          m.date || new Date().toISOString().split('T')[0],
-          m.registeredBy || 'Gestor de Telefonia',
-          m.conditionAtMovement || 'Bom',
-          m.accessoriesIncluded || [],
-          m.reason || null,
-          m.documentId || null
-        ]);
-      }
-    }
-
-    // 5. Termos e Documentos
-    if (Array.isArray(terms) && terms.length > 0) {
-      for (const t of terms) {
-        await client.query(`
-          INSERT INTO terms_documents (id, term_number, type, collaborator_id, collaborator_name, device_id, device_tag, device_model, phone_line_number, generation_date, signed_status, file_name, notes)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-          ON CONFLICT (id) DO UPDATE SET
-            signed_status = EXCLUDED.signed_status,
-            file_name = EXCLUDED.file_name,
-            notes = EXCLUDED.notes;
-        `, [
-          t.id,
-          t.code || t.termNumber || `TERMO-${t.id}`,
-          t.type || 'Termo de Entrega',
-          t.collaboratorId || null,
-          t.collaboratorName || null,
-          t.deviceId || null,
-          t.deviceTag || null,
-          t.deviceModel || null,
-          t.phoneNumber || null,
-          t.date || new Date().toISOString().split('T')[0],
-          t.status || 'Pendente',
-          t.fileName || null,
-          t.notes || null
-        ]);
-      }
-    }
-
-    // 6. Trilha de Auditoria
-    if (Array.isArray(auditLogs) && auditLogs.length > 0) {
-      for (const a of auditLogs) {
-        await client.query(`
-          INSERT INTO audit_logs (id, action, entity_type, entity_id, entity_label, details, user_name, timestamp)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-          ON CONFLICT (id) DO NOTHING;
-        `, [
-          a.id,
-          a.action || 'OPERAÇÃO',
-          a.entityType || 'Geral',
-          a.entityId || null,
-          a.entityLabel || null,
-          a.details || null,
-          a.user || 'Operador',
-          a.timestamp ? new Date(a.timestamp) : new Date()
-        ]);
-      }
-    }
+    // Ordem respeita os vínculos: colaboradores → linhas → aparelhos → movimentações → termos → auditoria
+    await run('collaborators', collaborators, c => c.fullName || c.name || c.id, c => upsertCollaborator(client, c, overwrite));
+    await run('lines', lines, l => l.phoneNumber || l.id, l => upsertLine(client, l, overwrite));
+    await run('devices', devices, d => d.assetTag || d.id, d => upsertDevice(client, d, overwrite));
+    await run('movements', movements, m => m.code || m.id, m => upsertMovement(client, m, overwrite));
+    await run('terms', terms, t => t.code || t.id, t => upsertTerm(client, t, overwrite));
+    await run('auditLogs', auditLogs, a => a.id, a => insertAudit(client, a));
 
     await client.query('COMMIT');
-    console.log(`✅ [PostgreSQL] Sincronização em lote concluída com sucesso: ${devices?.length || 0} dispositivos, ${lines?.length || 0} linhas, ${collaborators?.length || 0} colaboradores.`);
-    return res.json({ success: true, message: 'Dados sincronizados com o PostgreSQL com sucesso!' });
+    console.log(`✅ [PostgreSQL] Lote (${overwrite ? 'overwrite' : 'insert-missing'}): ${JSON.stringify(saved)}; rejeitados: ${rejected.length}`);
+    return res.json({
+      success: true,
+      message: rejected.length
+        ? `${rejected.length} registro(s) foram rejeitados pelo banco de dados.`
+        : 'Dados sincronizados com o PostgreSQL com sucesso!',
+      data: { saved, rejected },
+    });
   } catch (err: any) {
-    await client.query('ROLLBACK');
-    console.error('⚠️ [POST /api/sync/batch-upload] Erro:', err.message);
-    return res.status(500).json({ success: false, error: err.message });
+    try { await client.query('ROLLBACK'); } catch { /* ignora */ }
+    throw err;
   } finally {
     client.release();
   }
-});
+}));
 
 // 12. Limpeza / Reset Total do Banco de Dados
-app.post('/api/database/reset', async (_req, res) => {
+app.post('/api/database/reset', async (req, res) => {
+  // Operação destrutiva (TRUNCATE): exige token JWT de administrador
+  if ((req as any).user?.role !== 'admin') {
+    return res.status(403).json({ success: false, message: 'Somente administradores autenticados podem zerar a base de dados.' });
+  }
   if (pool && isDbConnected) {
     const client = await pool.connect();
     try {

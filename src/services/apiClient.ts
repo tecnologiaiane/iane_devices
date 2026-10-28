@@ -148,23 +148,6 @@ class ApiClientService {
           };
         }
 
-        // 5. Erros 4xx em gravações (ex.: violação de unicidade/chave estrangeira no PostgreSQL)
-        else if (status && status >= 400 && status < 500 && status !== 404) {
-          const url = error.config?.url || '';
-          const method = (error.config?.method || '').toLowerCase();
-          const isDataWrite = ['post', 'put', 'delete'].includes(method) && !url.startsWith('/api/auth') && !url.startsWith('/api/users');
-          if (isDataWrite) {
-            notification = {
-              id: `srv-${status}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-              type: 'error',
-              title: 'Registro não gravado no banco de dados',
-              message: `${url}: ${customMessage || 'o servidor rejeitou a gravação.'}`,
-              status,
-              timestamp: new Date().toLocaleTimeString('pt-BR'),
-            };
-          }
-        }
-
         if (notification) {
           this.notifyError(notification);
         }
@@ -174,7 +157,7 @@ class ApiClientService {
     );
   }
 
-  private notifyError(notification: ApiNotification): void {
+  public notifyError(notification: ApiNotification): void {
     this.errorListeners.forEach((listener) => {
       try {
         listener(notification);

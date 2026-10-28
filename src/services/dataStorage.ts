@@ -26,16 +26,33 @@ const STORAGE_KEYS = {
   INITIALIZED: 'iane_initialized_v3',
 };
 
-export const STOCK_LABEL = 'Estoque do Gestor de Telefonia';
+const OUTBOX_KEY = 'iane_outbox_v1';
+const REJECTED_KEY = 'iane_outbox_rejected_v1';
+const MIGRATED_KEY = 'iane_migrated_to_pg_v1';
+const PRE_MIGRATION_BACKUP_KEY = 'iane_backup_pre_pg_migration_v1';
+const MAX_SERVER_ERROR_ATTEMPTS = 8;
 
-// Gerador de IDs únicos. Date.now() sozinho colide quando vários registros são criados
-// no mesmo milissegundo (ex.: importação de planilha) e o servidor sobrescreve o registro
-// anterior (UPSERT por id). crypto.randomUUID() não é usado porque exige HTTPS.
-let idCounter = 0;
-const uid = (prefix: string): string => {
-  idCounter = (idCounter + 1) % 1000000;
-  return `${prefix}-${Date.now()}-${idCounter}-${Math.random().toString(36).slice(2, 6)}`;
-};
+interface OutboxItem {
+  id: string;
+  method: 'POST' | 'PUT' | 'DELETE';
+  path: string;
+  body?: any;
+  label?: string;
+  createdAt: string;
+  attempts: number;
+  lastError?: string;
+}
+
+export interface RejectedWrite {
+  id: string;
+  label: string;
+  reason: string;
+  rejectedAt: string;
+  path?: string;
+  entity?: string;
+}
+
+export const STOCK_LABEL = 'Estoque do Gestor de Telefonia';
 
 // Base de dados 100% limpa (sem dados fictícios para produção)
 const INITIAL_COLLABORATORS: Collaborator[] = [];
@@ -59,15 +76,12 @@ class DataStorageService {
 
   public async apiSync<T = any>(path: string, method: string = 'GET', body?: any): Promise<ApiResponse<T>> {
     const cleanMethod = method.toUpperCase();
-    if (cleanMethod === 'POST') {
-      return apiClient.post<T>(path, body);
-    } else if (cleanMethod === 'PUT') {
-      return apiClient.put<T>(path, body);
-    } else if (cleanMethod === 'DELETE') {
-      return apiClient.delete<T>(path);
-    } else {
+    if (cleanMethod === 'GET') {
       return apiClient.get<T>(path);
     }
+    // Escritas (POST/PUT/DELETE) vão para a fila persistente e são reenviadas até o PostgreSQL confirmar
+    this.enqueueWrite(cleanMethod as 'POST' | 'PUT' | 'DELETE', path, body);
+    return { success: true, message: 'Gravação enfileirada para o PostgreSQL.' };
   }
 
   private set<T>(key: string, value: T): void {
@@ -76,6 +90,178 @@ class DataStorageService {
     } catch (e) {
       console.error(`Erro ao salvar ${key} no localStorage:`, e);
     }
+  }
+
+  // =========================================================================
+  // FILA DE GRAVAÇÃO (OUTBOX) → PostgreSQL
+  // Toda alteração é aplicada no cache local (para a tela responder na hora) e
+  // enfileirada aqui. A fila é persistente, ordenada (FIFO), reenviada até o
+  // servidor confirmar e NUNCA descarta uma gravação em silêncio: se o banco
+  // rejeitar o registro, o motivo aparece em uma notificação para o usuário.
+  // =========================================================================
+  private flushing = false;
+  private pushing = false;
+  private reseedAttempted = false;
+  private migrationErrorNotified = false;
+  private syncPromise: Promise<boolean> | null = null;
+
+  private getOutbox(): OutboxItem[] {
+    return this.get<OutboxItem[]>(OUTBOX_KEY, []);
+  }
+
+  private saveOutbox(items: OutboxItem[]): void {
+    this.set(OUTBOX_KEY, items);
+    this.emitSyncStatus();
+  }
+
+  private removeFromOutbox(id: string): void {
+    this.saveOutbox(this.getOutbox().filter((i) => i.id !== id));
+  }
+
+  private emitSyncStatus(): void {
+    if (typeof window === 'undefined') return;
+    window.dispatchEvent(
+      new CustomEvent('iane:sync-status', {
+        detail: { pending: this.getOutbox().length, rejected: this.getRejectedWrites().length },
+      })
+    );
+  }
+
+  /** Quantidade de gravações ainda não confirmadas pelo PostgreSQL. */
+  public getPendingSyncCount(): number {
+    return this.getOutbox().length;
+  }
+
+  /** Gravações que o banco de dados rejeitou (com o motivo). */
+  public getRejectedWrites(): RejectedWrite[] {
+    return this.get<RejectedWrite[]>(REJECTED_KEY, []);
+  }
+
+  public clearRejectedWrites(): void {
+    this.set(REJECTED_KEY, []);
+    this.emitSyncStatus();
+  }
+
+  private notifyProblem(title: string, message: string, status?: number): void {
+    apiClient.notifyError({
+      id: `sync-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      type: 'error',
+      title,
+      message,
+      status,
+      timestamp: new Date().toLocaleTimeString('pt-BR'),
+    });
+  }
+
+  private labelOf(path: string, body: any): string {
+    return body?.assetTag || body?.phoneNumber || body?.fullName || body?.code || body?.entityLabel || path;
+  }
+
+  private enqueueWrite(method: 'POST' | 'PUT' | 'DELETE', path: string, body?: any): void {
+    const queue = this.getOutbox();
+    queue.push({
+      id: `ob-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      method,
+      path,
+      body,
+      label: this.labelOf(path, body),
+      createdAt: new Date().toISOString(),
+      attempts: 0,
+    });
+    this.saveOutbox(queue);
+    void this.flushOutbox();
+  }
+
+  private sendItem(item: OutboxItem): Promise<ApiResponse> {
+    if (item.method === 'DELETE') return apiClient.delete(item.path);
+    if (item.method === 'PUT') return apiClient.put(item.path, item.body);
+    return apiClient.post(item.path, item.body);
+  }
+
+  private rejectItem(item: OutboxItem, reason: string, status?: number): void {
+    const rejected = this.getRejectedWrites();
+    rejected.unshift({
+      id: item.id,
+      label: item.label || item.path,
+      path: item.path,
+      reason,
+      rejectedAt: new Date().toISOString(),
+    });
+    this.set(REJECTED_KEY, rejected.slice(0, 100));
+    this.removeFromOutbox(item.id);
+    this.notifyProblem('Registro não gravado no banco de dados', `${item.label || item.path}: ${reason}`, status);
+  }
+
+  /** Envia as gravações pendentes, uma por vez e na ordem em que foram feitas. */
+  public async flushOutbox(): Promise<void> {
+    if (this.flushing) return;
+    this.flushing = true;
+    try {
+      while (true) {
+        const queue = this.getOutbox();
+        if (queue.length === 0) break;
+        const item = queue[0];
+
+        const res = await this.sendItem(item);
+        if (res.success) {
+          this.removeFromOutbox(item.id);
+          continue;
+        }
+
+        const status = res.status ?? 0;
+        const reason = res.message || res.error || `HTTP ${status}`;
+        // Falhas temporárias: servidor/banco fora do ar (0, 5xx), timeout, limite de requisições ou sessão expirada (401)
+        const transient = !!res.isOffline || status === 0 || status >= 500 || status === 401 || status === 408 || status === 429;
+        const attempts = item.attempts + 1;
+
+        if (transient && !(status >= 500 && status !== 503 && attempts >= MAX_SERVER_ERROR_ATTEMPTS)) {
+          this.saveOutbox(
+            this.getOutbox().map((i) => (i.id === item.id ? { ...i, attempts, lastError: reason } : i))
+          );
+          break; // mantém a ordem: tenta de novo no próximo ciclo
+        }
+
+        // Rejeição definitiva (400/403/409/422...) ou erro 500 persistente: o usuário precisa saber
+        this.rejectItem(item, reason, status);
+      }
+    } finally {
+      this.flushing = false;
+    }
+  }
+
+  private buildLocalPayload() {
+    return {
+      devices: this.getDevices(),
+      lines: this.getLines(),
+      collaborators: this.getCollaborators(),
+      movements: this.getMovements(),
+      terms: this.getTerms(),
+      auditLogs: this.getAuditLogs(),
+    };
+  }
+
+  private recordBatchRejections(rejected: { entity: string; id: string; label: string; message: string }[]): void {
+    if (!rejected.length) return;
+    const list = this.getRejectedWrites();
+    for (const r of rejected) {
+      list.unshift({
+        id: `${r.entity}:${r.id}`,
+        entity: r.entity,
+        label: r.label,
+        reason: r.message,
+        rejectedAt: new Date().toISOString(),
+      });
+    }
+    this.set(REJECTED_KEY, list.slice(0, 100));
+    this.emitSyncStatus();
+    const sample = rejected
+      .slice(0, 3)
+      .map((r) => `${r.label} (${r.message})`)
+      .join('; ');
+    this.notifyProblem(
+      'Alguns registros não foram gravados no banco',
+      `${rejected.length} registro(s) rejeitado(s) pelo PostgreSQL. Ex.: ${sample}${rejected.length > 3 ? '…' : ''}`
+    );
   }
 
   // --- Métodos Assíncronos Oficiais que consultam o Backend PostgreSQL via ApiClient ---
@@ -134,28 +320,105 @@ class DataStorageService {
   }
 
   public async batchSyncToServer(): Promise<{ success: boolean; message: string }> {
+    this.pushing = true;
     try {
-      const payload = {
-        devices: this.getDevices(),
-        lines: this.getLines(),
-        collaborators: this.getCollaborators(),
-        movements: this.getMovements(),
-        terms: this.getTerms(),
-        auditLogs: this.getAuditLogs(),
-      };
-
-      const res = await apiClient.post('/api/sync/batch-upload', payload);
-      if (res.success) {
-        return { success: true, message: 'Dados sincronizados com o PostgreSQL com sucesso!' };
+      const res = await apiClient.post<any>('/api/sync/batch-upload', this.buildLocalPayload());
+      if (!res.success) {
+        return { success: false, message: res.error || res.message || 'Falha ao sincronizar com o banco de dados.' };
       }
-      return { success: false, message: res.error || res.message || 'Falha ao sincronizar com o banco de dados.' };
+      const rejected = res.data?.rejected ?? [];
+      if (rejected.length > 0) {
+        this.recordBatchRejections(rejected);
+        const sample = rejected
+          .slice(0, 5)
+          .map((r: any) => `${r.label}: ${r.message}`)
+          .join(' | ');
+        return {
+          success: false,
+          message: `${rejected.length} registro(s) foram rejeitados pelo banco e NÃO foram gravados. ${sample}`,
+        };
+      }
+      return { success: true, message: 'Dados sincronizados com o PostgreSQL com sucesso!' };
     } catch (e: any) {
       return { success: false, message: e.message || 'Erro ao sincronizar.' };
+    } finally {
+      this.pushing = false;
     }
   }
 
-  public async syncWithServer(): Promise<boolean> {
+  /**
+   * Migração única (por navegador): envia ao PostgreSQL os registros que existem só neste navegador
+   * (dados antigos do localStorage), SEM sobrescrever nada que já esteja no banco. Antes disso guarda uma
+   * cópia de segurança local. Retorna false se ainda não foi possível concluir (será tentado de novo).
+   */
+  private async migrateLocalDataOnce(): Promise<boolean> {
     try {
+      if (localStorage.getItem(MIGRATED_KEY)) return true;
+    } catch {
+      return true;
+    }
+
+    const payload = this.buildLocalPayload();
+    const hasLocal =
+      payload.devices.length + payload.lines.length + payload.collaborators.length +
+      payload.movements.length + payload.terms.length > 0;
+
+    if (!hasLocal) {
+      localStorage.setItem(MIGRATED_KEY, new Date().toISOString());
+      return true;
+    }
+
+    this.set(PRE_MIGRATION_BACKUP_KEY, { savedAt: new Date().toISOString(), ...payload });
+
+    this.pushing = true;
+    try {
+      const res = await apiClient.post<any>('/api/sync/batch-upload', { ...payload, mode: 'insert-missing' });
+      if (!res.success) {
+        const status = res.status ?? 0;
+        const permanent = !res.isOffline && status >= 400 && status < 500 && status !== 401 && status !== 408 && status !== 429;
+        if (permanent && !this.migrationErrorNotified) {
+          this.migrationErrorNotified = true;
+          this.notifyProblem(
+            'Dados locais não migrados para o banco',
+            `${res.message || res.error || 'Erro desconhecido'}. Os dados continuam preservados neste navegador.`,
+            status
+          );
+        }
+        return false;
+      }
+      const rejected = res.data?.rejected ?? [];
+      this.recordBatchRejections(rejected);
+      localStorage.setItem(MIGRATED_KEY, new Date().toISOString());
+      console.log('✅ [Sync] Migração dos dados locais para o PostgreSQL concluída.', res.data?.saved);
+      return true;
+    } catch (e) {
+      console.warn('[Sync] Migração dos dados locais adiada:', e);
+      return false;
+    } finally {
+      this.pushing = false;
+    }
+  }
+
+  public syncWithServer(): Promise<boolean> {
+    if (this.syncPromise) return this.syncPromise;
+    this.syncPromise = this.doSync().finally(() => {
+      this.syncPromise = null;
+    });
+    return this.syncPromise;
+  }
+
+  private async doSync(): Promise<boolean> {
+    try {
+      if (this.pushing) return false;
+
+      // 1) Gravações pendentes saem primeiro; enquanto houver pendência, o cache local NÃO é sobrescrito
+      await this.flushOutbox();
+      if (this.getOutbox().length > 0) return false;
+
+      // 2) Dados antigos que só existiam neste navegador sobem uma única vez
+      if (!(await this.migrateLocalDataOnce())) return false;
+
+      // 3) Lê o estado oficial do banco
       const [devRes, lineRes, colRes, movRes, termRes, audRes] = await Promise.all([
         apiClient.get<Device[]>('/api/devices'),
         apiClient.get<PhoneLine[]>('/api/lines'),
@@ -165,47 +428,35 @@ class DataStorageService {
         apiClient.get<AuditLog[]>('/api/audit-logs'),
       ]);
 
-      const serverHasData = 
-        (devRes.success && Array.isArray(devRes.data) && devRes.data.length > 0) ||
-        (lineRes.success && Array.isArray(lineRes.data) && lineRes.data.length > 0) ||
-        (colRes.success && Array.isArray(colRes.data) && colRes.data.length > 0);
+      // Servidor indisponível ou com erro: mantém o cache local intacto (nunca trata falha como "banco vazio")
+      const all = [devRes, lineRes, colRes, movRes, termRes, audRes];
+      if (all.some((r) => !r.success || !Array.isArray(r.data))) return false;
 
+      const serverEmpty = [devRes, lineRes, colRes, movRes, termRes].every((r) => (r.data as any[]).length === 0);
       const localHasData =
-        this.getDevices().length > 0 ||
-        this.getLines().length > 0 ||
-        this.getCollaborators().length > 0;
+        this.getDevices().length > 0 || this.getLines().length > 0 || this.getCollaborators().length > 0;
 
-      // Se o servidor tem dados, o PostgreSQL é a fonte da verdade definitiva: atualiza o estado local e cache
-      if (serverHasData) {
-        if (devRes.success && Array.isArray(devRes.data)) {
-          this.set(STORAGE_KEYS.DEVICES, devRes.data);
+      // Banco vazio (ex.: volume recriado) e dados locais existentes: repõe o banco a partir do navegador, uma vez por sessão
+      if (serverEmpty && localHasData) {
+        if (!this.reseedAttempted && apiClient.isOnline()) {
+          this.reseedAttempted = true;
+          console.log('🔄 [Sync] Banco PostgreSQL vazio: repondo os dados a partir do cache local...');
+          await this.batchSyncToServer();
         }
-        if (lineRes.success && Array.isArray(lineRes.data)) {
-          this.set(STORAGE_KEYS.LINES, lineRes.data);
-        }
-        if (colRes.success && Array.isArray(colRes.data)) {
-          this.set(STORAGE_KEYS.COLLABORATORS, colRes.data);
-        }
-        if (movRes.success && Array.isArray(movRes.data)) {
-          this.set(STORAGE_KEYS.MOVEMENTS, movRes.data);
-        }
-        if (termRes.success && Array.isArray(termRes.data)) {
-          this.set(STORAGE_KEYS.TERMS, termRes.data);
-        }
-        if (audRes.success && Array.isArray(audRes.data)) {
-          this.set(STORAGE_KEYS.AUDIT, audRes.data);
-        }
-        return true;
+        return false;
       }
 
-      // Se o banco PostgreSQL estiver vazio mas houver dados no navegador, faz upload inicial
-      if (!serverHasData && localHasData && apiClient.isOnline()) {
-        console.log('🔄 [Sync] Banco PostgreSQL vazio: realizando upload dos dados locais para persistência definitiva...');
-        await this.batchSyncToServer();
-        return true;
-      }
+      // Houve alteração local (ou envio em lote) durante a leitura: não sobrescreve
+      if (this.pushing || this.getOutbox().length > 0) return false;
 
-      return false;
+      // 4) O PostgreSQL é a fonte da verdade: atualiza o cache local
+      this.set(STORAGE_KEYS.DEVICES, devRes.data);
+      this.set(STORAGE_KEYS.LINES, lineRes.data);
+      this.set(STORAGE_KEYS.COLLABORATORS, colRes.data);
+      this.set(STORAGE_KEYS.MOVEMENTS, movRes.data);
+      this.set(STORAGE_KEYS.TERMS, termRes.data);
+      this.set(STORAGE_KEYS.AUDIT, audRes.data);
+      return true;
     } catch (e) {
       console.warn('Sincronização com o servidor indisponível no momento:', e);
       return false;
@@ -221,24 +472,32 @@ class DataStorageService {
       try { localStorage.removeItem(k); } catch (_) {}
     });
 
+    // Primeiro acesso deste navegador: cria o cache local vazio.
+    // IMPORTANTE: não zera o banco (antes, abrir o sistema em um navegador novo executava TRUNCATE no PostgreSQL).
     const initialized = localStorage.getItem(STORAGE_KEYS.INITIALIZED);
     if (!initialized) {
-      this.resetToDefaults();
+      this.resetToDefaults(false);
     }
 
-    // Sincroniza com o PostgreSQL em background
-    this.syncWithServer();
-    // Atualização periódica a cada 20 segundos para manter todos os navegadores alinhados
+    // Sincroniza com o PostgreSQL em background e a cada 20 segundos
+    void this.syncWithServer();
     if (typeof window !== 'undefined') {
       window.setInterval(() => {
-        this.syncWithServer();
+        void this.syncWithServer();
       }, 20000);
+      window.addEventListener('online', () => {
+        void this.syncWithServer();
+      });
     }
   }
 
-  // resetServer=true apaga TAMBÉM o PostgreSQL. Só deve ser usado em ação explícita do usuário
-  // (botão "Zerar base" em Configurações). No init() de um navegador novo é sempre local.
-  public resetToDefaults(resetServer: boolean = false) {
+  /**
+   * Zera o cache local. Com resetServer = true (ação explícita do administrador em Configurações)
+   * também zera o PostgreSQL; a falha desse pedido é exibida ao usuário em vez de ignorada.
+   */
+  public resetToDefaults(resetServer: boolean = true) {
+    this.saveOutbox([]);
+    this.set(REJECTED_KEY, []);
     this.set(STORAGE_KEYS.COLLABORATORS, INITIAL_COLLABORATORS);
     this.set(STORAGE_KEYS.DEVICES, INITIAL_DEVICES);
     this.set(STORAGE_KEYS.LINES, INITIAL_LINES);
@@ -248,8 +507,15 @@ class DataStorageService {
     localStorage.setItem(STORAGE_KEYS.INITIALIZED, 'true');
 
     if (resetServer) {
-      // Notifica backend para truncar tabelas caso esteja rodando PostgreSQL
-      this.apiSync('/api/database/reset', 'POST');
+      void apiClient.post('/api/database/reset').then((res) => {
+        if (!res.success) {
+          this.notifyProblem(
+            'O banco de dados não foi zerado',
+            res.message || res.error || 'O servidor recusou a operação. Os dados do PostgreSQL foram mantidos.',
+            res.status
+          );
+        }
+      });
     }
   }
 
@@ -355,7 +621,7 @@ class DataStorageService {
 
     if (isNew) {
       savedDevice = {
-        id: uid('dev'),
+        id: `dev-${Date.now()}`,
         assetTag: device.assetTag || `CEL-${String(devices.length + 1).padStart(3, '0')}`,
         imei1: device.imei1 || '',
         imei2: device.imei2,
@@ -437,7 +703,7 @@ class DataStorageService {
 
     if (isNew) {
       savedLine = {
-        id: uid('line'),
+        id: `line-${Date.now()}`,
         phoneNumber: line.phoneNumber || '',
         carrier: line.carrier || 'Vivo',
         planName: line.planName || 'Plano Corporativo',
@@ -516,7 +782,7 @@ class DataStorageService {
 
     if (isNew) {
       savedCollab = {
-        id: uid('col'),
+        id: `col-${Date.now()}`,
         fullName: collab.fullName || '',
         registrationNumber: collab.registrationNumber || `MAT-${Math.floor(1000 + Math.random() * 9000)}`,
         department: collab.department || 'Geral',
@@ -678,7 +944,7 @@ class DataStorageService {
     }
 
     // 3. Gerar Termo de Entrega
-    const termId = uid('term');
+    const termId = `term-${Date.now()}`;
     const newTerm: DocumentTerm = {
       id: termId,
       code: termCode,
@@ -711,7 +977,7 @@ class DataStorageService {
     };
 
     // 4. Registrar Movimentação: Origem = Estoque do Gestor -> Destino = Colaborador
-    const movementId = uid('mov');
+    const movementId = `mov-${Date.now()}`;
     newTerm.movementId = movementId;
 
     const newMovement: Movement = {
@@ -865,7 +1131,7 @@ class DataStorageService {
     }
 
     // 3. Criar Termo de Devolução
-    const termId = uid('term');
+    const termId = `term-${Date.now()}`;
     const newTerm: DocumentTerm = {
       id: termId,
       code: termCode,
@@ -894,7 +1160,7 @@ class DataStorageService {
     };
 
     // 4. Registrar Movimentação: Origem = Colaborador -> Destino = Estoque do Gestor
-    const movementId = uid('mov');
+    const movementId = `mov-${Date.now()}`;
     newTerm.movementId = movementId;
 
     const newMovement: Movement = {
@@ -1184,7 +1450,7 @@ class DataStorageService {
     const now = new Date();
     const movCode = `MOV-${now.getFullYear()}-${String(this.getMovements().length + 1).padStart(3, '0')}`;
     const newMovement: Movement = {
-      id: uid('mov'),
+      id: `mov-${Date.now()}`,
       code: movCode,
       type: 'Liberação de Estoque',
       date: new Date().toISOString().split('T')[0],
@@ -1243,7 +1509,7 @@ class DataStorageService {
     const now = new Date();
     const movCode = `MOV-${now.getFullYear()}-${String(this.getMovements().length + 1).padStart(3, '0')}`;
     const newMovement: Movement = {
-      id: uid('mov'),
+      id: `mov-${Date.now()}`,
       code: movCode,
       type: 'Envio para Manutenção',
       date: params.date,
@@ -1300,7 +1566,7 @@ class DataStorageService {
     const now = new Date();
     const movCode = `MOV-${now.getFullYear()}-${String(this.getMovements().length + 1).padStart(3, '0')}`;
     const newMovement: Movement = {
-      id: uid('mov'),
+      id: `mov-${Date.now()}`,
       code: movCode,
       type: 'Retorno da Manutenção',
       date: params.date,
@@ -1422,7 +1688,7 @@ class DataStorageService {
     const now = new Date();
     const timestamp = `${now.toISOString().split('T')[0]} ${now.toLocaleTimeString('pt-BR')}`;
     const newLog: AuditLog = {
-      id: uid('aud'),
+      id: `aud-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       timestamp,
       action: details.split(' ')[0],
       entityType,
@@ -1529,7 +1795,13 @@ class DataStorageService {
       this.set(STORAGE_KEYS.MOVEMENTS, data.movements || []);
       this.set(STORAGE_KEYS.TERMS, data.terms || []);
       this.set(STORAGE_KEYS.AUDIT, data.audit || []);
-      this.batchSyncToServer();
+      this.batchSyncToServer().then((r) => {
+        if (!r.success) {
+          // Mantém o backup restaurado: força nova tentativa (sem sobrescrever o banco) no próximo ciclo
+          try { localStorage.removeItem(MIGRATED_KEY); } catch (_) {}
+          this.notifyProblem('Restauração ainda não gravada no banco', r.message);
+        }
+      });
       this.logAudit('Dispositivo', 'all', 'Restauração', 'Backup completo do sistema importado com êxito.');
       return { success: true, message: 'Dados restaurados com êxito no sistema e sincronizados com o PostgreSQL!' };
     } catch (e) {

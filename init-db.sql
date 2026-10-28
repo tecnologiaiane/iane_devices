@@ -169,3 +169,29 @@ SET password_hash = EXCLUDED.password_hash,
     role = EXCLUDED.role;
 
 
+
+-- ==============================================================================
+-- 8. COMPATIBILIDADE COM O APLICATIVO (idempotente; o server.ts aplica o mesmo ajuste ao iniciar)
+--    - "data" (JSONB) guarda o registro completo enviado pelo app (cláusulas dos termos, acessórios, stockTransit...)
+--    - IMEI/serial deixam de ser obrigatórios/únicos globalmente (o app permite cadastrar sem eles);
+--      o IMEI continua único quando preenchido
+--    - Movimentações e termos são histórico: não podem impedir a exclusão de um aparelho/colaborador
+-- ==============================================================================
+ALTER TABLE collaborators   ADD COLUMN IF NOT EXISTS data JSONB NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE phone_lines     ADD COLUMN IF NOT EXISTS data JSONB NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE devices         ADD COLUMN IF NOT EXISTS data JSONB NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE movements       ADD COLUMN IF NOT EXISTS data JSONB NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE terms_documents ADD COLUMN IF NOT EXISTS data JSONB NOT NULL DEFAULT '{}'::jsonb;
+
+ALTER TABLE devices ALTER COLUMN serial_number DROP NOT NULL;
+ALTER TABLE devices DROP CONSTRAINT IF EXISTS devices_serial_number_key;
+ALTER TABLE devices ALTER COLUMN imei_1 DROP NOT NULL;
+ALTER TABLE devices DROP CONSTRAINT IF EXISTS devices_imei_1_key;
+ALTER TABLE devices ALTER COLUMN imei_1 TYPE VARCHAR(30);
+ALTER TABLE devices ALTER COLUMN imei_2 TYPE VARCHAR(30);
+ALTER TABLE movements ALTER COLUMN device_imei TYPE VARCHAR(30);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_devices_imei_1 ON devices(imei_1) WHERE imei_1 IS NOT NULL AND imei_1 <> '';
+
+ALTER TABLE movements DROP CONSTRAINT IF EXISTS movements_device_id_fkey;
+ALTER TABLE terms_documents DROP CONSTRAINT IF EXISTS terms_documents_device_id_fkey;
+ALTER TABLE terms_documents DROP CONSTRAINT IF EXISTS terms_documents_collaborator_id_fkey;
