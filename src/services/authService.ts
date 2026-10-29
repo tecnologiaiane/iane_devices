@@ -34,6 +34,19 @@ class AuthService {
     };
   }
 
+  /**
+   * Atualiza os dados do usuário autenticado mantendo a sessão atual.
+   * Usado quando o próprio usuário altera dados do perfil (ex.: nome de login).
+   */
+  public updateCurrentUser(user: User): void {
+    try {
+      localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+    } catch {
+      // Armazenamento indisponível: mantém a sessão apenas em memória/estado da aplicação.
+    }
+    this.notify(user);
+  }
+
   private notify(user: User | null): void {
     this.listeners.forEach((listener) => {
       try {

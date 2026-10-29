@@ -209,3 +209,56 @@ test('logout revoga o token e alterações de usuário invalidam sessões', asyn
   });
   assert.equal(loginAfterDelete.response.status, 401);
 });
+
+test('administrador pode alterar o nome de login de um usuário', async () => {
+  const adminToken = await login(ADMIN.username, ADMIN.password);
+
+  const created = await api('/api/users', {
+    method: 'POST',
+    headers: bearer(adminToken),
+    body: JSON.stringify({
+      username: 'login.antigo',
+      password: 'Teste@123',
+      fullName: 'Usuário com Login Alterável',
+      permissions: ['dashboard'],
+    }),
+  });
+  assert.equal(created.response.status, 201, JSON.stringify(created.body));
+  const userId = created.body.data.id;
+
+  const userToken = await login('login.antigo', 'Teste@123');
+
+  const updated = await api(`/api/users/${userId}`, {
+    method: 'PUT',
+    headers: bearer(adminToken),
+    body: JSON.stringify({ username: 'Login.Novo' }),
+  });
+  assert.equal(updated.response.status, 200, JSON.stringify(updated.body));
+  assert.equal(updated.body.data.username, 'login.novo');
+
+  const oldLogin = await api('/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ username: 'login.antigo', password: 'Teste@123' }),
+  });
+  assert.equal(oldLogin.response.status, 401);
+
+  const newToken = await login('login.novo', 'Teste@123');
+  assert.ok(newToken);
+
+  // Trocar apenas o login não derruba a sessão já autenticada (o vínculo é pelo ID).
+  const stillValid = await api('/api/devices', { headers: bearer(userToken) });
+  assert.equal(stillValid.response.status, 200);
+
+  const duplicate = await api(`/api/users/${userId}`, {
+    method: 'PUT',
+    headers: bearer(adminToken),
+    body: JSON.stringify({ username: ADMIN.username }),
+  });
+  assert.equal(duplicate.response.status, 409);
+
+  const deleted = await api(`/api/users/${userId}`, {
+    method: 'DELETE',
+    headers: bearer(adminToken),
+  });
+  assert.equal(deleted.response.status, 200);
+});

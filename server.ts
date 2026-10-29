@@ -877,36 +877,88 @@ app.post('/api/users', requirePermission('manage_users'), async (req, res) => {
 
 app.put('/api/users/:id', requirePermission('manage_users'), async (req, res) => {
   const { id } = req.params;
-  const { fullName, email, password, role, permissions, active } = req.body || {};
+  const body = req.body || {};
+  const { fullName, email, password, role, permissions, active } = body;
+
+  const usernameProvided = Object.prototype.hasOwnProperty.call(body, 'username');
+  const newUsername = usernameProvided ? String(body.username ?? '').trim().toLowerCase() : undefined;
+
+  if (usernameProvided) {
+    if (
+      !newUsername ||
+      newUsername.length < 3 ||
+      newUsername.length > 100 ||
+      !/^[a-z0-9._@-]+$/.test(newUsername)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: 'O nome de usuário deve ter de 3 a 100 caracteres e usar apenas letras, números, ponto, hífen, underline ou @.',
+      });
+    }
+  }
 
   if (pool && isDbConnected) {
     try {
-      let query = `
-        UPDATE system_users
-        SET full_name = COALESCE($1, full_name),
-            email = COALESCE($2, email),
-            role = COALESCE($3, role),
-            permissions = COALESCE($4, permissions),
-            active = COALESCE($5, active)
-      `;
-      const values: any[] = [fullName?.trim() || null, email?.trim() || null, role || null, permissions || null, active !== undefined ? active : null];
-
-      if (password && password.trim()) {
-        const hash = await bcrypt.hash(password.trim(), 10);
-        query += `, password_hash = $6 WHERE id = $7 RETURNING id, username, full_name as "fullName", email, role, permissions, active, created_at as "createdAt"`;
-        values.push(hash, id);
-      } else {
-        query += ` WHERE id = $6 RETURNING id, username, full_name as "fullName", email, role, permissions, active, created_at as "createdAt"`;
-        values.push(id);
-      }
-
-      const result = await pool.query(query, values);
-      if (result.rows.length === 0) {
+      const currentRes = await pool.query(
+        'SELECT role, permissions, active FROM system_users WHERE id = $1',
+        [id]
+      );
+      if (currentRes.rows.length === 0) {
         return res.status(404).json({ success: false, message: 'Usuário não encontrado.' });
       }
+      const currentUser = currentRes.rows[0];
 
-      // Senha, papel, permissões ou status alterados: revoga tokens emitidos antes da mudança.
-      if ((password && password.trim()) || role || permissions || active !== undefined) {
+      if (newUsername !== undefined) {
+        const duplicate = await pool.query(
+          'SELECT id FROM system_users WHERE LOWER(username) = $1 AND id <> $2',
+          [newUsername, id]
+        );
+        if (duplicate.rows.length > 0) {
+          return res.status(409).json({ success: false, message: 'Este nome de usuário já está em uso por outro operador.' });
+        }
+      }
+
+      const fields: string[] = [];
+      const values: any[] = [];
+      const setField = (column: string, value: any) => {
+        values.push(value);
+        fields.push(`${column} = $${values.length}`);
+      };
+
+      const passwordChanged = Boolean(password && String(password).trim());
+      const roleChanged = role !== undefined && role !== currentUser.role;
+      const activeChanged = active !== undefined && Boolean(active) !== Boolean(currentUser.active);
+      const currentPermissions = Array.isArray(currentUser.permissions) ? currentUser.permissions : [];
+      const permissionsChanged =
+        permissions !== undefined &&
+        JSON.stringify([...permissions].sort()) !== JSON.stringify([...currentPermissions].sort());
+
+      if (newUsername !== undefined) setField('username', newUsername);
+      if (fullName !== undefined) setField('full_name', String(fullName).trim());
+      if (email !== undefined) setField('email', String(email).trim() || null);
+      if (role !== undefined) setField('role', role);
+      if (permissions !== undefined) setField('permissions', permissions);
+      if (active !== undefined) setField('active', active);
+      if (passwordChanged) {
+        setField('password_hash', await bcrypt.hash(String(password).trim(), 10));
+      }
+
+      if (fields.length === 0) {
+        return res.status(400).json({ success: false, message: 'Nenhuma alteração informada.' });
+      }
+
+      values.push(id);
+      const result = await pool.query(
+        `UPDATE system_users
+         SET ${fields.join(', ')}
+         WHERE id = $${values.length}
+         RETURNING id, username, full_name as "fullName", email, role, permissions, active, created_at as "createdAt"`,
+        values
+      );
+
+      // Senha, papel, permissões ou status realmente alterados: revoga tokens emitidos antes da mudança.
+      // Trocar apenas o nome de login (ou nome/e-mail) mantém a sessão, pois o vínculo do token é pelo ID.
+      if (passwordChanged || roleChanged || permissionsChanged || activeChanged) {
         await pool.query(
           'UPDATE system_users SET token_version = token_version + 1 WHERE id = $1',
           [id]
@@ -915,6 +967,9 @@ app.put('/api/users/:id', requirePermission('manage_users'), async (req, res) =>
 
       return res.json({ success: true, data: result.rows[0], message: 'Usuário atualizado com sucesso.' });
     } catch (err: any) {
+      if (err?.code === '23505') {
+        return res.status(409).json({ success: false, message: 'Este nome de usuário já está em uso por outro operador.' });
+      }
       return res.status(500).json({ success: false, error: err.message });
     }
   }
@@ -922,13 +977,29 @@ app.put('/api/users/:id', requirePermission('manage_users'), async (req, res) =>
   // Fallback
   const user = memoryStore.users.find(u => u.id === id);
   if (!user) return res.status(404).json({ success: false, message: 'Usuário não encontrado.' });
-  if (fullName) user.fullName = fullName.trim();
-  if (email !== undefined) user.email = email.trim();
-  if (role) user.role = role;
-  if (permissions) user.permissions = permissions;
+
+  if (newUsername !== undefined) {
+    if (memoryStore.users.some(u => u.id !== id && u.username.toLowerCase() === newUsername)) {
+      return res.status(409).json({ success: false, message: 'Este nome de usuário já está em uso por outro operador.' });
+    }
+    user.username = newUsername;
+  }
+
+  const passwordChanged = Boolean(password && String(password).trim());
+  const roleChanged = role !== undefined && role !== user.role;
+  const activeChanged = active !== undefined && Boolean(active) !== Boolean(user.active);
+  const permissionsChanged =
+    permissions !== undefined &&
+    JSON.stringify([...permissions].sort()) !== JSON.stringify([...(user.permissions || [])].sort());
+
+  if (fullName !== undefined) user.fullName = String(fullName).trim();
+  if (email !== undefined) user.email = String(email).trim();
+  if (role !== undefined) user.role = role;
+  if (permissions !== undefined) user.permissions = permissions;
   if (active !== undefined) user.active = active;
-  if (password && password.trim()) user.passwordHash = await bcrypt.hash(password.trim(), 10);
-  if ((password && password.trim()) || role || permissions || active !== undefined) {
+  if (passwordChanged) user.passwordHash = await bcrypt.hash(String(password).trim(), 10);
+
+  if (passwordChanged || roleChanged || permissionsChanged || activeChanged) {
     user.tokenVersion = (user.tokenVersion || 0) + 1;
   }
 

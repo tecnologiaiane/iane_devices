@@ -494,8 +494,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const handleSaveUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formFullName.trim() || !formUsername.trim()) {
+    const normalizedUsername = formUsername.trim().toLowerCase();
+
+    if (!formFullName.trim() || !normalizedUsername) {
       setErrorMessage('Nome completo e nome de usuário são obrigatórios.');
+      return;
+    }
+
+    if (
+      normalizedUsername.length < 3 ||
+      normalizedUsername.length > 100 ||
+      !/^[a-z0-9._@-]+$/.test(normalizedUsername)
+    ) {
+      setErrorMessage(
+        'O nome de usuário deve ter de 3 a 100 caracteres e usar apenas letras, números, ponto, hífen, underline ou @.'
+      );
       return;
     }
 
@@ -511,7 +524,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     const payload: SystemUserFormData = {
       id: userToEdit?.id,
       fullName: formFullName.trim(),
-      username: formUsername.trim().toLowerCase(),
+      username: normalizedUsername,
       email: formEmail.trim() || undefined,
       password: formPassword.trim() || undefined,
       role: formRole,
@@ -523,6 +536,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setIsSubmittingUser(false);
 
     if (res.success) {
+      // Se o próprio usuário logado alterou o login/credenciais, reflete na sessão atual.
+      if (res.user && userToEdit && userToEdit.id === activeUser?.id) {
+        authService.updateCurrentUser(res.user);
+      }
       setSuccessMessage(res.message);
       setIsUserModalOpen(false);
       void loadUsers();
@@ -696,7 +713,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <SettingsSection
           id="users"
           title="Gestão de usuários e permissões"
-          description="Cadastre operadores e defina o acesso por módulo."
+          description="Cadastre operadores, altere o nome de login e defina o acesso por módulo."
           icon={Users}
           badge={`${users.length} cadastrados`}
           isOpen={openSection === 'users'}
@@ -1092,14 +1109,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   <input
                     type="text"
                     required
-                    disabled={!!userToEdit}
                     value={formUsername}
-                    onChange={(e) => setFormUsername(e.target.value)}
+                    onChange={(e) => setFormUsername(e.target.value.toLowerCase())}
                     placeholder="Ex: carlos.silva"
-                    className={`w-full text-xs px-3 py-2 border border-ink-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-iane-500 ${
-                      userToEdit ? 'bg-ink-100 text-ink-500 cursor-not-allowed' : ''
-                    }`}
+                    className="w-full text-xs px-3 py-2 border border-ink-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-iane-500"
                   />
+                  <p className="mt-1 text-[11px] text-ink-500">
+                    {userToEdit
+                      ? 'Pode ser alterado a qualquer momento. O novo login vale no próximo acesso.'
+                      : 'Letras, números, ponto, hífen, underline ou @ (mínimo 3 caracteres).'}
+                  </p>
                 </div>
 
                 <div>

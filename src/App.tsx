@@ -142,6 +142,12 @@ export default function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Mantém o estado da aplicação sincronizado com alterações de sessão/perfil
+  // (login, logout e edição do próprio nome de usuário).
+  React.useEffect(() => {
+    return authService.subscribe((user) => setCurrentUser(user));
+  }, []);
+
   // Notificações globais de erros HTTP e indisponibilidade do backend
   React.useEffect(() => {
     return apiClient.subscribeError((notif) => {
