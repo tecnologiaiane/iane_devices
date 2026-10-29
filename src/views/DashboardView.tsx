@@ -168,79 +168,77 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
 
   return (
     <div className="space-y-6">
-      {/* Card único e informativo com os totais (sem navegação) */}
-      <div className="bg-white p-4 sm:p-5 rounded-xl border border-ink-200 border-t-[3px] border-t-iane-500 shadow-xs">
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-          <div>
-            <div className="flex items-center justify-between text-ink-500 mb-1">
-              <span className="text-xs font-medium">Aparelhos</span>
-              <Smartphone className="w-4 h-4 text-iane-600" />
-            </div>
-            <div className="text-2xl font-bold font-mono tabular-nums text-ink-900">
-              {metrics.totalDevices}
-            </div>
-            <div className="mt-1.5 text-[11px] text-ink-500">Cadastrados na frota</div>
+      {/* Cards informativos com os totais (sem navegação) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="p-4 bg-white rounded-xl border border-ink-200 border-t-[3px] border-t-iane-500 shadow-xs">
+          <div className="flex items-center justify-between text-ink-500 mb-1">
+            <span className="text-xs font-medium">Aparelhos</span>
+            <Smartphone className="w-4 h-4 text-iane-600" />
           </div>
-
-          <div>
-            <div className="flex items-center justify-between text-ink-500 mb-1">
-              <span className="text-xs font-medium">Em uso</span>
-              <Users className="w-4 h-4 text-iane-600" />
-            </div>
-            <div className="text-2xl font-bold font-mono tabular-nums text-ink-900">
-              {metrics.inUseDevices}
-            </div>
-            <div className="mt-1.5 text-[11px] text-iane-700 font-medium">
-              {percent(metrics.inUseDevices)}% com colaboradores
-            </div>
+          <div className="text-2xl font-bold font-mono tabular-nums text-ink-900">
+            {metrics.totalDevices}
           </div>
+          <div className="mt-1.5 text-[11px] text-ink-500">Cadastrados na frota</div>
+        </div>
 
-          <div>
-            <div className="flex items-center justify-between text-ink-500 mb-1">
-              <span className="text-xs font-medium">No estoque</span>
-              <Package className="w-4 h-4 text-indigo-600" />
-            </div>
-            <div className="text-2xl font-bold font-mono tabular-nums text-ink-900">
-              {metrics.stockTotal}
-            </div>
-            <div className="mt-1.5 text-[11px] text-ink-500">Sob custódia de TI</div>
+        <div className="p-4 bg-white rounded-xl border border-ink-200 border-t-[3px] border-t-iane-500 shadow-xs">
+          <div className="flex items-center justify-between text-ink-500 mb-1">
+            <span className="text-xs font-medium">Em uso</span>
+            <Users className="w-4 h-4 text-iane-600" />
           </div>
-
-          <div>
-            <div className="flex items-center justify-between text-emerald-800 mb-1">
-              <span className="text-xs font-bold">Disponíveis</span>
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-            </div>
-            <div className="text-2xl font-bold font-mono tabular-nums text-emerald-900">
-              {metrics.stockAvailable}
-            </div>
-            <div className="mt-1.5 text-[11px] text-emerald-700 font-medium">Prontos para entrega</div>
+          <div className="text-2xl font-bold font-mono tabular-nums text-ink-900">
+            {metrics.inUseDevices}
           </div>
-
-          <div>
-            <div className="flex items-center justify-between text-ink-500 mb-1">
-              <span className="text-xs font-medium">Em manutenção</span>
-              <Wrench className="w-4 h-4 text-orange-600" />
-            </div>
-            <div className="text-2xl font-bold font-mono tabular-nums text-orange-700">
-              {metrics.stockMaintenance}
-            </div>
-            <div className="mt-1.5 text-[11px] text-ink-500">Em assistência técnica</div>
+          <div className="mt-1.5 text-[11px] text-iane-700 font-medium">
+            {percent(metrics.inUseDevices)}% com colaboradores
           </div>
+        </div>
 
-          <div>
-            <div className="flex items-center justify-between text-ink-500 mb-1">
-              <span className="text-xs font-medium">Linhas ativas</span>
-              <PhoneCall className="w-4 h-4 text-iane-600" />
-            </div>
-            <div className="text-2xl font-bold font-mono tabular-nums text-ink-900">
-              {metrics.activeLines}
-            </div>
-            <div className="mt-1.5 text-[11px] text-ink-500">
-              <span className="text-emerald-700 font-semibold tabular-nums">{metrics.availableLines}</span> livres
-              {' · '}
-              {metrics.totalLines} no total
-            </div>
+        <div className="p-4 bg-white rounded-xl border border-ink-200 border-t-[3px] border-t-iane-500 shadow-xs">
+          <div className="flex items-center justify-between text-ink-500 mb-1">
+            <span className="text-xs font-medium">No estoque</span>
+            <Package className="w-4 h-4 text-indigo-600" />
+          </div>
+          <div className="text-2xl font-bold font-mono tabular-nums text-ink-900">
+            {metrics.stockTotal}
+          </div>
+          <div className="mt-1.5 text-[11px] text-ink-500">Sob custódia de TI</div>
+        </div>
+
+        <div className="p-4 bg-emerald-50/60 rounded-xl border border-emerald-200 border-t-[3px] border-t-emerald-500 shadow-xs">
+          <div className="flex items-center justify-between text-emerald-800 mb-1">
+            <span className="text-xs font-bold">Disponíveis</span>
+            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+          </div>
+          <div className="text-2xl font-bold font-mono tabular-nums text-emerald-900">
+            {metrics.stockAvailable}
+          </div>
+          <div className="mt-1.5 text-[11px] text-emerald-700 font-medium">Prontos para entrega</div>
+        </div>
+
+        <div className="p-4 bg-white rounded-xl border border-ink-200 border-t-[3px] border-t-orange-400 shadow-xs">
+          <div className="flex items-center justify-between text-ink-500 mb-1">
+            <span className="text-xs font-medium">Em manutenção</span>
+            <Wrench className="w-4 h-4 text-orange-600" />
+          </div>
+          <div className="text-2xl font-bold font-mono tabular-nums text-orange-700">
+            {metrics.stockMaintenance}
+          </div>
+          <div className="mt-1.5 text-[11px] text-ink-500">Em assistência técnica</div>
+        </div>
+
+        <div className="p-4 bg-white rounded-xl border border-ink-200 border-t-[3px] border-t-iane-500 shadow-xs">
+          <div className="flex items-center justify-between text-ink-500 mb-1">
+            <span className="text-xs font-medium">Linhas ativas</span>
+            <PhoneCall className="w-4 h-4 text-iane-600" />
+          </div>
+          <div className="text-2xl font-bold font-mono tabular-nums text-ink-900">
+            {metrics.activeLines}
+          </div>
+          <div className="mt-1.5 text-[11px] text-ink-500">
+            <span className="text-emerald-700 font-semibold tabular-nums">{metrics.availableLines}</span> livres
+            {' · '}
+            {metrics.totalLines} no total
           </div>
         </div>
       </div>
