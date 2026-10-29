@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { dataService } from '../services/dataStorage';
-import { formatDate, formatCurrency } from '../utils/formatters';
+import { formatDate } from '../utils/formatters';
+import { SECTORS } from '../utils/collaborators';
 import { StatusBadge } from '../components/StatusBadge';
 import { Modal } from '../components/Modal';
 import { NavTab } from '../components/Sidebar';
@@ -18,7 +19,6 @@ import {
   ArrowLeftRight,
   Building2,
   Tag,
-  Wallet,
   FileText,
   FileWarning,
 } from 'lucide-react';
@@ -31,6 +31,23 @@ interface DashboardViewProps {
 const PENDING_TERMS_STORAGE_KEY = 'iane_pending_terms_notice_count';
 const DONUT_RADIUS = 54;
 const DONUT_CIRCUMFERENCE = 2 * Math.PI * DONUT_RADIUS;
+
+// DDDs exibidos no resumo de linhas e utilitário de extração.
+const TARGET_DDDS = ['83', '71', '84'];
+
+/**
+ * Extrai o DDD de um número de telefone, ignorando máscara, código do país (+55)
+ * e o zero de discagem inicial. Retorna null quando não há DDD identificável.
+ */
+function extractDdd(phoneNumber?: string): string | null {
+  let digits = String(phoneNumber || '').replace(/\D/g, '');
+  if (!digits) return null;
+  if (digits.startsWith('0055')) digits = digits.slice(4);
+  else if (digits.startsWith('55') && digits.length > 11) digits = digits.slice(2);
+  digits = digits.replace(/^0+/, '');
+  if (digits.length < 10) return null;
+  return digits.slice(0, 2);
+}
 
 export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, currentUser }) => {
   const metrics = dataService.getDashboardMetrics();
@@ -107,25 +124,42 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
     }, {})
   ).sort((a, b) => b[1] - a[1]);
 
-  const linesByCarrier = Object.entries(
-    lines.reduce<Record<string, number>>((acc, line) => {
-      acc[line.carrier] = (acc[line.carrier] || 0) + 1;
-      return acc;
-    }, {})
-  ).sort((a, b) => b[1] - a[1]);
-
   const maxDepartmentCount = devicesByDepartment[0]?.[1] || 1;
-  const maxCarrierCount = linesByCarrier[0]?.[1] || 1;
 
   const evaluatingDevices = devices.filter((d) => d.status === 'Aguardando avaliação');
   const maintenanceDevices = devices.filter((d) => d.status === 'Em manutenção');
   const attentionDevices = [...evaluatingDevices, ...maintenanceDevices];
-  const orphanActiveLines = lines.filter((l) => l.status === 'Ativa' && !l.currentCollaboratorId);
 
-  const fleetValue = devices.reduce((sum, d) => sum + (d.purchaseValue || 0), 0);
-  const monthlyLineCost = lines.reduce((sum, l) => sum + (l.monthlyCost || 0), 0);
   const activeCollaborators = collaborators.filter((c) => c.status === 'Ativo').length;
   const signedTermsPercent = terms.length > 0 ? Math.round((signedTerms.length / terms.length) * 100) : 0;
+
+  // Resumo de linhas: apenas os DDDs 083, 071 e 084, na ordem fixa.
+  const dddRows = TARGET_DDDS.map((ddd) => ({
+    ddd: `0${ddd}`,
+    active: lines.filter((l) => extractDdd(l.phoneNumber) === ddd && l.status === 'Ativa').length,
+    available: lines.filter((l) => extractDdd(l.phoneNumber) === ddd && l.status === 'Disponível').length,
+  }));
+  const linesOutsideTargetDdds = lines.filter((l) => {
+    const ddd = extractDdd(l.phoneNumber);
+    return !ddd || !TARGET_DDDS.includes(ddd);
+  }).length;
+
+  // Aparelhos em uso por Setor (vínculo atual do aparelho com o colaborador).
+  const collaboratorsById = new Map(collaborators.map((c) => [c.id, c]));
+  const inUseBySector = new Map<string, number>(SECTORS.map((sector) => [sector, 0]));
+  let inUseWithoutSector = 0;
+  devices.forEach((device) => {
+    if (device.status !== 'Em uso') return;
+    const collaborator = device.currentCollaboratorId
+      ? collaboratorsById.get(device.currentCollaboratorId)
+      : undefined;
+    const sector = collaborator?.sector?.trim();
+    if (sector && inUseBySector.has(sector)) {
+      inUseBySector.set(sector, (inUseBySector.get(sector) || 0) + 1);
+    } else {
+      inUseWithoutSector += 1;
+    }
+  });
 
   const percent = (value: number) =>
     metrics.totalDevices > 0 ? Math.round((value / metrics.totalDevices) * 100) : 0;
@@ -134,103 +168,81 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
 
   return (
     <div className="space-y-6">
-      {/* Cards principais */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <button
-          type="button"
-          onClick={() => onNavigate('dispositivos')}
-          className="text-left p-4 bg-white rounded-xl border border-ink-200 border-t-[3px] border-t-iane-500 hover:border-ink-300 transition-all cursor-pointer shadow-xs"
-        >
-          <div className="flex items-center justify-between text-ink-500 mb-1">
-            <span className="text-xs font-medium">Aparelhos</span>
-            <Smartphone className="w-4 h-4 text-iane-600" />
+      {/* Card único e informativo com os totais (sem navegação) */}
+      <div className="bg-white p-4 sm:p-5 rounded-xl border border-ink-200 border-t-[3px] border-t-iane-500 shadow-xs">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+          <div>
+            <div className="flex items-center justify-between text-ink-500 mb-1">
+              <span className="text-xs font-medium">Aparelhos</span>
+              <Smartphone className="w-4 h-4 text-iane-600" />
+            </div>
+            <div className="text-2xl font-bold font-mono tabular-nums text-ink-900">
+              {metrics.totalDevices}
+            </div>
+            <div className="mt-1.5 text-[11px] text-ink-500">Cadastrados na frota</div>
           </div>
-          <div className="text-2xl font-bold font-mono tabular-nums text-ink-900">
-            {metrics.totalDevices}
-          </div>
-          <div className="mt-1.5 text-[11px] text-ink-500">Cadastrados na frota</div>
-        </button>
 
-        <button
-          type="button"
-          onClick={() => onNavigate('dispositivos')}
-          className="text-left p-4 bg-white rounded-xl border border-ink-200 border-t-[3px] border-t-iane-500 hover:border-ink-300 transition-all cursor-pointer shadow-xs"
-        >
-          <div className="flex items-center justify-between text-ink-500 mb-1">
-            <span className="text-xs font-medium">Em uso</span>
-            <Users className="w-4 h-4 text-iane-600" />
+          <div>
+            <div className="flex items-center justify-between text-ink-500 mb-1">
+              <span className="text-xs font-medium">Em uso</span>
+              <Users className="w-4 h-4 text-iane-600" />
+            </div>
+            <div className="text-2xl font-bold font-mono tabular-nums text-ink-900">
+              {metrics.inUseDevices}
+            </div>
+            <div className="mt-1.5 text-[11px] text-iane-700 font-medium">
+              {percent(metrics.inUseDevices)}% com colaboradores
+            </div>
           </div>
-          <div className="text-2xl font-bold font-mono tabular-nums text-ink-900">
-            {metrics.inUseDevices}
-          </div>
-          <div className="mt-1.5 text-[11px] text-iane-700 font-medium">
-            {percent(metrics.inUseDevices)}% com colaboradores
-          </div>
-        </button>
 
-        <button
-          type="button"
-          onClick={() => onNavigate('dispositivos')}
-          className="text-left p-4 bg-white rounded-xl border border-ink-200 border-t-[3px] border-t-iane-500 hover:border-ink-300 transition-all cursor-pointer shadow-xs"
-        >
-          <div className="flex items-center justify-between text-ink-500 mb-1">
-            <span className="text-xs font-medium">No estoque</span>
-            <Package className="w-4 h-4 text-indigo-600" />
+          <div>
+            <div className="flex items-center justify-between text-ink-500 mb-1">
+              <span className="text-xs font-medium">No estoque</span>
+              <Package className="w-4 h-4 text-indigo-600" />
+            </div>
+            <div className="text-2xl font-bold font-mono tabular-nums text-ink-900">
+              {metrics.stockTotal}
+            </div>
+            <div className="mt-1.5 text-[11px] text-ink-500">Sob custódia de TI</div>
           </div>
-          <div className="text-2xl font-bold font-mono tabular-nums text-ink-900">
-            {metrics.stockTotal}
-          </div>
-          <div className="mt-1.5 text-[11px] text-ink-500">Sob custódia de TI</div>
-        </button>
 
-        <button
-          type="button"
-          onClick={() => onNavigate('dispositivos')}
-          className="text-left p-4 bg-emerald-50/60 rounded-xl border border-emerald-200 border-t-[3px] border-t-emerald-500 hover:border-emerald-300 transition-all cursor-pointer shadow-xs"
-        >
-          <div className="flex items-center justify-between text-emerald-800 mb-1">
-            <span className="text-xs font-bold">Disponíveis</span>
-            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+          <div>
+            <div className="flex items-center justify-between text-emerald-800 mb-1">
+              <span className="text-xs font-bold">Disponíveis</span>
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            </div>
+            <div className="text-2xl font-bold font-mono tabular-nums text-emerald-900">
+              {metrics.stockAvailable}
+            </div>
+            <div className="mt-1.5 text-[11px] text-emerald-700 font-medium">Prontos para entrega</div>
           </div>
-          <div className="text-2xl font-bold font-mono tabular-nums text-emerald-900">
-            {metrics.stockAvailable}
-          </div>
-          <div className="mt-1.5 text-[11px] text-emerald-700 font-medium">Prontos para entrega</div>
-        </button>
 
-        <button
-          type="button"
-          onClick={() => onNavigate('dispositivos')}
-          className="text-left p-4 bg-white rounded-xl border border-ink-200 border-t-[3px] border-t-orange-400 hover:border-ink-300 transition-all cursor-pointer shadow-xs"
-        >
-          <div className="flex items-center justify-between text-ink-500 mb-1">
-            <span className="text-xs font-medium">Em manutenção</span>
-            <Wrench className="w-4 h-4 text-orange-600" />
+          <div>
+            <div className="flex items-center justify-between text-ink-500 mb-1">
+              <span className="text-xs font-medium">Em manutenção</span>
+              <Wrench className="w-4 h-4 text-orange-600" />
+            </div>
+            <div className="text-2xl font-bold font-mono tabular-nums text-orange-700">
+              {metrics.stockMaintenance}
+            </div>
+            <div className="mt-1.5 text-[11px] text-ink-500">Em assistência técnica</div>
           </div>
-          <div className="text-2xl font-bold font-mono tabular-nums text-orange-700">
-            {metrics.stockMaintenance}
-          </div>
-          <div className="mt-1.5 text-[11px] text-ink-500">Em assistência técnica</div>
-        </button>
 
-        <button
-          type="button"
-          onClick={() => onNavigate('linhas')}
-          className="text-left p-4 bg-white rounded-xl border border-ink-200 border-t-[3px] border-t-iane-500 hover:border-ink-300 transition-all cursor-pointer shadow-xs"
-        >
-          <div className="flex items-center justify-between text-ink-500 mb-1">
-            <span className="text-xs font-medium">Linhas ativas</span>
-            <PhoneCall className="w-4 h-4 text-iane-600" />
+          <div>
+            <div className="flex items-center justify-between text-ink-500 mb-1">
+              <span className="text-xs font-medium">Linhas ativas</span>
+              <PhoneCall className="w-4 h-4 text-iane-600" />
+            </div>
+            <div className="text-2xl font-bold font-mono tabular-nums text-ink-900">
+              {metrics.activeLines}
+            </div>
+            <div className="mt-1.5 text-[11px] text-ink-500">
+              <span className="text-emerald-700 font-semibold tabular-nums">{metrics.availableLines}</span> livres
+              {' · '}
+              {metrics.totalLines} no total
+            </div>
           </div>
-          <div className="text-2xl font-bold font-mono tabular-nums text-ink-900">
-            {metrics.activeLines}
-          </div>
-          <div className="mt-1.5 text-[11px] text-ink-500">
-            <span className="text-emerald-700 font-semibold tabular-nums">{metrics.availableLines}</span> livres
-            {' · '}
-            {metrics.totalLines} no total
-          </div>
-        </button>
+        </div>
       </div>
 
       {/* Gráficos e resumos */}
@@ -290,49 +302,39 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
           </div>
         </div>
 
-        {/* Linhas por operadora */}
-        <div className="bg-white p-5 rounded-xl border border-ink-200 shadow-xs flex flex-col">
-          <div className="flex items-start justify-between mb-4">
+        {/* Resumo de linhas por DDD */}
+        <div className="bg-white rounded-xl border border-ink-200 shadow-xs flex flex-col">
+          <div className="px-5 pt-5 pb-3 flex items-start justify-between">
             <div>
-              <h2 className="text-sm font-bold text-ink-900">Linhas por operadora</h2>
-              <p className="text-xs text-ink-500">Distribuição dos números corporativos</p>
+              <h2 className="text-sm font-bold text-ink-900">Resumo de linhas</h2>
+              <p className="text-xs text-ink-500">Ativas e disponíveis por DDD</p>
             </div>
             <PhoneCall className="w-4 h-4 text-ink-400" />
           </div>
 
-          <div className="space-y-3 flex-1">
-            {linesByCarrier.map(([carrier, count]) => (
-              <div key={carrier} className="space-y-1">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-medium text-ink-700">{carrier}</span>
-                  <span className="font-mono text-ink-600 tabular-nums">{count}</span>
-                </div>
-                <div className="w-full h-2 bg-ink-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-iane-600 rounded-full"
-                    style={{ width: `${Math.round((count / maxCarrierCount) * 100)}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-            {linesByCarrier.length === 0 && (
-              <p className="text-xs text-ink-500">Nenhuma linha cadastrada ainda.</p>
-            )}
+          <div className="flex-1 overflow-y-auto max-h-64">
+            <table className="w-full text-xs border-collapse">
+              <thead className="text-ink-600 uppercase font-semibold tracking-wider text-[11px]">
+                <tr>
+                  <th className="sticky top-0 bg-ink-50 py-2 px-4 text-left border-y border-ink-200">DDD</th>
+                  <th className="sticky top-0 bg-ink-50 py-2 px-4 text-center border-y border-ink-200">Ativas</th>
+                  <th className="sticky top-0 bg-ink-50 py-2 px-4 text-center border-y border-ink-200">Disponíveis</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-ink-100">
+                {dddRows.map((row, index) => (
+                  <tr key={row.ddd} className={index % 2 === 1 ? 'bg-ink-50/60' : undefined}>
+                    <td className="py-2.5 px-4 font-mono font-semibold text-ink-800">{row.ddd}</td>
+                    <td className="py-2.5 px-4 text-center font-mono tabular-nums text-ink-900">{row.active}</td>
+                    <td className="py-2.5 px-4 text-center font-mono tabular-nums text-emerald-700">{row.available}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
 
-          <div className="pt-3 mt-3 border-t border-ink-100 flex items-center justify-between text-[11px] text-ink-500">
-            <span>
-              <strong className="text-iane-700 tabular-nums">{metrics.activeLines}</strong> ativas ·{' '}
-              <strong className="text-emerald-700 tabular-nums">{metrics.availableLines}</strong> livres
-            </span>
-            <button
-              type="button"
-              onClick={() => onNavigate('linhas')}
-              className="font-semibold text-iane-600 hover:text-iane-800 inline-flex items-center gap-1"
-            >
-              Ver linhas
-              <ArrowRight className="w-3 h-3" />
-            </button>
+          <div className="px-5 py-3 border-t border-ink-100 text-[11px] text-ink-500">
+            {linesOutsideTargetDdds} linha(s) fora dos DDDs 083, 071 e 084.
           </div>
         </div>
 
@@ -391,7 +393,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
         </div>
       </div>
 
-      {/* Departamentos, fabricantes e resumo financeiro */}
+      {/* Departamentos, fabricantes e aparelhos por setor */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="bg-white p-5 rounded-xl border border-ink-200 shadow-xs">
           <div className="flex items-start justify-between mb-4">
@@ -459,34 +461,38 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-xl border border-ink-200 shadow-xs">
-          <div className="flex items-start justify-between mb-4">
+        <div className="bg-white rounded-xl border border-ink-200 shadow-xs flex flex-col">
+          <div className="px-5 pt-5 pb-3 flex items-start justify-between">
             <div>
-              <h2 className="text-sm font-bold text-ink-900">Resumo financeiro</h2>
-              <p className="text-xs text-ink-500">Valores patrimoniais e custos de telefonia</p>
+              <h2 className="text-sm font-bold text-ink-900">Aparelhos por Setor</h2>
+              <p className="text-xs text-ink-500">Aparelhos em uso por setor do colaborador</p>
             </div>
-            <Wallet className="w-4 h-4 text-ink-400" />
+            <Building2 className="w-4 h-4 text-ink-400" />
           </div>
 
-          <div className="space-y-3">
-            <div className="flex items-center justify-between gap-3 p-3 bg-ink-50 border border-ink-200 rounded-lg">
-              <span className="text-xs text-ink-600">Valor da frota</span>
-              <span className="text-sm font-bold font-mono tabular-nums text-ink-900">
-                {formatCurrency(fleetValue)}
-              </span>
-            </div>
-            <div className="flex items-center justify-between gap-3 p-3 bg-ink-50 border border-ink-200 rounded-lg">
-              <span className="text-xs text-ink-600">Custo mensal das linhas</span>
-              <span className="text-sm font-bold font-mono tabular-nums text-ink-900">
-                {formatCurrency(monthlyLineCost)}
-              </span>
-            </div>
-            <div className="flex items-center justify-between gap-3 p-3 bg-ink-50 border border-ink-200 rounded-lg">
-              <span className="text-xs text-ink-600">Linhas ativas sem responsável</span>
-              <span className="text-sm font-bold font-mono tabular-nums text-gold-700">
-                {orphanActiveLines.length}
-              </span>
-            </div>
+          <div className="flex-1 overflow-y-auto max-h-64">
+            <table className="w-full text-xs border-collapse">
+              <thead className="text-ink-600 uppercase font-semibold tracking-wider text-[11px]">
+                <tr>
+                  <th className="sticky top-0 bg-ink-50 py-2 px-4 text-left border-y border-ink-200">Setor</th>
+                  <th className="sticky top-0 bg-ink-50 py-2 px-4 text-center border-y border-ink-200">Em Uso</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-ink-100">
+                {SECTORS.map((sector, index) => (
+                  <tr key={sector} className={index % 2 === 1 ? 'bg-ink-50/60' : undefined}>
+                    <td className="py-2.5 px-4 font-medium text-ink-800">{sector}</td>
+                    <td className="py-2.5 px-4 text-center font-mono tabular-nums text-ink-900">
+                      {inUseBySector.get(sector) || 0}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="px-5 py-3 border-t border-ink-100 text-[11px] text-ink-500">
+            {inUseWithoutSector} aparelho(s) em uso sem Setor definido.
           </div>
         </div>
       </div>

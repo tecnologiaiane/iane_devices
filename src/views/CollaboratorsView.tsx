@@ -152,6 +152,7 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
                 <th className="py-3 px-4">Nome do Colaborador</th>
                 <th className="py-3 px-4">Matrícula</th>
                 <th className="py-3 px-4">Departamento</th>
+                <th className="py-3 px-4">Setor</th>
                 <th className="py-3 px-4">Cargo</th>
                 <th className="py-3 px-4">Status</th>
                 <th className="py-3 px-4">Ativos Vinculados</th>
@@ -183,6 +184,10 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
 
                     <td className="py-3 px-4 font-medium text-ink-800">
                       {collab.department}
+                    </td>
+
+                    <td className="py-3 px-4 font-medium text-ink-800">
+                      {collab.sector || 'Não informado'}
                     </td>
 
                     <td className="py-3 px-4 text-ink-600">
@@ -259,7 +264,7 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
                       <StatusBadge status={detailCollab.status} type="collaborator" />
                     </div>
                     <p className="text-xs text-ink-500">
-                      Matrícula: <span className="font-mono font-bold text-ink-700">{detailCollab.registrationNumber}</span> · {detailCollab.department} ({detailCollab.position})
+                      Matrícula: <span className="font-mono font-bold text-ink-700">{detailCollab.registrationNumber}</span> · {detailCollab.department} · Setor: {detailCollab.sector || 'Não informado'} ({detailCollab.position})
                     </p>
                   </div>
                 </div>

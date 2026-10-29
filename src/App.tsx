@@ -71,7 +71,7 @@ const tabToPath: Record<NavTab, string> = {
 
 // Título exibido no topo de cada tela (sem barra fixa, apenas o nome da área)
 const PAGE_TITLES: Record<NavTab, string> = {
-  dashboard: 'Dashboard',
+  dashboard: 'GELIN - Dashboard',
   dispositivos: 'Dispositivos',
   linhas: 'Linhas telefônicas',
   colaboradores: 'Colaboradores',

@@ -302,6 +302,19 @@ async function autoMigrateDatabase(client: pg.PoolClient) {
       CREATE INDEX IF NOT EXISTS idx_movements_date ON movements(movement_date);
     `);
 
+    // 7.1 Migração do campo Setor (cadastro de colaboradores).
+    //      Registros anteriores não possuem "sector" no JSONB: ficam Administrativo/TI,
+    //      preservando todos os outros dados gravados.
+    const sectorMigration = await client.query(`
+      UPDATE collaborators
+         SET department = 'Administrativo',
+             data = COALESCE(data, '{}'::jsonb) || '{"sector":"TI"}'::jsonb
+       WHERE data->>'sector' IS NULL OR BTRIM(data->>'sector') = ''
+    `);
+    if (sectorMigration.rowCount) {
+      console.log(`✅ [PostgreSQL] Setor migrado em ${sectorMigration.rowCount} colaborador(es) legado(s).`);
+    }
+
     // 8. Garante que os Super Usuários oficiais existam com senha bcrypt.
     //    ON CONFLICT DO NOTHING: NUNCA sobrescreve a senha/permissões já alteradas pelo administrador.
     const superAdminHash = '$2b$10$fngkbVvcbicIlBm.BPw7TOEYDiwJEb7qyC.qFTgTxLDKMGEDm8bIW'; // Iane@2026

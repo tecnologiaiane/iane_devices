@@ -73,6 +73,7 @@ export interface Collaborator {
   fullName: string;
   registrationNumber: string; // Matrícula
   department: string;
+  sector?: string; // Setor
   position: string; // Cargo
   corporateEmail: string;
   contactPhone?: string;

@@ -17,6 +17,7 @@ import {
 import { apiClient, ApiResponse } from './apiClient';
 import { authService } from './authService';
 import { todayISO, nowLocalDateTime } from '../utils/dates';
+import { DEPARTMENTS, SECTORS } from '../utils/collaborators';
 
 const STORAGE_KEYS = {
   DEVICES: 'iane_devices_v3',
@@ -764,7 +765,19 @@ class DataStorageService {
 
   // --- Collaborators ---
   public getCollaborators(): Collaborator[] {
-    return this.get<Collaborator[]>(STORAGE_KEYS.COLLABORATORS, INITIAL_COLLABORATORS);
+    const collabs = this.get<Collaborator[]>(STORAGE_KEYS.COLLABORATORS, INITIAL_COLLABORATORS);
+
+    // Migração de registros legados: o campo Setor passou a existir no cadastro.
+    // Os registros anteriores ficam em Administrativo/TI, sem alterar os demais dados.
+    let changed = false;
+    const normalized = collabs.map((c) => {
+      if (c.sector && c.sector.trim()) return c;
+      changed = true;
+      return { ...c, department: DEPARTMENTS[0], sector: 'TI' };
+    });
+
+    if (changed) this.set(STORAGE_KEYS.COLLABORATORS, normalized);
+    return normalized;
   }
 
   public getCollaboratorById(id: string): Collaborator | undefined {
@@ -790,7 +803,8 @@ class DataStorageService {
         id: `col-${Date.now()}`,
         fullName: collab.fullName || '',
         registrationNumber: collab.registrationNumber || `MAT-${Math.floor(1000 + Math.random() * 9000)}`,
-        department: collab.department || 'Geral',
+        department: collab.department || DEPARTMENTS[0],
+        sector: collab.sector || SECTORS[0],
         position: collab.position || '',
         corporateEmail: collab.corporateEmail || '',
         contactPhone: collab.contactPhone,
