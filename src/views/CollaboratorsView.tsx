@@ -307,7 +307,7 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
                           <span className="font-mono font-bold text-iane-700">{d.assetTag}</span>
                           <StatusBadge status={d.condition} type="condition" size="sm" />
                         </div>
-                        <p className="font-semibold text-ink-900">{d.brand} {d.model}</p>
+                        <p className="font-semibold text-ink-900">{d.model}</p>
                         <p className="text-[11px] text-ink-500 font-mono">IMEI: {d.imei1}</p>
                         {d.associatedPhoneNumber && (
                           <p className="text-[11px] text-emerald-700 font-mono font-medium">Linha: {d.associatedPhoneNumber}</p>

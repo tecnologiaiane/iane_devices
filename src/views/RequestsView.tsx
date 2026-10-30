@@ -143,6 +143,11 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ value, options, pla
   );
 };
 
+function storedDeviceModel(data: Record<string, any>, nameKey: string, idKey: string): string {
+  const device = data?.[idKey] ? dataService.getDevices().find((item) => item.id === data[idKey]) : undefined;
+  return device?.model || String(data?.[nameKey] || '');
+}
+
 function getRequestDetails(request: RequestRecord): string[] {
   const data = request.data || {};
   if (request.type === 'Entrega') {
@@ -157,7 +162,7 @@ function getRequestDetails(request: RequestRecord): string[] {
   if (request.type === 'Devolução') {
     return [
       data.collaboratorName,
-      data.devices?.map((item: any) => `${item.assetTag} ${item.brand} ${item.model}`.trim()).join(', ') || 'Nenhum aparelho',
+      data.devices?.map((item: any) => `${item.assetTag} ${item.model}`.trim()).join(', ') || 'Nenhum aparelho',
       data.lines?.map((item: any) => item.phoneNumber).join(', ') || 'Nenhuma linha',
       data.plannedReturnDate && `Devolução prevista: ${data.plannedReturnDate}`,
     ].filter(Boolean);
@@ -165,13 +170,13 @@ function getRequestDetails(request: RequestRecord): string[] {
   if (request.type === 'Transferência') {
     return [
       `${data.originCollaboratorName || 'Origem'} → ${data.destinationCollaboratorName || 'Destino'}`,
-      `${data.deviceTag || ''} ${data.deviceName || ''}`.trim(),
+      `${data.deviceTag || ''} ${storedDeviceModel(data, 'deviceName', 'deviceId')}`.trim(),
       data.reason,
     ].filter(Boolean);
   }
   return [
     data.collaboratorName,
-    `${data.oldDeviceTag || ''} ${data.oldDeviceName || ''} → ${data.newDeviceTag || ''} ${data.newDeviceName || ''}`.trim(),
+    `${data.oldDeviceTag || ''} ${storedDeviceModel(data, 'oldDeviceName', 'oldDeviceId')} → ${data.newDeviceTag || ''} ${storedDeviceModel(data, 'newDeviceName', 'newDeviceId')}`.trim(),
     data.reason,
   ].filter(Boolean);
 }
@@ -380,11 +385,16 @@ export const RequestDetailsModal: React.FC<{ request: RequestRecord; onClose: ()
     oldDeviceTag: 'Aparelho antigo', oldDeviceName: 'Modelo antigo', newDeviceTag: 'Aparelho novo',
     newDeviceName: 'Modelo novo', reason: 'Motivo', observations: 'Observações',
   };
-  const displayValue = (value: any): string => {
+  const displayValue = (key: string, value: any): string => {
     if (Array.isArray(value)) return value.map((item) => typeof item === 'object'
-      ? [item.phoneNumber, item.assetTag, item.brand, item.model].filter(Boolean).join(' · ')
+      ? [item.phoneNumber, item.assetTag, item.model].filter(Boolean).join(' · ')
       : String(item)).join(', ') || 'Nenhum';
     if (value && typeof value === 'object') return JSON.stringify(value);
+    if (key === 'deviceName' || key === 'oldDeviceName' || key === 'newDeviceName') {
+      const idKey = key === 'deviceName' ? 'deviceId' : key === 'oldDeviceName' ? 'oldDeviceId' : 'newDeviceId';
+      const model = storedDeviceModel(request.data || {}, key, idKey);
+      if (model) return model;
+    }
     return String(value ?? '—');
   };
   const details = Object.entries(request.data || {}).filter(([key, value]) => key !== 'estimatedDeliveryDate' && value !== undefined && value !== '');
@@ -401,7 +411,7 @@ export const RequestDetailsModal: React.FC<{ request: RequestRecord; onClose: ()
           {details.map(([key, value]) => (
             <div key={key} className="rounded-lg border border-ink-200 p-3 text-xs">
               <span className="mb-1 block text-[11px] text-ink-500">{labels[key] || key.replace(/([A-Z])/g, ' $1')}</span>
-              <span className="font-medium text-ink-800">{key === 'deliveryDate' || key === 'plannedReturnDate' ? formatDate(String(value)) : displayValue(value)}</span>
+              <span className="font-medium text-ink-800">{key === 'deliveryDate' || key === 'plannedReturnDate' ? formatDate(String(value)) : displayValue(key, value)}</span>
             </div>
           ))}
         </div>
@@ -469,7 +479,7 @@ const RequestModal: React.FC<RequestModalProps> = ({ flow, onClose, onCreated })
   });
   const deviceOptions = (items: Device[]) => items.map((device) => ({
     id: device.id,
-    label: `${device.assetTag} · ${device.brand} ${device.model}${device.imei1 ? ` · IMEI ${device.imei1}` : ''}`,
+    label: `${device.assetTag} · ${device.model}${device.imei1 ? ` · IMEI ${device.imei1}` : ''}`,
   }));
 
   const toggleAccessory = (key: string, accessory: string) => {
@@ -564,7 +574,7 @@ const RequestModal: React.FC<RequestModalProps> = ({ flow, onClose, onCreated })
         destinationCollaboratorName: destination?.fullName,
         deviceId: device?.id,
         deviceTag: device?.assetTag,
-        deviceName: device ? `${device.brand} ${device.model}`.trim() : '',
+        deviceName: device ? device.model.trim() : '',
         condition: form.condition,
         destinationStatusAfterReturn: form.destinationStatus,
         lineHandling: form.lineHandling,
@@ -582,13 +592,13 @@ const RequestModal: React.FC<RequestModalProps> = ({ flow, onClose, onCreated })
         collaboratorName: collaborator?.fullName,
         oldDeviceId: oldDevice?.id,
         oldDeviceTag: oldDevice?.assetTag,
-        oldDeviceName: oldDevice ? `${oldDevice.brand} ${oldDevice.model}`.trim() : '',
+        oldDeviceName: oldDevice ? oldDevice.model.trim() : '',
         oldCondition: form.oldCondition,
         oldDestinationStatus: form.oldDestinationStatus,
         oldAccessories: form.oldAccessories || [],
         newDeviceId: newDevice?.id,
         newDeviceTag: newDevice?.assetTag,
-        newDeviceName: newDevice ? `${newDevice.brand} ${newDevice.model}`.trim() : '',
+        newDeviceName: newDevice ? newDevice.model.trim() : '',
         newCondition: form.newCondition,
         newAccessories: form.newAccessories || [],
         lineOption: form.lineOption,
@@ -695,14 +705,19 @@ const RequestModal: React.FC<RequestModalProps> = ({ flow, onClose, onCreated })
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <ReadOnlyField label="Nome do colaborador" value={selectedCollaborator?.fullName || 'Nenhum'} />
               <ReadOnlyField label="Linha(s) vinculada(s)" value={returnLines.map((line) => `${line.phoneNumber}${line.carrier ? ` (${line.carrier})` : ''}`).join(', ') || 'Nenhuma'} />
-              <ReadOnlyField label="Aparelho(s) vinculado(s)" value={returnDevices.map((device) => `${device.assetTag} · ${device.brand} ${device.model}`.trim()).join(', ') || 'Nenhum'} />
+              <ReadOnlyField label="Aparelho(s) vinculado(s)" value={returnDevices.map((device) => `${device.assetTag} · ${device.model}`.trim()).join(', ') || 'Nenhum'} />
               <ReadOnlyField label="Departamento" value={selectedCollaborator?.department || 'Nenhum'} />
               <ReadOnlyField label="Cargo" value={selectedCollaborator?.position || 'Nenhum'} />
               <ReadOnlyField label="Setor" value={selectedCollaborator?.sector || 'Nenhum'} />
+              <Field label="Data prevista da devolução">
+                <input
+                  type="date"
+                  value={form.plannedReturnDate || ''}
+                  onChange={(event) => setValue('plannedReturnDate', event.target.value)}
+                  className={`${inputClass} font-mono tabular-nums`}
+                />
+              </Field>
             </div>
-            <Field label="Data prevista da devolução">
-              <input type="date" value={form.plannedReturnDate || ''} onChange={(event) => setValue('plannedReturnDate', event.target.value)} className={inputClass} />
-            </Field>
           </>
         )}
 

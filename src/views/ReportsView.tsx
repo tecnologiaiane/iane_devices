@@ -120,7 +120,7 @@ export const ReportsView: React.FC = () => {
           d.currentDepartment || '',
           col?.position || '',
           d.assetTag,
-          `${d.brand} ${d.model}`,
+          d.model,
           d.imei1,
           d.associatedPhoneNumber || ''
         ]);
@@ -131,7 +131,7 @@ export const ReportsView: React.FC = () => {
       const rows = lines.map(l => [
         l.phoneNumber,
         l.carrier,
-        l.planName,
+        l.planName || '',
         l.monthlyCost ? l.monthlyCost.toFixed(2) : '',
         l.status,
         l.associatedDeviceTag || '',
@@ -158,7 +158,7 @@ export const ReportsView: React.FC = () => {
     } else {
       // Generic fallback
       const headers = ['Identificador', 'Descrição', 'Status', 'Responsável', 'Departamento'];
-      const rows = devices.map(d => [d.assetTag, `${d.brand} ${d.model}`, d.status, d.currentCollaboratorName || 'Estoque', d.currentDepartment || '']);
+      const rows = devices.map(d => [d.assetTag, d.model, d.status, d.currentCollaboratorName || 'Estoque', d.currentDepartment || '']);
       downloadCsv(`Relatorio_IANE_Dispositivos_${timestamp}.csv`, [headers, ...rows]);
     }
   };
@@ -253,7 +253,7 @@ export const ReportsView: React.FC = () => {
                 {devices.map((d) => (
                   <tr key={d.id} className="hover:bg-ink-50/50">
                     <td className="py-2.5 px-3 font-mono font-bold text-ink-900">{d.assetTag}</td>
-                    <td className="py-2.5 px-3 font-medium text-ink-900">{d.brand} {d.model}</td>
+                    <td className="py-2.5 px-3 font-medium text-ink-900">{d.model}</td>
                     <td className="py-2.5 px-3 font-mono text-ink-600">{formatImei(d.imei1)}</td>
                     <td className="py-2.5 px-3 font-mono text-ink-500">{d.serialNumber}</td>
                     <td className="py-2.5 px-3"><StatusBadge status={d.status} type="device" size="sm" /></td>
@@ -321,7 +321,7 @@ export const ReportsView: React.FC = () => {
                 {devices.filter(d => d.status === 'Disponível').map((d) => (
                   <tr key={d.id} className="hover:bg-ink-50/50">
                     <td className="py-2.5 px-3 font-mono font-bold text-ink-900">{d.assetTag}</td>
-                    <td className="py-2.5 px-3 font-medium text-ink-900">{d.brand} {d.model}</td>
+                    <td className="py-2.5 px-3 font-medium text-ink-900">{d.model}</td>
                     <td className="py-2.5 px-3 font-mono text-ink-600">{formatImei(d.imei1)}</td>
                     <td className="py-2.5 px-3"><StatusBadge status={d.condition} type="condition" size="sm" /></td>
                     <td className="py-2.5 px-3 font-mono">{d.associatedPhoneNumber || 'Sem linha'}</td>
@@ -353,7 +353,7 @@ export const ReportsView: React.FC = () => {
                   <tr key={l.id} className="hover:bg-ink-50/50">
                     <td className="py-2.5 px-3 font-mono font-bold text-ink-900">{l.phoneNumber}</td>
                     <td className="py-2.5 px-3 font-semibold text-ink-800">{l.carrier}</td>
-                    <td className="py-2.5 px-3 text-ink-700">{l.planName}</td>
+                    <td className="py-2.5 px-3 text-ink-700">{l.planName || 'Não informado'}</td>
                     <td className="py-2.5 px-3 font-mono tabular-nums">{formatCurrency(l.monthlyCost)}</td>
                     <td className="py-2.5 px-3"><StatusBadge status={l.status} type="line" size="sm" /></td>
                     <td className="py-2.5 px-3 font-mono">{l.associatedDeviceTag || '-'}</td>
@@ -384,7 +384,7 @@ export const ReportsView: React.FC = () => {
                   <tr key={l.id} className="hover:bg-ink-50/50">
                     <td className="py-2.5 px-3 font-mono font-bold text-ink-900">{l.phoneNumber}</td>
                     <td className="py-2.5 px-3 font-semibold text-ink-800">{l.carrier}</td>
-                    <td className="py-2.5 px-3 text-ink-700">{l.planName}</td>
+                    <td className="py-2.5 px-3 text-ink-700">{l.planName || 'Não informado'}</td>
                     <td className="py-2.5 px-3"><StatusBadge status={l.status} type="line" size="sm" /></td>
                     <td className="py-2.5 px-3">{l.currentCollaboratorName || <span className="text-ink-400 italic">Sem responsável (Chip no cofre)</span>}</td>
                     <td className="py-2.5 px-3 text-ink-500">{l.notes || '-'}</td>
@@ -449,7 +449,7 @@ export const ReportsView: React.FC = () => {
                 {devices.filter(d => d.status === 'Em manutenção').map((d) => (
                   <tr key={d.id} className="hover:bg-ink-50/50">
                     <td className="py-2.5 px-3 font-mono font-bold text-ink-900">{d.assetTag}</td>
-                    <td className="py-2.5 px-3 font-medium text-ink-900">{d.brand} {d.model}</td>
+                    <td className="py-2.5 px-3 font-medium text-ink-900">{d.model}</td>
                     <td className="py-2.5 px-3 font-mono text-ink-600">{formatImei(d.imei1)}</td>
                     <td className="py-2.5 px-3"><StatusBadge status={d.condition} type="condition" size="sm" /></td>
                     <td className="py-2.5 px-3 text-ink-700">{d.notes}</td>

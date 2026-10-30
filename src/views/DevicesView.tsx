@@ -438,7 +438,7 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
                   <div>
                     <div className="flex items-center gap-2">
                       <h2 className="text-base font-bold text-ink-900">
-                        {detailDevice.assetTag} · {detailDevice.brand} {detailDevice.model}
+                        {detailDevice.assetTag} · {detailDevice.model}
                       </h2>
                       <StatusBadge status={detailDevice.status} type="device" />
                     </div>

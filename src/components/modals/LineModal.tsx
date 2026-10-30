@@ -23,7 +23,7 @@ export const LineModal: React.FC<LineModalProps> = ({
 }) => {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [carrier, setCarrier] = useState<Carrier>('Vivo');
-  const [planName, setPlanName] = useState('Vivo Empresa Smart 50GB');
+  const [planName, setPlanName] = useState('');
   const [monthlyCost, setMonthlyCost] = useState('');
   const [status, setStatus] = useState<LineStatus>('Disponível');
   const [department, setDepartment] = useState('');
@@ -38,7 +38,7 @@ export const LineModal: React.FC<LineModalProps> = ({
       if (lineToEdit) {
         setPhoneNumber(lineToEdit.phoneNumber);
         setCarrier(lineToEdit.carrier);
-        setPlanName(lineToEdit.planName);
+        setPlanName(lineToEdit.planName || '');
         setMonthlyCost(lineToEdit.monthlyCost ? String(lineToEdit.monthlyCost) : '');
         setStatus(lineToEdit.status);
         setDepartment(lineToEdit.department || '');
@@ -48,8 +48,8 @@ export const LineModal: React.FC<LineModalProps> = ({
       } else {
         setPhoneNumber('');
         setCarrier('Vivo');
-        setPlanName('Plano Corporativo 40GB');
-        setMonthlyCost('69.90');
+        setPlanName('');
+        setMonthlyCost('');
         setStatus('Disponível');
         setDepartment('');
         setActivationDate(todayISO());
@@ -79,16 +79,11 @@ export const LineModal: React.FC<LineModalProps> = ({
       setErrorMessage('Informe um número de telefone válido com DDD (mínimo 10 a 11 dígitos).');
       return;
     }
-    if (!planName.trim()) {
-      setErrorMessage('Informe o nome do plano contratado com a operadora.');
-      return;
-    }
-
     const payload: Partial<PhoneLine> & { id?: string } = {
       id: lineToEdit?.id,
       phoneNumber: phoneNumber.trim(),
       carrier,
-      planName: planName.trim(),
+      planName: planName.trim() || undefined,
       monthlyCost: monthlyCost ? parseFloat(monthlyCost) : undefined,
       status,
       department: department || undefined,
@@ -158,7 +153,7 @@ export const LineModal: React.FC<LineModalProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-semibold text-ink-700 mb-1">
-              Plano Corporativo Contratado *
+              Plano Corporativo Contratado
             </label>
             <input
               type="text"
@@ -166,7 +161,6 @@ export const LineModal: React.FC<LineModalProps> = ({
               onChange={(e) => setPlanName(e.target.value)}
               placeholder="Ex: Total 50GB + Voz Ilimitada"
               className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500"
-              required
             />
           </div>
 

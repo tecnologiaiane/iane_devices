@@ -20,15 +20,18 @@ import {
   Clock,
   Upload,
   Paperclip,
+  Printer,
+  CheckCircle2,
   X,
   Loader2
 } from 'lucide-react';
 
 interface TermsViewProps {
   onViewTerm: (term: DocumentTerm) => void;
+  onPrintTerm: (term: DocumentTerm) => void;
 }
 
-export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm }) => {
+export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm, onPrintTerm }) => {
   const [terms, setTerms] = useState<DocumentTerm[]>(dataService.getTerms());
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('todos');
@@ -74,7 +77,7 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm }) => {
       ...prev,
       deviceId: device.id,
       deviceTag: device.assetTag,
-      deviceModel: `${device.brand} ${device.model}`.trim(),
+      deviceModel: device.model.trim(),
       deviceImei: device.imei1,
       phoneLineId: line?.id,
       phoneNumber: line?.phoneNumber,
@@ -267,12 +270,16 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm }) => {
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 text-xs font-mono">
-              <span className="px-2.5 py-1 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg font-semibold tabular-nums">
-                {signedCount} assinados
+            <div className="flex items-center gap-2 text-[11px]">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg font-semibold">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span className="tabular-nums">{signedCount}</span>
+                <span>assinados</span>
               </span>
-              <span className="px-2.5 py-1 bg-sun-50 border border-sun-300 text-gold-700 rounded-lg font-semibold tabular-nums">
-                {pendingCount} pendentes
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-sun-50 border border-sun-300 text-gold-700 rounded-lg font-semibold">
+                <Clock className="w-3.5 h-3.5" />
+                <span className="tabular-nums">{pendingCount}</span>
+                <span>pendentes</span>
               </span>
             </div>
             <button
@@ -394,13 +401,24 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm }) => {
                   </td>
 
                   <td className="py-3 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      onClick={() => onViewTerm(term)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-iane-50 hover:bg-iane-100 text-iane-700 rounded-lg text-xs font-semibold transition-colors border border-iane-200"
-                    >
-                      <Eye className="w-3.5 h-3.5 text-iane-600" />
-                      <span>{term.hasFile ? 'Abrir PDF' : 'Visualizar & imprimir'}</span>
-                    </button>
+                    <div className="inline-flex items-center gap-1.5">
+                      <button
+                        onClick={() => onViewTerm(term)}
+                        title="Visualizar termo"
+                        aria-label={`Visualizar termo ${term.code}`}
+                        className="inline-flex items-center justify-center p-2 bg-iane-50 hover:bg-iane-100 text-iane-700 rounded-lg transition-colors border border-iane-200"
+                      >
+                        <Eye className="w-3.5 h-3.5 text-iane-600" />
+                      </button>
+                      <button
+                        onClick={() => onPrintTerm(term)}
+                        title="Imprimir termo"
+                        aria-label={`Imprimir termo ${term.code}`}
+                        className="inline-flex items-center justify-center p-2 bg-white hover:bg-ink-100 text-ink-700 rounded-lg transition-colors border border-ink-300"
+                      >
+                        <Printer className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -558,7 +576,7 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm }) => {
                   <option value="">-- Nenhum / não cadastrado --</option>
                   {devices.map((d) => (
                     <option key={d.id} value={d.id}>
-                      {d.assetTag} · {d.brand} {d.model}
+                      {d.assetTag} · {d.model}
                     </option>
                   ))}
                 </select>

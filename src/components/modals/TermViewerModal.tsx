@@ -21,6 +21,7 @@ interface TermViewerModalProps {
   onClose: () => void;
   term: DocumentTerm | null;
   onTermUpdated?: () => void;
+  autoPrint?: boolean;
 }
 
 export const TermViewerModal: React.FC<TermViewerModalProps> = ({
@@ -28,6 +29,7 @@ export const TermViewerModal: React.FC<TermViewerModalProps> = ({
   onClose,
   term,
   onTermUpdated,
+  autoPrint = false,
 }) => {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [isLoadingPdf, setIsLoadingPdf] = useState(false);
@@ -36,6 +38,7 @@ export const TermViewerModal: React.FC<TermViewerModalProps> = ({
     term?.status ?? 'Pendente de Assinatura'
   );
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const hasAutoPrintedRef = useRef(false);
 
   // O termo é mutado em dataService.updateTermStatus (mesmo objeto), então o React
   // não re-renderiza sozinho. Mantemos o status em estado para refletir a mudança
@@ -79,7 +82,26 @@ export const TermViewerModal: React.FC<TermViewerModalProps> = ({
     };
   }, [isOpen, term?.id, term?.hasFile]);
 
+  useEffect(() => {
+    hasAutoPrintedRef.current = false;
+  }, [isOpen, term?.id]);
+
+  useEffect(() => {
+    if (!isOpen || !autoPrint || hasAutoPrintedRef.current) return;
+    // PDFs são impressos no onLoad do iframe; o layout interno imprime após renderizar.
+    if (term?.hasFile) return;
+
+    const timer = window.setTimeout(() => {
+      hasAutoPrintedRef.current = true;
+      window.print();
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [isOpen, autoPrint, term?.hasFile, term?.id]);
+
   if (!term) return null;
+
+  const linkedDevice = term.deviceId ? dataService.getDevices().find((device) => device.id === term.deviceId) : undefined;
+  const deviceModel = linkedDevice?.model || term.deviceModel || 'N/A';
 
   const handlePrint = () => {
     if (pdfUrl && iframeRef.current?.contentWindow) {
@@ -206,6 +228,11 @@ export const TermViewerModal: React.FC<TermViewerModalProps> = ({
                 title={`PDF do termo ${term.code}`}
                 className="w-full rounded-xl border border-ink-200 bg-white"
                 style={{ height: '70vh' }}
+                onLoad={() => {
+                  if (!autoPrint || hasAutoPrintedRef.current) return;
+                  hasAutoPrintedRef.current = true;
+                  window.setTimeout(() => iframeRef.current?.contentWindow?.print(), 150);
+                }}
               />
             )}
           </div>
@@ -274,7 +301,7 @@ export const TermViewerModal: React.FC<TermViewerModalProps> = ({
                 </h3>
                 <div className="space-y-1 text-ink-700">
                   <p><span className="font-semibold text-ink-900">Identificador patrimonial:</span> <span className="font-mono font-semibold">{term.deviceTag || 'N/A'}</span></p>
-                  <p><span className="font-semibold text-ink-900">Modelo / marca:</span> {term.deviceModel || 'N/A'}</p>
+                  <p><span className="font-semibold text-ink-900">Modelo:</span> {deviceModel}</p>
                   <p><span className="font-semibold text-ink-900">IMEI:</span> <span className="font-mono">{term.deviceImei || 'N/A'}</span></p>
                   <p><span className="font-semibold text-ink-900">Linha telefônica:</span> <span className="font-mono font-semibold">{term.phoneNumber || 'Não associada'}</span></p>
                 </div>

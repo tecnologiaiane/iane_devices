@@ -51,7 +51,7 @@ export interface PhoneLine {
   id: string;
   phoneNumber: string; // Formato (11) 98765-4321
   carrier: Carrier;
-  planName: string; // Ex: Corporativo Smart 50GB
+  planName?: string; // Ex: Corporativo Smart 50GB
   monthlyCost?: number; // R$
   status: LineStatus;
   associatedDeviceId?: string;

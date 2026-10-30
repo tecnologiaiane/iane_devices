@@ -520,7 +520,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
                     <StatusBadge status={device.status} type="device" size="sm" />
                   </div>
                   <p className="text-[11px] text-ink-600 truncate">
-                    {device.brand} {device.model}
+                    {device.model}
                     {device.notes ? ` · ${device.notes}` : ''}
                   </p>
                 </div>

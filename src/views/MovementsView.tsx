@@ -46,6 +46,10 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
   onApproveRequest,
 }) => {
   const [movements, setMovements] = useState<Movement[]>(dataService.getMovements());
+  const [devices] = useState(() => dataService.getDevices());
+  const deviceModelById = new Map(devices.map((device) => [device.id, device.model]));
+  const movementDeviceModel = (movement: Movement) =>
+    (movement.deviceId ? deviceModelById.get(movement.deviceId) : undefined) || movement.deviceName || '';
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('todos');
   const [startDate, setStartDate] = useState('');
@@ -308,7 +312,7 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
                 <th className="py-3 px-4">Fluxo Patrimonial</th>
                 <th className="py-3 px-4">Aparelho Envolvido</th>
                 <th className="py-3 px-4">Motivo / Condição</th>
-                <th className="py-3 px-4">Termo Oficial</th>
+                <th className="py-3 px-4">Termo</th>
                 <th className="py-3 px-4 text-right">Ação</th>
               </tr>
             </thead>
@@ -361,7 +365,7 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
                     {mov.deviceTag ? (
                       <div>
                         <span className="font-mono font-bold text-iane-700">{mov.deviceTag}</span>
-                        <span className="block text-[11px] text-ink-500 truncate max-w-[150px]">{mov.deviceName}</span>
+                        <span className="block text-[11px] text-ink-500 truncate max-w-[150px]">{movementDeviceModel(mov)}</span>
                       </div>
                     ) : (
                       <span className="text-ink-400 italic">Nenhum</span>
@@ -476,7 +480,7 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
                 <div>
                   <span className="text-ink-400 text-[11px] block">Aparelho Envolvido</span>
                   <span className="font-semibold text-ink-900 font-mono">
-                    {detailMovement.deviceTag || 'N/A'} {detailMovement.deviceName ? `(${detailMovement.deviceName})` : ''}
+                    {detailMovement.deviceTag || 'N/A'} {movementDeviceModel(detailMovement) ? `(${movementDeviceModel(detailMovement)})` : ''}
                   </span>
                 </div>
                 <div>
@@ -525,7 +529,7 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
                     <FileText className="w-4 h-4 text-iane-600" />
                     <div>
                       <span className="font-bold text-iane-800">{detailMovement.documentCode}</span>
-                      <span className="text-iane-700 block text-[11px]">Termo oficial gerado nesta operação</span>
+                      <span className="text-iane-700 block text-[11px]">Termo gerado nesta operação</span>
                     </div>
                   </div>
                   <button
@@ -536,7 +540,7 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
                     }}
                     className="px-3 py-1 bg-iane-600 hover:bg-iane-700 text-white rounded font-semibold text-xs shadow-xs"
                   >
-                    Abrir Termo Oficial
+                    Abrir Termo
                   </button>
                 </div>
               )}

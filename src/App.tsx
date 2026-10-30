@@ -235,6 +235,7 @@ export default function App() {
 
   const [isTermViewerOpen, setIsTermViewerOpen] = useState(false);
   const [selectedTerm, setSelectedTerm] = useState<DocumentTerm | null>(null);
+  const [autoPrintTerm, setAutoPrintTerm] = useState(false);
 
   const triggerRefresh = () => {
     setRefreshKey(prev => prev + 1);
@@ -302,6 +303,13 @@ export default function App() {
 
   const handleViewTerm = (term: DocumentTerm) => {
     setSelectedTerm(term);
+    setAutoPrintTerm(false);
+    setIsTermViewerOpen(true);
+  };
+
+  const handlePrintTerm = (term: DocumentTerm) => {
+    setSelectedTerm(term);
+    setAutoPrintTerm(true);
     setIsTermViewerOpen(true);
   };
 
@@ -404,6 +412,7 @@ export default function App() {
             <TermsView
               key={refreshKey}
               onViewTerm={handleViewTerm}
+              onPrintTerm={handlePrintTerm}
             />
           )}
 
@@ -468,9 +477,13 @@ export default function App() {
         {isTermViewerOpen && selectedTerm && (
           <TermViewerModal
             isOpen={isTermViewerOpen}
-            onClose={() => setIsTermViewerOpen(false)}
+            onClose={() => {
+              setIsTermViewerOpen(false);
+              setAutoPrintTerm(false);
+            }}
             term={selectedTerm}
             onTermUpdated={triggerRefresh}
+            autoPrint={autoPrintTerm}
           />
         )}
       </React.Suspense>

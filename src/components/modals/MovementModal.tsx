@@ -529,7 +529,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                       <option value="">-- Selecione um aparelho disponível --</option>
                       {availableStockDevices.map((d) => (
                         <option key={d.id} value={d.id}>
-                          {d.assetTag} · {d.brand} {d.model} · {d.imei1 ? `IMEI: ${d.imei1}` : 'Sem IMEI'}
+                          {d.assetTag} · {d.model} · {d.imei1 ? `IMEI: ${d.imei1}` : 'Sem IMEI'}
                         </option>
                       ))}
                     </select>
@@ -640,7 +640,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                       <option value="">-- Selecione um aparelho em uso --</option>
                       {returnFlowDevices.map((d) => (
                         <option key={d.id} value={d.id}>
-                          {d.assetTag} · {d.brand} {d.model} · {d.currentCollaboratorName || 'Sem colaborador'}
+                          {d.assetTag} · {d.model} · {d.currentCollaboratorName || 'Sem colaborador'}
                         </option>
                       ))}
                     </select>
@@ -782,7 +782,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                           .filter(d => d.currentCollaboratorId === transfCollabAId)
                           .map((d) => (
                             <option key={d.id} value={d.id}>
-                              {d.assetTag} · {d.brand} {d.model}
+                              {d.assetTag} · {d.model}
                             </option>
                           ))}
                       </select>
@@ -918,7 +918,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                           .filter(d => d.currentCollaboratorId === trocaCollabId)
                           .map((d) => (
                             <option key={d.id} value={d.id}>
-                              {d.assetTag} · {d.brand} {d.model}
+                              {d.assetTag} · {d.model}
                             </option>
                           ))}
                       </select>
@@ -984,7 +984,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                         <option value="">-- Selecione um aparelho disponível --</option>
                         {availableStockDevices.map((d) => (
                           <option key={d.id} value={d.id}>
-                            {d.assetTag} · {d.brand} {d.model} · {d.imei1 ? `IMEI: ${d.imei1}` : 'Sem IMEI'}
+                            {d.assetTag} · {d.model} · {d.imei1 ? `IMEI: ${d.imei1}` : 'Sem IMEI'}
                           </option>
                         ))}
                       </select>
@@ -1145,7 +1145,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-ink-500">Aparelho:</span>
                     <strong className="text-ink-900 font-mono">{selEntregaDev?.assetTag || '—'}</strong>
-                    <span className="text-ink-500">{selEntregaDev ? `${selEntregaDev.brand} ${selEntregaDev.model}` : ''}</span>
+                    <span className="text-ink-500">{selEntregaDev ? `${selEntregaDev.model}` : ''}</span>
                     {selEntregaDev?.imei1 && <span className="text-ink-500">IMEI: {selEntregaDev.imei1}</span>}
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
@@ -1190,7 +1190,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-ink-500">Aparelho:</span>
                     <strong className="text-ink-900 font-mono">{selDevolucaoDev?.assetTag || '—'}</strong>
-                    <span className="text-ink-500">{selDevolucaoDev ? `${selDevolucaoDev.brand} ${selDevolucaoDev.model}` : ''}</span>
+                    <span className="text-ink-500">{selDevolucaoDev ? `${selDevolucaoDev.model}` : ''}</span>
                     {selDevolucaoDev?.imei1 && <span className="text-ink-500">IMEI: {selDevolucaoDev.imei1}</span>}
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
@@ -1239,7 +1239,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-ink-500">Aparelho:</span>
                     <strong className="text-ink-900 font-mono">{selTransfDev?.assetTag || '—'}</strong>
-                    <span className="text-ink-500">{selTransfDev ? `${selTransfDev.brand} ${selTransfDev.model}` : ''}</span>
+                    <span className="text-ink-500">{selTransfDev ? `${selTransfDev.model}` : ''}</span>
                     {selTransfDev?.imei1 && <span className="text-ink-500">IMEI: {selTransfDev.imei1}</span>}
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
@@ -1294,7 +1294,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-ink-500">Aparelho Antigo:</span>
                     <strong className="text-ink-900 font-mono">{selTrocaOldDev?.assetTag || '—'}</strong>
-                    <span className="text-ink-500">{selTrocaOldDev ? `${selTrocaOldDev.brand} ${selTrocaOldDev.model}` : ''}</span>
+                    <span className="text-ink-500">{selTrocaOldDev ? `${selTrocaOldDev.model}` : ''}</span>
                   </div>
                   <div>
                     <span className="text-ink-500">Destino do Antigo no Estoque: </span>
@@ -1303,7 +1303,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-ink-500">Novo Aparelho:</span>
                     <strong className="text-ink-900 font-mono">{selTrocaNewDev?.assetTag || '—'}</strong>
-                    <span className="text-ink-500">{selTrocaNewDev ? `${selTrocaNewDev.brand} ${selTrocaNewDev.model}` : ''}</span>
+                    <span className="text-ink-500">{selTrocaNewDev ? `${selTrocaNewDev.model}` : ''}</span>
                   </div>
                   <div>
                     <span className="text-ink-500">Linha no Novo: </span>

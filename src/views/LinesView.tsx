@@ -51,7 +51,7 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
       const q = searchQuery.toLowerCase();
       const matchPhone = l.phoneNumber.replace(/\D/g, '').includes(q.replace(/\D/g, ''));
       const matchCarrier = l.carrier.toLowerCase().includes(q);
-      const matchPlan = l.planName.toLowerCase().includes(q);
+      const matchPlan = (l.planName || '').toLowerCase().includes(q);
       const matchCollab = l.currentCollaboratorName?.toLowerCase().includes(q) || false;
       const matchTag = l.associatedDeviceTag?.toLowerCase().includes(q) || false;
       if (!matchPhone && !matchCarrier && !matchPlan && !matchCollab && !matchTag) return false;
@@ -209,7 +209,7 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
 
                   {/* Plan */}
                   <td className="py-3 px-4 text-ink-700 max-w-[200px] truncate">
-                    {line.planName}
+                    {line.planName || 'Não informado'}
                   </td>
 
                   {/* Cost */}
@@ -331,7 +331,7 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
                   <option value="">-- Selecione o aparelho --</option>
                   {availableDevices.map((d) => (
                     <option key={d.id} value={d.id}>
-                      {d.assetTag} - {d.brand} {d.model} ({d.status})
+                      {d.assetTag} - {d.model} ({d.status})
                     </option>
                   ))}
                 </select>
@@ -373,7 +373,7 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
                       {detailLine.phoneNumber}
                     </h2>
                     <p className="text-xs text-ink-500">
-                      Operadora {detailLine.carrier} · {detailLine.planName}
+                      Operadora {detailLine.carrier}{detailLine.planName ? ` · ${detailLine.planName}` : ''}
                     </p>
                   </div>
                 </div>

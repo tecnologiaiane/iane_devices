@@ -798,7 +798,7 @@ class DataStorageService {
     if (device.imei1) {
       const duplicateImei = devices.find(d => (d.imei1 || '').trim() === device.imei1?.trim() && d.id !== device.id);
       if (duplicateImei) {
-        return { success: false, message: `O IMEI 1 (${device.imei1}) já está cadastrado no aparelho ${duplicateImei.assetTag} (${duplicateImei.brand} ${duplicateImei.model}).` };
+        return { success: false, message: `O IMEI 1 (${device.imei1}) já está cadastrado no aparelho ${duplicateImei.assetTag} (${duplicateImei.model}).` };
       }
     }
 
@@ -900,7 +900,7 @@ class DataStorageService {
         id: `line-${Date.now()}`,
         phoneNumber: line.phoneNumber || '',
         carrier: line.carrier || 'Vivo',
-        planName: line.planName || 'Plano Corporativo',
+        planName: line.planName || undefined,
         monthlyCost: line.monthlyCost ? Number(line.monthlyCost) : undefined,
         status: line.status || 'Disponível',
         associatedDeviceId: line.associatedDeviceId,
@@ -1218,7 +1218,7 @@ class DataStorageService {
       selectedLine.status = 'Ativa';
       selectedLine.associatedDeviceId = device.id;
       selectedLine.associatedDeviceTag = device.assetTag;
-      selectedLine.associatedDeviceModel = `${device.brand} ${device.model}`;
+      selectedLine.associatedDeviceModel = `${device.model}`;
       selectedLine.currentCollaboratorId = collaborator.id;
       selectedLine.currentCollaboratorName = collaborator.fullName;
       selectedLine.department = collaborator.department;
@@ -1240,7 +1240,7 @@ class DataStorageService {
         date: params.date,
         deviceId: device.id,
         deviceTag: device.assetTag,
-        deviceModel: `${device.brand} ${device.model}`,
+        deviceModel: `${device.model}`,
         deviceImei: device.imei1,
         phoneLineId: selectedLine?.id,
         phoneNumber: selectedLine?.phoneNumber,
@@ -1274,7 +1274,7 @@ class DataStorageService {
       date: params.date,
       deviceId: device.id,
       deviceTag: device.assetTag,
-      deviceName: `${device.brand} ${device.model}`,
+      deviceName: `${device.model}`,
       imei: device.imei1,
       phoneLineId: selectedLine?.id,
       phoneNumber: selectedLine?.phoneNumber,
@@ -1437,7 +1437,7 @@ class DataStorageService {
         date: params.date,
         deviceId: device.id,
         deviceTag: device.assetTag,
-        deviceModel: `${device.brand} ${device.model}`,
+        deviceModel: `${device.model}`,
         deviceImei: device.imei1,
         collaboratorId: collaborator.id,
         collaboratorName: collaborator.fullName,
@@ -1467,7 +1467,7 @@ class DataStorageService {
       date: params.date,
       deviceId: device.id,
       deviceTag: device.assetTag,
-      deviceName: `${device.brand} ${device.model}`,
+      deviceName: `${device.model}`,
       imei: device.imei1,
       phoneLineId: lineObj?.id,
       phoneNumber: lineObj?.phoneNumber,
@@ -1763,7 +1763,7 @@ class DataStorageService {
       date: todayISO(),
       deviceId: device.id,
       deviceTag: device.assetTag,
-      deviceName: `${device.brand} ${device.model}`,
+      deviceName: `${device.model}`,
       imei: device.imei1,
       originCollaboratorName: STOCK_LABEL,
       destinationCollaboratorName: STOCK_LABEL,
@@ -1822,7 +1822,7 @@ class DataStorageService {
       date: params.date,
       deviceId: device.id,
       deviceTag: device.assetTag,
-      deviceName: `${device.brand} ${device.model}`,
+      deviceName: `${device.model}`,
       imei: device.imei1,
       originCollaboratorName: STOCK_LABEL,
       destinationCollaboratorName: params.provider,
@@ -1879,7 +1879,7 @@ class DataStorageService {
       date: params.date,
       deviceId: device.id,
       deviceTag: device.assetTag,
-      deviceName: `${device.brand} ${device.model}`,
+      deviceName: `${device.model}`,
       imei: device.imei1,
       originCollaboratorName: 'Assistência Técnica',
       destinationCollaboratorName: STOCK_LABEL,
@@ -1935,7 +1935,7 @@ class DataStorageService {
 
     line.associatedDeviceId = device.id;
     line.associatedDeviceTag = device.assetTag;
-    line.associatedDeviceModel = `${device.brand} ${device.model}`;
+    line.associatedDeviceModel = `${device.model}`;
     if (device.currentCollaboratorId) {
       line.currentCollaboratorId = device.currentCollaboratorId;
       line.currentCollaboratorName = device.currentCollaboratorName;
