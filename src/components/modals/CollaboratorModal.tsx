@@ -179,9 +179,24 @@ export const CollaboratorModal: React.FC<CollaboratorModalProps> = ({
           </div>
         </div>
 
-        <div>
-          <label className="block text-xs font-medium text-ink-700 mb-1">Unidade</label>
-          <SearchableSelect value={unit} onChange={setUnit} options={catalogOptions(catalogs.units, unit)} placeholder="Selecione a unidade (opcional)" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-ink-700 mb-1">Unidade</label>
+            <SearchableSelect value={unit} onChange={setUnit} options={catalogOptions(catalogs.units, unit)} placeholder="Selecione a unidade (opcional)" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-ink-700 mb-1">Status do Colaborador *</label>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value as CollaboratorStatus)}
+              className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500"
+            >
+              <option value="Ativo">Ativo (Em atividade regular)</option>
+              <option value="Férias">Férias</option>
+              <option value="Afastado">Afastado (Licença)</option>
+              <option value="Desligado">Desligado da Empresa</option>
+            </select>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -239,22 +254,6 @@ export const CollaboratorModal: React.FC<CollaboratorModalProps> = ({
               className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 font-mono focus:outline-none focus:ring-2 focus:ring-iane-500"
             />
           </div>
-        </div>
-
-        <div>
-          <label className="block text-xs font-semibold text-ink-700 mb-1">
-            Status do Colaborador *
-          </label>
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value as CollaboratorStatus)}
-            className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500"
-          >
-            <option value="Ativo">Ativo (Em atividade regular)</option>
-            <option value="Férias">Férias</option>
-            <option value="Afastado">Afastado (Licença)</option>
-            <option value="Desligado">Desligado da Empresa</option>
-          </select>
         </div>
 
         <div>

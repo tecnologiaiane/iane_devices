@@ -121,14 +121,27 @@ export const MovementModal: React.FC<MovementModalProps> = ({
 
   // Initial load
   useEffect(() => {
-    if (isOpen) {
-      const devList = dataService.getDevices();
+    if (!isOpen) return;
+    let active = true;
+    const devList = dataService.getDevices();
       const lineList = dataService.getLines();
       const collabList = dataService.getCollaborators();
       setDevices(devList);
       setLines(lineList);
       setCollaborators(collabList);
       setAvailableTerms(dataService.getTerms());
+      void Promise.all([
+        dataService.fetchDevices(),
+        dataService.fetchLines(),
+        dataService.fetchCollaborators(),
+        dataService.fetchTerms(),
+      ]).then(([freshDevices, freshLines, freshCollaborators, freshTerms]) => {
+        if (!active) return;
+        setDevices(freshDevices);
+        setLines(freshLines);
+        setCollaborators(freshCollaborators);
+        setAvailableTerms(freshTerms);
+      });
       void dataService.fetchCatalogs().then((catalogs) => {
         const names = catalogs.accessories.map((item) => item.name);
         setCatalogAccessories(catalogs.accessories);
@@ -216,7 +229,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
           setObservations(requestData.observations || '');
         }
       }
-    }
+    return () => { active = false; };
   }, [isOpen, preselectedDeviceId, preselectedCollaboratorId, defaultFlow, approvalRequest]);
 
   // Helpers
