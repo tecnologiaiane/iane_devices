@@ -23,7 +23,7 @@ import { apiClient, ApiResponse } from './apiClient';
 import { authService } from './authService';
 import { todayISO, nowLocalDateTime } from '../utils/dates';
 import { DEPARTMENTS, SECTORS } from '../utils/collaborators';
-import { INITIAL_ACCESSORIES } from '../utils/assetCatalogs';
+import { INITIAL_ACCESSORIES, INITIAL_DEVICE_STATUSES, INITIAL_LINE_STATUSES } from '../utils/assetCatalogs';
 import { canAccessRequests, canApproveRequests, canViewAllRequests } from '../config/requestAccess';
 
 const STORAGE_KEYS = {
@@ -97,6 +97,8 @@ class DataStorageService {
       brands: uniqueItems(devices.map((device) => device.brand)),
       units: [],
       accessories: uniqueItems(INITIAL_ACCESSORIES),
+      lineStatuses: INITIAL_LINE_STATUSES,
+      deviceStatuses: INITIAL_DEVICE_STATUSES,
     };
   }
 
@@ -107,8 +109,19 @@ class DataStorageService {
       ...defaults,
       ...saved,
       accessories: saved.accessories || defaults.accessories,
+      lineStatuses: saved.lineStatuses || defaults.lineStatuses,
+      deviceStatuses: saved.deviceStatuses || defaults.deviceStatuses,
     };
   }
+
+  public getCatalogStatus(type: 'lineStatuses' | 'deviceStatuses', id: string, fallback: string): string {
+    return this.getCatalogs()[type].find((item) => item.id === id)?.name || fallback;
+  }
+
+  private availableLineStatus(): string { return this.getCatalogStatus('lineStatuses', 'line-status-available', 'Disponível'); }
+  private inUseLineStatus(): string { return this.getCatalogStatus('lineStatuses', 'line-status-in-use', 'Em Uso'); }
+  private availableDeviceStatus(): string { return this.getCatalogStatus('deviceStatuses', 'device-status-available', 'Disponível'); }
+  private inUseDeviceStatus(): string { return this.getCatalogStatus('deviceStatuses', 'device-status-in-use', 'Em uso'); }
 
   public async fetchCatalogs(): Promise<Catalogs> {
     const response = await apiClient.get<Catalogs>('/api/catalogs');
@@ -151,6 +164,34 @@ class DataStorageService {
         replace(STORAGE_KEYS.COLLABORATORS, this.getCollaborators(), 'unit');
         replace(STORAGE_KEYS.DEVICES, this.getDevices(), 'unit');
         replace(STORAGE_KEYS.LINES, this.getLines(), 'unit');
+      } else if (type === 'lineStatuses') {
+        replace(STORAGE_KEYS.LINES, this.getLines(), 'status');
+        const movements = this.getMovements().map((movement) => ({
+          ...movement,
+          previousLineStatus: movement.previousLineStatus === oldName ? newName : movement.previousLineStatus,
+          newLineStatus: movement.newLineStatus === oldName ? newName : movement.newLineStatus,
+        }));
+        this.set(STORAGE_KEYS.MOVEMENTS, movements);
+      } else if (type === 'deviceStatuses') {
+        replace(STORAGE_KEYS.DEVICES, this.getDevices(), 'status');
+        const movements = this.getMovements().map((movement) => ({
+          ...movement,
+          previousDeviceStatus: movement.previousDeviceStatus === oldName ? newName : movement.previousDeviceStatus,
+          newDeviceStatus: movement.newDeviceStatus === oldName ? newName : movement.newDeviceStatus,
+          stockTransit: movement.stockTransit?.stockStatusAfter === oldName
+            ? { ...movement.stockTransit, stockStatusAfter: newName as DeviceStatus }
+            : movement.stockTransit,
+        }));
+        this.set(STORAGE_KEYS.MOVEMENTS, movements);
+        const requests = this.get<RequestRecord[]>(STORAGE_KEYS.REQUESTS, []).map((request) => ({
+          ...request,
+          data: {
+            ...request.data,
+            destinationStatusAfterReturn: request.data?.destinationStatusAfterReturn === oldName ? newName : request.data?.destinationStatusAfterReturn,
+            oldDestinationStatus: request.data?.oldDestinationStatus === oldName ? newName : request.data?.oldDestinationStatus,
+          },
+        }));
+        this.set(STORAGE_KEYS.REQUESTS, requests);
       } else {
         const updateArray = <T extends { [key: string]: any }>(key: string, records: T[], field: string) => {
           this.set(key, records.map((record) => Array.isArray(record[field]) && record[field].includes(oldName)
@@ -919,7 +960,7 @@ class DataStorageService {
         purchaseDate: device.purchaseDate,
         purchaseValue: device.purchaseValue ? Number(device.purchaseValue) : undefined,
         condition: device.condition || 'Novo',
-        status: device.status || 'Disponível', // Em estoque
+        status: device.status || this.availableDeviceStatus(), // Em estoque
         sector: device.sector,
         unit: device.unit,
         currentDepartment: device.currentDepartment,
@@ -956,7 +997,7 @@ class DataStorageService {
     const device = devices.find(d => d.id === id);
     if (!device) return { success: false, message: 'Aparelho não encontrado.' };
 
-    if (device.status === 'Em uso') {
+    if (device.status === this.inUseDeviceStatus()) {
       return { success: false, message: 'Não é permitido excluir um aparelho em uso por colaborador. Devolva-o primeiro ao estoque.' };
     }
 
@@ -998,7 +1039,7 @@ class DataStorageService {
         carrier: line.carrier || 'Vivo',
         planName: line.planName || undefined,
         monthlyCost: line.monthlyCost ? Number(line.monthlyCost) : undefined,
-        status: line.status || 'Disponível',
+        status: line.status || this.availableLineStatus(),
         associatedDeviceId: line.associatedDeviceId,
         associatedDeviceTag: line.associatedDeviceTag,
         associatedDeviceModel: line.associatedDeviceModel,
@@ -1037,7 +1078,7 @@ class DataStorageService {
     const line = lines.find(l => l.id === id);
     if (!line) return { success: false, message: 'Linha não encontrada.' };
 
-    if (line.status === 'Ativa' && line.currentCollaboratorId) {
+    if ((line.status === this.inUseLineStatus() || line.status === 'Ativa') && line.currentCollaboratorId) {
       return { success: false, message: 'Não é possível excluir uma linha ativa vinculada a um colaborador.' };
     }
 
@@ -1124,7 +1165,7 @@ class DataStorageService {
     if (!collab) return { success: false, message: 'Colaborador não encontrado.' };
 
     const devices = this.getDevices();
-    const hasDevice = devices.some(d => d.currentCollaboratorId === id && d.status === 'Em uso');
+    const hasDevice = devices.some(d => d.currentCollaboratorId === id && d.status === this.inUseDeviceStatus());
     if (hasDevice) {
       return { success: false, message: 'Não é possível excluir um colaborador com dispositivo em custódia. Realize primeiro a devolução ao estoque.' };
     }
@@ -1307,7 +1348,7 @@ class DataStorageService {
     if (!device) return { success: false, message: 'Aparelho não encontrado.' };
 
     // REGRA DE INTEGRIDADE: Somente aparelhos com status "Disponível" em estoque podem ser entregues!
-    if (device.status !== 'Disponível') {
+    if (device.status !== this.availableDeviceStatus()) {
       return { 
         success: false, 
         message: `O aparelho ${device.assetTag} está com status "${device.status}". Somente aparelhos com status "Disponível" no estoque do Gestor de Telefonia podem ser entregues a colaboradores.` 
@@ -1334,7 +1375,7 @@ class DataStorageService {
       
       if (selectedLine.associatedDeviceId && selectedLine.associatedDeviceId !== device.id) {
         const otherDev = devices.find(d => d.id === selectedLine?.associatedDeviceId);
-        if (otherDev && otherDev.status === 'Em uso') {
+        if (otherDev && otherDev.status === this.inUseDeviceStatus()) {
           return { success: false, message: `A linha ${selectedLine.phoneNumber} já está vinculada ao aparelho ativo ${otherDev.assetTag}.` };
         }
       }
@@ -1346,7 +1387,7 @@ class DataStorageService {
     const existingTerm = params.existingTermId ? existingTerms.find(t => t.id === params.existingTermId) : undefined;
 
     // 1. Atualizar Dispositivo: Sai do Estoque -> Em uso
-    device.status = 'Em uso';
+    device.status = this.inUseDeviceStatus();
     device.condition = params.condition;
     device.currentCollaboratorId = collaborator.id;
     device.currentCollaboratorName = collaborator.fullName;
@@ -1359,7 +1400,7 @@ class DataStorageService {
 
     // 2. Atualizar Linha se selecionada
     if (selectedLine) {
-      selectedLine.status = 'Ativa';
+      selectedLine.status = this.inUseLineStatus();
       selectedLine.associatedDeviceId = device.id;
       selectedLine.associatedDeviceTag = device.assetTag;
       selectedLine.associatedDeviceModel = `${device.model}`;
@@ -1429,10 +1470,10 @@ class DataStorageService {
       stockTransit: {
         involved: true,
         stage: 'Saída do Estoque',
-        stockStatusAfter: 'Em uso'
+        stockStatusAfter: this.inUseDeviceStatus() as DeviceStatus
       },
-      previousDeviceStatus: 'Disponível',
-      newDeviceStatus: 'Em uso',
+      previousDeviceStatus: this.availableDeviceStatus() as DeviceStatus,
+      newDeviceStatus: this.inUseDeviceStatus() as DeviceStatus,
       conditionAtMovement: params.condition,
       accessoriesIncluded: params.accessories,
       registeredBy: params.registeredBy || 'Gestor de Telefonia',
@@ -1485,7 +1526,7 @@ class DataStorageService {
     collaboratorId: string;
     date: string;
     condition: DeviceCondition;
-    nextDeviceStatus: 'Disponível' | 'Aguardando avaliação' | 'Em manutenção' | 'Reservado' | 'Aguardando baixa patrimonial';
+    nextDeviceStatus: string;
     lineHandling: 'retornar_ao_estoque' | 'manter_com_colaborador' | 'desassociar_e_suspender';
     accessoriesReturned: string[];
     reason?: string;
@@ -1543,7 +1584,7 @@ class DataStorageService {
         lineObj.currentCollaboratorId = undefined;
         lineObj.currentCollaboratorName = undefined;
         lineObj.department = undefined;
-        lineObj.status = 'Disponível';
+        lineObj.status = this.availableLineStatus();
         lineObj.updatedAt = params.date;
       } else if (params.lineHandling === 'manter_com_colaborador') {
         device.associatedLineId = undefined;
@@ -1551,7 +1592,7 @@ class DataStorageService {
         lineObj.associatedDeviceId = undefined;
         lineObj.associatedDeviceTag = undefined;
         lineObj.associatedDeviceModel = undefined;
-        lineObj.status = 'Ativa';
+        lineObj.status = this.inUseLineStatus();
         lineObj.updatedAt = params.date;
       } else if (params.lineHandling === 'desassociar_e_suspender') {
         device.associatedLineId = undefined;
@@ -1561,7 +1602,7 @@ class DataStorageService {
         lineObj.associatedDeviceModel = undefined;
         lineObj.currentCollaboratorId = undefined;
         lineObj.currentCollaboratorName = undefined;
-        lineObj.status = 'Suspensa';
+        lineObj.status = this.availableLineStatus();
         lineObj.updatedAt = params.date;
       }
     }
@@ -1634,7 +1675,7 @@ class DataStorageService {
       documentId: termId,
       documentCode: termCode,
       documentType: existingTerm ? 'Termo de Devolução' : undefined,
-      maintenanceProvider: params.nextDeviceStatus === 'Em manutenção' ? params.maintenanceProvider : undefined
+       maintenanceProvider: params.nextDeviceStatus === this.getCatalogStatus('deviceStatuses', 'device-status-maintenance', 'Em manutenção') ? params.maintenanceProvider : undefined
     };
 
     this.set(STORAGE_KEYS.DEVICES, devices);
@@ -1680,7 +1721,7 @@ class DataStorageService {
     destinationCollaboratorId: string;
     date: string;
     condition: DeviceCondition;
-    destinationStatusAfterReturn: 'Disponível' | 'Aguardando avaliação' | 'Em manutenção';
+    destinationStatusAfterReturn: string;
     lineHandling: 'transferir_linha_junto' | 'manter_linha_com_origem' | 'retornar_linha_ao_estoque';
     accessories: string[];
     reason?: string;
@@ -1732,7 +1773,7 @@ class DataStorageService {
     }
 
     // REGRA DE INTEGRIDADE: Se o aparelho não estiver apto ("Disponível"), interrompe a 2ª etapa!
-    if (params.destinationStatusAfterReturn !== 'Disponível') {
+    if (params.destinationStatusAfterReturn !== this.availableDeviceStatus()) {
       return {
         success: true,
         message: `Etapa 1 concluída com sucesso: Aparelho ${device.assetTag} recolhido ao Estoque do Gestor com status "${params.destinationStatusAfterReturn}". A entrega ao colaborador ${destCollab.fullName} foi interrompida pois o ativo requer avaliação ou reparo prévio.`,
@@ -1785,7 +1826,7 @@ class DataStorageService {
     collaboratorId: string;
     oldDeviceId: string;
     oldDeviceCondition: DeviceCondition;
-    oldDeviceNextStatus: 'Disponível' | 'Aguardando avaliação' | 'Em manutenção' | 'Aguardando baixa patrimonial';
+    oldDeviceNextStatus: string;
     oldDeviceAccessories: string[];
     newDeviceId: string;
     newDeviceCondition: DeviceCondition;
@@ -1811,7 +1852,7 @@ class DataStorageService {
     const newDevice = devices.find(d => d.id === params.newDeviceId);
     if (!newDevice) return { success: false, message: 'Novo aparelho não encontrado em estoque.' };
 
-    if (newDevice.status !== 'Disponível') {
+    if (newDevice.status !== this.availableDeviceStatus()) {
       return { success: false, message: `O aparelho selecionado ${newDevice.assetTag} não está disponível no estoque (status: ${newDevice.status}).` };
     }
 
@@ -1891,7 +1932,7 @@ class DataStorageService {
     if (!device) return { success: false, message: 'Aparelho não encontrado.' };
 
     const prevStatus = device.status;
-    device.status = 'Disponível';
+    device.status = this.availableDeviceStatus();
     device.condition = params.condition;
     device.updatedAt = todayISO();
     if (params.notes) {
@@ -1911,9 +1952,9 @@ class DataStorageService {
       imei: device.imei1,
       originCollaboratorName: STOCK_LABEL,
       destinationCollaboratorName: STOCK_LABEL,
-      stockTransit: { involved: true, stage: 'Conferência em Estoque', stockStatusAfter: 'Disponível' },
+      stockTransit: { involved: true, stage: 'Conferência em Estoque', stockStatusAfter: this.availableDeviceStatus() as DeviceStatus },
       previousDeviceStatus: prevStatus,
-      newDeviceStatus: 'Disponível',
+      newDeviceStatus: this.availableDeviceStatus() as DeviceStatus,
       conditionAtMovement: params.condition,
       accessoriesIncluded: ['Aparelho conferido'],
       registeredBy: params.registeredBy || 'Gestor de Telefonia',
@@ -1948,7 +1989,7 @@ class DataStorageService {
     const device = devices.find(d => d.id === params.deviceId);
     if (!device) return { success: false, message: 'Aparelho não encontrado.' };
 
-    if (device.status === 'Em uso') {
+    if (device.status === this.inUseDeviceStatus()) {
       return { success: false, message: 'O aparelho está atualmente em uso. Realize primeiro a devolução ao estoque do Gestor antes de enviar para manutenção.' };
     }
 
@@ -2010,7 +2051,7 @@ class DataStorageService {
     }
 
     // Retorna ao Estoque do Gestor como Disponível
-    device.status = 'Disponível';
+    device.status = this.availableDeviceStatus();
     device.condition = params.finalCondition;
     device.updatedAt = params.date;
 
@@ -2027,9 +2068,9 @@ class DataStorageService {
       imei: device.imei1,
       originCollaboratorName: 'Assistência Técnica',
       destinationCollaboratorName: STOCK_LABEL,
-      stockTransit: { involved: true, stage: 'Entrada no Estoque', stockStatusAfter: 'Disponível' },
+      stockTransit: { involved: true, stage: 'Entrada no Estoque', stockStatusAfter: this.availableDeviceStatus() as DeviceStatus },
       previousDeviceStatus: 'Em manutenção',
-      newDeviceStatus: 'Disponível',
+      newDeviceStatus: this.availableDeviceStatus() as DeviceStatus,
       conditionAtMovement: params.finalCondition,
       accessoriesIncluded: ['Aparelho reparado'],
       registeredBy: params.registeredBy || 'Gestor de Telefonia',
@@ -2084,7 +2125,7 @@ class DataStorageService {
       line.currentCollaboratorId = device.currentCollaboratorId;
       line.currentCollaboratorName = device.currentCollaboratorName;
       line.department = device.currentDepartment;
-      line.status = 'Ativa';
+      line.status = this.inUseLineStatus();
     }
 
     device.associatedLineId = line.id;
@@ -2116,11 +2157,15 @@ class DataStorageService {
       }
     }
 
+    const wasLinkedToDevice = !!line.associatedDeviceId;
     line.associatedDeviceId = undefined;
     line.associatedDeviceTag = undefined;
     line.associatedDeviceModel = undefined;
-    if (!line.currentCollaboratorId) {
-      line.status = 'Disponível';
+    if (wasLinkedToDevice) {
+      line.status = this.availableLineStatus();
+      line.currentCollaboratorId = undefined;
+      line.currentCollaboratorName = undefined;
+      line.department = undefined;
     }
 
     this.set(STORAGE_KEYS.LINES, lines);
@@ -2160,32 +2205,42 @@ class DataStorageService {
     const movements = this.getMovements();
     const terms = this.getTerms();
 
-    const inUseDevices = devices.filter(d => d.status === 'Em uso').length;
+    const inUseDeviceStatus = this.inUseDeviceStatus();
+    const availableDeviceStatus = this.availableDeviceStatus();
+    const inUseLineStatus = this.inUseLineStatus();
+    const availableLineStatus = this.availableLineStatus();
+    const evaluationStatus = this.getCatalogStatus('deviceStatuses', 'device-status-awaiting-evaluation', 'Aguardando avaliação');
+    const maintenanceStatus = this.getCatalogStatus('deviceStatuses', 'device-status-maintenance', 'Em manutenção');
+    const reservedStatus = this.getCatalogStatus('deviceStatuses', 'device-status-reserved', 'Reservado');
+    const disposalStatus = this.getCatalogStatus('deviceStatuses', 'device-status-awaiting-disposal', 'Aguardando baixa patrimonial');
+    const disposedStatus = this.getCatalogStatus('deviceStatuses', 'device-status-disposed', 'Baixado');
+    const missingStatus = this.getCatalogStatus('deviceStatuses', 'device-status-missing', 'Extraviado');
+    const inUseDevices = devices.filter(d => d.status === inUseDeviceStatus).length;
     
     // Estoque do Gestor
-    const stockAvailable = devices.filter(d => d.status === 'Disponível').length;
-    const stockAwaitingEvaluation = devices.filter(d => d.status === 'Aguardando avaliação').length;
-    const stockMaintenance = devices.filter(d => d.status === 'Em manutenção').length;
-    const stockReserved = devices.filter(d => d.status === 'Reservado').length;
-    const stockAwaitingDisposal = devices.filter(d => d.status === 'Aguardando baixa patrimonial').length;
-    const stockDisposed = devices.filter(d => d.status === 'Baixado').length;
-    const lostDevices = devices.filter(d => d.status === 'Extraviado').length;
+    const stockAvailable = devices.filter(d => d.status === availableDeviceStatus).length;
+    const stockAwaitingEvaluation = devices.filter(d => d.status === evaluationStatus).length;
+    const stockMaintenance = devices.filter(d => d.status === maintenanceStatus).length;
+    const stockReserved = devices.filter(d => d.status === reservedStatus).length;
+    const stockAwaitingDisposal = devices.filter(d => d.status === disposalStatus).length;
+    const stockDisposed = devices.filter(d => d.status === disposedStatus).length;
+    const lostDevices = devices.filter(d => d.status === missingStatus).length;
 
     const stockTotal = devices.length - inUseDevices;
 
-    const activeLines = lines.filter(l => l.status === 'Ativa').length;
-    const availableLines = lines.filter(l => l.status === 'Disponível').length;
+    const activeLines = lines.filter(l => l.status === inUseLineStatus || l.status === 'Ativa').length;
+    const availableLines = lines.filter(l => l.status === availableLineStatus).length;
     const suspendedLines = lines.filter(l => l.status === 'Suspensa').length;
     const cancelledLines = lines.filter(l => l.status === 'Cancelada' || l.status === 'Em processo de cancelamento').length;
 
     const devicesWithoutCollaborator = devices.filter(d => !d.currentCollaboratorId && d.status !== 'Baixado').length;
     const linesWithoutDevice = lines.filter(l => !l.associatedDeviceId).length;
-    const linesWithoutCollaborator = lines.filter(l => l.status === 'Ativa' && !l.currentCollaboratorId).length;
+    const linesWithoutCollaborator = lines.filter(l => (l.status === inUseLineStatus || l.status === 'Ativa') && !l.currentCollaboratorId).length;
 
     let inconsistenciesCount = 0;
     devices.forEach(d => {
-      if (d.status === 'Em uso' && !d.currentCollaboratorId) inconsistenciesCount++;
-      if (d.status === 'Disponível' && d.currentCollaboratorId) inconsistenciesCount++;
+      if (d.status === inUseDeviceStatus && !d.currentCollaboratorId) inconsistenciesCount++;
+      if (d.status === availableDeviceStatus && d.currentCollaboratorId) inconsistenciesCount++;
     });
 
     const pendingTermsCount = terms.filter(t => t.status === 'Pendente de Assinatura').length;
@@ -2249,7 +2304,7 @@ class DataStorageService {
       this.set(STORAGE_KEYS.AUDIT, data.audit || []);
       if (data.catalogs && typeof data.catalogs === 'object') {
         this.set(STORAGE_KEYS.CATALOGS, data.catalogs);
-        for (const type of ['departments', 'sectors', 'models', 'brands', 'units', 'accessories'] as CatalogType[]) {
+        for (const type of ['departments', 'sectors', 'models', 'brands', 'units', 'accessories', 'lineStatuses', 'deviceStatuses'] as CatalogType[]) {
           if (Array.isArray(data.catalogs[type])) void this.saveCatalog(type, data.catalogs[type]);
         }
       }

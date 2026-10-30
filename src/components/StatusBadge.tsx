@@ -21,6 +21,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, type = 'device
       indicatorColor = 'bg-emerald-500';
       break;
     case 'Em uso':
+    case 'Em Uso':
     case 'Ativa':
     case 'Ativo':
       badgeStyles = 'bg-iane-50 text-iane-800 border-iane-200';

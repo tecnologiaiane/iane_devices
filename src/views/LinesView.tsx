@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { PhoneLine, Carrier, LineStatus, Device } from '../types';
+import React, { useEffect, useState } from 'react';
+import { PhoneLine, Carrier, LineStatus, Device, Catalogs } from '../types';
 import { dataService } from '../services/dataStorage';
 import { formatDate, formatCurrency, formatPhone, matchesPhoneSearch } from '../utils/formatters';
 import { StatusBadge } from '../components/StatusBadge';
@@ -26,6 +26,8 @@ interface LinesViewProps {
 
 export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
   const [lines, setLines] = useState<PhoneLine[]>(dataService.getLines());
+  const [catalogs, setCatalogs] = useState<Catalogs>(() => dataService.getCatalogs());
+  useEffect(() => { void dataService.fetchCatalogs().then(setCatalogs); }, []);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('todos');
   const [carrierFilter, setCarrierFilter] = useState<string>('todos');
@@ -140,11 +142,7 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
             className="rounded-md border border-ink-300 bg-white px-2.5 py-1 text-ink-700 font-medium"
           >
             <option value="todos">Status: Todos</option>
-            <option value="Disponível">Disponível</option>
-            <option value="Ativa">Ativa</option>
-            <option value="Suspensa">Suspensa</option>
-            <option value="Em processo de cancelamento">Em processo de cancelamento</option>
-            <option value="Cancelada">Cancelada</option>
+            {catalogs.lineStatuses.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}
           </select>
 
           <select

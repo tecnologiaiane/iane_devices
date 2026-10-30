@@ -1,12 +1,4 @@
-export type DeviceStatus = 
-  | 'Disponível' // Em estoque, pronto para entrega
-  | 'Em uso' // Vinculado a um colaborador
-  | 'Aguardando avaliação' // No estoque do Gestor, sob vistoria técnica/higienização
-  | 'Em manutenção' // Em assistência técnica
-  | 'Reservado' // No estoque do Gestor, reservado para admissão/projeto
-  | 'Aguardando baixa patrimonial' // No estoque do Gestor, aguardando descarte contábil
-  | 'Baixado' // Baixado definitivamente do patrimônio
-  | 'Extraviado'; // Roubo/furto/perda
+export type DeviceStatus = string;
 
 export type DeviceCondition = 
   | 'Novo' 
@@ -39,12 +31,7 @@ export interface Device {
   updatedAt: string;
 }
 
-export type LineStatus = 
-  | 'Disponível' 
-  | 'Ativa' 
-  | 'Suspensa' 
-  | 'Em processo de cancelamento' 
-  | 'Cancelada';
+export type LineStatus = string;
 
 export type Carrier = 'Vivo' | 'Claro' | 'TIM' | 'Outra';
 
@@ -168,7 +155,7 @@ export interface Movement {
   };
 }
 
-export type CatalogType = 'departments' | 'sectors' | 'models' | 'brands' | 'units' | 'accessories';
+export type CatalogType = 'departments' | 'sectors' | 'models' | 'brands' | 'units' | 'accessories' | 'lineStatuses' | 'deviceStatuses';
 
 export interface CatalogItem {
   id: string;

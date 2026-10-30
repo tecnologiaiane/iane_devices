@@ -175,8 +175,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [errorMessage, setErrorMessage] = useState('');
   const [openSection, setOpenSection] = useState<SettingsSectionId | null>(null);
   const [catalogs, setCatalogs] = useState<Catalogs>(() => dataService.getCatalogs());
-  const [catalogSearch, setCatalogSearch] = useState<Record<CatalogType, string>>({ departments: '', sectors: '', models: '', brands: '', units: '', accessories: '' });
-  const [catalogDraft, setCatalogDraft] = useState<Record<CatalogType, string>>({ departments: '', sectors: '', models: '', brands: '', units: '', accessories: '' });
+  const [catalogSearch, setCatalogSearch] = useState<Record<CatalogType, string>>({ departments: '', sectors: '', models: '', brands: '', units: '', accessories: '', lineStatuses: '', deviceStatuses: '' });
+  const [catalogDraft, setCatalogDraft] = useState<Record<CatalogType, string>>({ departments: '', sectors: '', models: '', brands: '', units: '', accessories: '', lineStatuses: '', deviceStatuses: '' });
   const [editingCatalogItem, setEditingCatalogItem] = useState<{ type: CatalogType; id: string } | null>(null);
   const [savingCatalog, setSavingCatalog] = useState<CatalogType | null>(null);
 
@@ -275,7 +275,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const catalogLabels: Record<CatalogType, string> = {
-    departments: 'Departamentos', sectors: 'Setores', models: 'Modelos de aparelhos', brands: 'Marcas', units: 'Unidades da empresa', accessories: 'Acessórios para aparelhos',
+    departments: 'Departamentos', sectors: 'Setores', models: 'Modelos de aparelhos', brands: 'Marcas', units: 'Unidades da empresa', accessories: 'Acessórios para aparelhos', lineStatuses: 'Status das linhas telefônicas', deviceStatuses: 'Status dos aparelhos celulares',
   };
 
   const catalogUsageCount = (type: CatalogType, name: string): number => {
@@ -287,6 +287,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     if (type === 'models') return devices.filter((item) => item.model === name).length + lines.filter((item) => item.associatedDeviceModel === name).length;
     if (type === 'brands') return devices.filter((item) => item.brand === name).length;
     if (type === 'units') return collaborators.filter((item) => item.unit === name).length + devices.filter((item) => item.unit === name).length + lines.filter((item) => item.unit === name).length;
+    if (type === 'lineStatuses') return lines.filter((item) => item.status === name).length + dataService.getMovements().filter((item) => item.previousLineStatus === name || item.newLineStatus === name).length;
+    if (type === 'deviceStatuses') return devices.filter((item) => item.status === name).length + dataService.getMovements().filter((item) => item.previousDeviceStatus === name || item.newDeviceStatus === name || item.stockTransit?.stockStatusAfter === name).length;
     return dataService.getMovements().filter((item) => item.accessoriesIncluded?.includes(name)).length + dataService.getTerms().filter((item) => item.accessoriesList?.includes(name)).length;
   };
 
@@ -324,6 +326,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const handleCatalogDelete = (type: CatalogType, item: CatalogItem) => {
+    if ((type === 'lineStatuses' && ['line-status-available', 'line-status-in-use'].includes(item.id)) ||
+      (type === 'deviceStatuses' && ['device-status-available', 'device-status-in-use'].includes(item.id))) {
+      setErrorMessage('Este é um status operacional obrigatório e não pode ser excluído.');
+      return;
+    }
     const inUse = catalogUsageCount(type, item.name);
     if (inUse > 0) {
       setErrorMessage(`Não é possível excluir "${item.name}": está em uso por ${inUse} registro(s).`);

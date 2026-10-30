@@ -66,6 +66,8 @@ export const MovementModal: React.FC<MovementModalProps> = ({
   const [lines, setLines] = useState<PhoneLine[]>([]);
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [catalogAccessories, setCatalogAccessories] = useState<CatalogItem[]>(() => dataService.getCatalogs().accessories);
+  const [lineStatusCatalog, setLineStatusCatalog] = useState<CatalogItem[]>(() => dataService.getCatalogs().lineStatuses);
+  const [deviceStatusCatalog, setDeviceStatusCatalog] = useState<CatalogItem[]>(() => dataService.getCatalogs().deviceStatuses);
   const defaultAccessories = (count: number) => catalogAccessories.slice(0, count).map((item) => item.name);
 
   // --- State for ENTREGA (Estoque -> Colaborador) ---
@@ -80,7 +82,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
   const [devolucaoDeviceId, setDevolucaoDeviceId] = useState('');
   const [devolucaoCollabId, setDevolucaoCollabId] = useState('');
   const [devolucaoCondition, setDevolucaoCondition] = useState<DeviceCondition>('Excelente');
-  const [devolucaoDestinoEstoque, setDevolucaoDestinoEstoque] = useState<'Disponível' | 'Aguardando avaliação' | 'Em manutenção' | 'Reservado' | 'Aguardando baixa patrimonial'>('Disponível');
+  const [devolucaoDestinoEstoque, setDevolucaoDestinoEstoque] = useState<string>(() => dataService.getCatalogStatus('deviceStatuses', 'device-status-available', 'Disponível'));
   const [devolucaoLineHandling, setDevolucaoLineHandling] = useState<'retornar_ao_estoque' | 'manter_com_colaborador' | 'desassociar_e_suspender'>('retornar_ao_estoque');
   const [devolucaoAccessories, setDevolucaoAccessories] = useState<string[]>(() => defaultAccessories(3));
   const [devolucaoReason, setDevolucaoReason] = useState('Devolução de aparelho para o Estoque.');
@@ -90,7 +92,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
   const [transfDeviceId, setTransfDeviceId] = useState('');
   const [transfCollabBId, setTransfCollabBId] = useState('');
   const [transfCondition, setTransfCondition] = useState<DeviceCondition>('Excelente');
-  const [transfDestinoEstoque, setTransfDestinoEstoque] = useState<'Disponível' | 'Aguardando avaliação' | 'Em manutenção'>('Disponível');
+  const [transfDestinoEstoque, setTransfDestinoEstoque] = useState<string>(() => dataService.getCatalogStatus('deviceStatuses', 'device-status-available', 'Disponível'));
   const [transfLineHandling, setTransfLineHandling] = useState<'transferir_linha_junto' | 'manter_linha_com_origem' | 'retornar_linha_ao_estoque'>('transferir_linha_junto');
   const [transfAccessories, setTransfAccessories] = useState<string[]>(() => defaultAccessories(2));
   const [transfReason, setTransfReason] = useState('Readequação de equipe e transferência patrimonial.');
@@ -99,7 +101,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
   const [trocaCollabId, setTrocaCollabId] = useState('');
   const [trocaOldDeviceId, setTrocaOldDeviceId] = useState('');
   const [trocaOldCondition, setTrocaOldCondition] = useState<DeviceCondition>('Bom');
-  const [trocaOldDestinoEstoque, setTrocaOldDestinoEstoque] = useState<'Disponível' | 'Aguardando avaliação' | 'Em manutenção' | 'Aguardando baixa patrimonial'>('Aguardando avaliação');
+  const [trocaOldDestinoEstoque, setTrocaOldDestinoEstoque] = useState<string>(() => dataService.getCatalogStatus('deviceStatuses', 'device-status-awaiting-evaluation', 'Aguardando avaliação'));
   const [trocaOldAccessories, setTrocaOldAccessories] = useState<string[]>(() => defaultAccessories(2));
   const [trocaNewDeviceId, setTrocaNewDeviceId] = useState('');
   const [trocaNewCondition, setTrocaNewCondition] = useState<DeviceCondition>('Novo');
@@ -145,6 +147,8 @@ export const MovementModal: React.FC<MovementModalProps> = ({
       void dataService.fetchCatalogs().then((catalogs) => {
         const names = catalogs.accessories.map((item) => item.name);
         setCatalogAccessories(catalogs.accessories);
+        setLineStatusCatalog(catalogs.lineStatuses);
+        setDeviceStatusCatalog(catalogs.deviceStatuses);
         setEntregaAccessories((current) => current.filter((item) => names.includes(item)));
         setDevolucaoAccessories((current) => current.filter((item) => names.includes(item)));
         setTransfAccessories((current) => current.filter((item) => names.includes(item)));
@@ -168,22 +172,22 @@ export const MovementModal: React.FC<MovementModalProps> = ({
         ? devList.find(d => d.id === preselectedDeviceId)
         : undefined;
        if (defaultFlow === 'entrega') {
-         const dev = selectedDevice?.status === 'Disponível' ? selectedDevice : undefined;
+         const dev = selectedDevice?.status === dataService.getCatalogStatus('deviceStatuses', 'device-status-available', 'Disponível') ? selectedDevice : undefined;
          if (dev) setEntregaDeviceId(dev.id);
        } else if (defaultFlow === 'devolucao') {
-         const dev = selectedDevice?.status === 'Em uso' ? selectedDevice : undefined;
+         const dev = selectedDevice?.status === dataService.getCatalogStatus('deviceStatuses', 'device-status-in-use', 'Em uso') ? selectedDevice : undefined;
         if (dev) {
           setDevolucaoDeviceId(dev.id);
           if (dev.currentCollaboratorId) setDevolucaoCollabId(dev.currentCollaboratorId);
         }
        } else if (defaultFlow === 'transferencia') {
-         const dev = selectedDevice?.status === 'Em uso' ? selectedDevice : undefined;
+         const dev = selectedDevice?.status === dataService.getCatalogStatus('deviceStatuses', 'device-status-in-use', 'Em uso') ? selectedDevice : undefined;
         if (dev) {
           setTransfDeviceId(dev.id);
           if (dev.currentCollaboratorId) setTransfCollabAId(dev.currentCollaboratorId);
         }
        } else if (defaultFlow === 'troca') {
-         const dev = selectedDevice?.status === 'Em uso' ? selectedDevice : undefined;
+         const dev = selectedDevice?.status === dataService.getCatalogStatus('deviceStatuses', 'device-status-in-use', 'Em uso') ? selectedDevice : undefined;
         if (dev) {
           setTrocaOldDeviceId(dev.id);
           if (dev.currentCollaboratorId) setTrocaCollabId(dev.currentCollaboratorId);
@@ -202,7 +206,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
         } else if (approvalRequest.type === 'Devolução') {
           setDevolucaoCollabId(requestData.collaboratorId || '');
           const requestedDeviceId = requestData.devices?.[0]?.id;
-          const requestedDevice = devList.find((device) => device.id === requestedDeviceId && device.status === 'Em uso');
+          const requestedDevice = devList.find((device) => device.id === requestedDeviceId && device.status === dataService.getCatalogStatus('deviceStatuses', 'device-status-in-use', 'Em uso'));
           setDevolucaoDeviceId(requestedDevice?.id || '');
         } else if (approvalRequest.type === 'Transferência') {
           setTransfCollabAId(requestData.originCollaboratorId || '');
@@ -233,10 +237,18 @@ export const MovementModal: React.FC<MovementModalProps> = ({
   }, [isOpen, preselectedDeviceId, preselectedCollaboratorId, defaultFlow, approvalRequest]);
 
   // Helpers
-  const availableStockDevices = devices.filter(d => d.status === 'Disponível');
-  const inUseDevices = devices.filter(d => d.status === 'Em uso');
+  const availableDeviceStatus = deviceStatusCatalog.find((item) => item.id === 'device-status-available')?.name || 'Disponível';
+  const inUseDeviceStatus = deviceStatusCatalog.find((item) => item.id === 'device-status-in-use')?.name || 'Em uso';
+  const availableLineStatus = lineStatusCatalog.find((item) => item.id === 'line-status-available')?.name || 'Disponível';
+  const availableStockDevices = devices.filter(d => d.status === availableDeviceStatus);
+  const inUseDevices = devices.filter(d => d.status === inUseDeviceStatus);
+  const deviceStatusOptions = (ids: string[], current: string) => {
+    const options = deviceStatusCatalog.filter((item) => ids.includes(item.id));
+    if (current && !options.some((item) => item.name === current)) options.push({ id: `legacy-${current}`, name: current });
+    return options;
+  };
   const returnFlowDevices = approvalRequest?.type === 'Devolução'
-    ? inUseDevices.filter((device) => device.currentCollaboratorId === approvalRequest.data.collaboratorId)
+      ? inUseDevices.filter((device) => device.currentCollaboratorId === approvalRequest.data.collaboratorId)
     : inUseDevices;
 
   // Handle Devolução Device Change
@@ -251,7 +263,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
   // Handle Transferência Colaborador A Change
   const handleTransfCollabAChange = (collabId: string) => {
     setTransfCollabAId(collabId);
-    const dev = devices.find(d => d.currentCollaboratorId === collabId && d.status === 'Em uso');
+    const dev = devices.find(d => d.currentCollaboratorId === collabId && d.status === inUseDeviceStatus);
     if (dev) {
       setTransfDeviceId(dev.id);
     } else {
@@ -262,7 +274,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
   // Handle Troca Colaborador Change
   const handleTrocaCollabChange = (collabId: string) => {
     setTrocaCollabId(collabId);
-    const dev = devices.find(d => d.currentCollaboratorId === collabId && d.status === 'Em uso');
+    const dev = devices.find(d => d.currentCollaboratorId === collabId && d.status === inUseDeviceStatus);
     if (dev) {
       setTrocaOldDeviceId(dev.id);
     } else {
@@ -628,7 +640,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-ink-600 mb-1">Linha Telefônica (opcional)</label>
-                    <SearchableSelect value={entregaLineId} onChange={setEntregaLineId} options={lineOptions(lines.filter((line) => line.status === 'Disponível'))} placeholder="Selecione a linha" />
+                    <SearchableSelect value={entregaLineId} onChange={setEntregaLineId} options={lineOptions(lines.filter((line) => line.status === availableLineStatus))} placeholder="Selecione a linha" />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-ink-600 mb-1">Condição na entrega</label>
@@ -722,16 +734,8 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-ink-600 mb-1">Status após devolução</label>
-                    <select
-                      value={devolucaoDestinoEstoque}
-                      onChange={(e) => setDevolucaoDestinoEstoque(e.target.value as any)}
-                      className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
-                    >
-                      <option value="Disponível">Disponível em estoque</option>
-                      <option value="Aguardando avaliação">Aguardando avaliação / Vistoria</option>
-                      <option value="Em manutenção">Em manutenção (Assistência técnica)</option>
-                      <option value="Reservado">Reservado para entrega futura</option>
-                      <option value="Aguardando baixa patrimonial">Aguardando baixa patrimonial</option>
+                    <select value={devolucaoDestinoEstoque} onChange={(e) => setDevolucaoDestinoEstoque(e.target.value)} className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800">
+                      {deviceStatusOptions(['device-status-available', 'device-status-awaiting-evaluation', 'device-status-maintenance', 'device-status-reserved', 'device-status-awaiting-disposal'], devolucaoDestinoEstoque).map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}
                     </select>
                   </div>
                   <div>
@@ -743,7 +747,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                     >
                       <option value="retornar_ao_estoque">Retornar ao estoque de linhas (Disponível)</option>
                       <option value="manter_com_colaborador">Manter com o colaborador (BYOD / aguardando novo aparelho)</option>
-                      <option value="desassociar_e_suspender">Desassociar e suspender a linha</option>
+                      <option value="desassociar_e_suspender">Desassociar e liberar a linha (Disponível)</option>
                     </select>
                   </div>
                 </div>
@@ -806,9 +810,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                         onChange={(e) => setTransfDestinoEstoque(e.target.value as any)}
                         className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
                       >
-                        <option value="Disponível">Disponível para nova entrega</option>
-                        <option value="Aguardando avaliação">Aguardando avaliação / Vistoria</option>
-                        <option value="Em manutenção">Em manutenção (Assistência técnica)</option>
+                        {deviceStatusOptions(['device-status-available', 'device-status-awaiting-evaluation', 'device-status-maintenance'], transfDestinoEstoque).map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}
                       </select>
                     </div>
                     <div>
@@ -887,10 +889,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                         onChange={(e) => setTrocaOldDestinoEstoque(e.target.value as any)}
                         className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
                       >
-                        <option value="Aguardando avaliação">Aguardando avaliação / Vistoria</option>
-                        <option value="Em manutenção">Em manutenção (Assistência técnica)</option>
-                        <option value="Disponível">Disponível em estoque</option>
-                        <option value="Aguardando baixa patrimonial">Aguardando baixa patrimonial</option>
+                        {deviceStatusOptions(['device-status-awaiting-evaluation', 'device-status-maintenance', 'device-status-available', 'device-status-awaiting-disposal'], trocaOldDestinoEstoque).map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}
                       </select>
                     </div>
                   </div>
@@ -937,7 +936,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                     {trocaLineOption === 'selecionar_outra_linha' && (
                       <div className="sm:col-span-2">
                         <label className="block text-xs font-medium text-ink-600 mb-1">Outra Linha do Estoque</label>
-                        <SearchableSelect value={trocaCustomLineId} onChange={setTrocaCustomLineId} options={lineOptions(lines.filter((line) => line.status === 'Disponível'))} placeholder="Selecione a linha" />
+                        <SearchableSelect value={trocaCustomLineId} onChange={setTrocaCustomLineId} options={lineOptions(lines.filter((line) => line.status === availableLineStatus))} placeholder="Selecione a linha" />
                       </div>
                     )}
                   </div>
@@ -1087,7 +1086,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                   </div>
                   <div>
                     <span className="text-ink-500">Linha Telefônica: </span>
-                    <strong>{devolucaoLineHandling === 'retornar_ao_estoque' ? 'Retorna ao estoque (Disponível)' : devolucaoLineHandling === 'manter_com_colaborador' ? 'Mantém com o colaborador' : 'Desassociada e suspensa'}</strong>
+                    <strong>{devolucaoLineHandling === 'retornar_ao_estoque' ? 'Retorna ao estoque (Disponível)' : devolucaoLineHandling === 'manter_com_colaborador' ? 'Mantém com o colaborador' : 'Desassociada e liberada (Disponível)'}</strong>
                   </div>
                   <div>
                     <span className="text-ink-500">Condição: </span>

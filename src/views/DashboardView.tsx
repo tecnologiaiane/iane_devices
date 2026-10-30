@@ -52,6 +52,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
   const [catalogs, setCatalogs] = useState<Catalogs>(() => dataService.getCatalogs());
   useEffect(() => { void dataService.fetchCatalogs().then(setCatalogs); }, []);
   const sectors = catalogs.sectors.map((item) => item.name);
+  const deviceInUseStatus = catalogs.deviceStatuses.find((item) => item.id === 'device-status-in-use')?.name || 'Em uso';
+  const deviceAvailableStatus = catalogs.deviceStatuses.find((item) => item.id === 'device-status-available')?.name || 'Disponível';
+  const lineInUseStatus = catalogs.lineStatuses.find((item) => item.id === 'line-status-in-use')?.name || 'Em Uso';
+  const lineAvailableStatus = catalogs.lineStatuses.find((item) => item.id === 'line-status-available')?.name || 'Disponível';
+  const evaluationStatus = catalogs.deviceStatuses.find((item) => item.id === 'device-status-awaiting-evaluation')?.name || 'Aguardando avaliação';
+  const maintenanceStatus = catalogs.deviceStatuses.find((item) => item.id === 'device-status-maintenance')?.name || 'Em manutenção';
   const metrics = dataService.getDashboardMetrics();
   const devices = dataService.getDevices();
   const lines = dataService.getLines();
@@ -128,8 +134,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
 
   const maxDepartmentCount = devicesByDepartment[0]?.[1] || 1;
 
-  const evaluatingDevices = devices.filter((d) => d.status === 'Aguardando avaliação');
-  const maintenanceDevices = devices.filter((d) => d.status === 'Em manutenção');
+  const evaluatingDevices = devices.filter((d) => d.status === evaluationStatus);
+  const maintenanceDevices = devices.filter((d) => d.status === maintenanceStatus);
   const attentionDevices = [...evaluatingDevices, ...maintenanceDevices];
 
   const activeCollaborators = collaborators.filter((c) => c.status === 'Ativo').length;
@@ -138,8 +144,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
   // Resumo de linhas: apenas os DDDs 083, 071 e 084, na ordem fixa.
   const dddRows = TARGET_DDDS.map((ddd) => ({
     ddd: `0${ddd}`,
-    active: lines.filter((l) => extractDdd(l.phoneNumber) === ddd && l.status === 'Ativa').length,
-    available: lines.filter((l) => extractDdd(l.phoneNumber) === ddd && l.status === 'Disponível').length,
+    active: lines.filter((l) => extractDdd(l.phoneNumber) === ddd && (l.status === lineInUseStatus || l.status === 'Ativa')).length,
+    available: lines.filter((l) => extractDdd(l.phoneNumber) === ddd && l.status === lineAvailableStatus).length,
   }));
   const linesOutsideTargetDdds = lines.filter((l) => {
     const ddd = extractDdd(l.phoneNumber);
@@ -150,7 +156,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
   const inUseBySector = new Map<string, number>(sectors.map((sector) => [sector, 0]));
   let inUseWithoutSector = 0;
   devices.forEach((device) => {
-    if (device.status !== 'Em uso') return;
+    if (device.status !== deviceInUseStatus) return;
     const sector = device.sector?.trim();
     if (sector && inUseBySector.has(sector)) {
       inUseBySector.set(sector, (inUseBySector.get(sector) || 0) + 1);
@@ -511,7 +517,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
               <div
                 key={device.id}
                 className={`p-3 rounded-lg border flex items-start justify-between gap-3 ${
-                  device.status === 'Em manutenção'
+                  device.status === maintenanceStatus
                     ? 'bg-orange-50/70 border-orange-200'
                     : 'bg-sun-50/70 border-sun-300'
                 }`}

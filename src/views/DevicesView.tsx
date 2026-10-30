@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Device, DeviceStatus, Movement, DocumentTerm, DeviceCondition, User as AppUser } from '../types';
+import React, { useEffect, useState } from 'react';
+import { Device, DeviceStatus, Movement, DocumentTerm, DeviceCondition, User as AppUser, Catalogs } from '../types';
 import { dataService, STOCK_LABEL, isStockCustody, stockDisplayName } from '../services/dataStorage';
 import { formatDate, formatCurrency, formatImei } from '../utils/formatters';
 import { StatusBadge } from '../components/StatusBadge';
@@ -36,6 +36,8 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
 }) => {
   const canRemoveDevice = currentUser?.role === 'admin';
   const [devices, setDevices] = useState<Device[]>(dataService.getDevices());
+  const [catalogs, setCatalogs] = useState<Catalogs>(() => dataService.getCatalogs());
+  useEffect(() => { void dataService.fetchCatalogs().then(setCatalogs); }, []);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('todos');
   const [stockFilter, setStockFilter] = useState<'todos' | 'em_estoque' | 'com_colaborador'>('todos');
@@ -50,6 +52,8 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
   const [releasingDevice, setReleasingDevice] = useState<Device | null>(null);
   const [releaseCondition, setReleaseCondition] = useState<DeviceCondition>('Excelente');
   const [releaseNotes, setReleaseNotes] = useState('Higienizado e conferido pelo Gestor de Telefonia.');
+  const inUseStatus = catalogs.deviceStatuses.find((item) => item.id === 'device-status-in-use')?.name || 'Em uso';
+  const evaluationStatus = catalogs.deviceStatuses.find((item) => item.id === 'device-status-awaiting-evaluation')?.name || 'Aguardando avaliação';
 
   const refreshData = () => {
     const list = dataService.getDevices();
@@ -81,8 +85,8 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
     if (departmentFilter !== 'todos' && d.currentDepartment !== departmentFilter) return false;
     if (brandFilter !== 'todos' && d.brand !== brandFilter) return false;
 
-    if (stockFilter === 'em_estoque' && d.status === 'Em uso') return false;
-    if (stockFilter === 'com_colaborador' && d.status !== 'Em uso') return false;
+    if (stockFilter === 'em_estoque' && d.status === inUseStatus) return false;
+    if (stockFilter === 'com_colaborador' && d.status !== inUseStatus) return false;
 
     return true;
   });
@@ -180,13 +184,7 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
             className="rounded-md border border-ink-300 bg-white px-2.5 py-1 text-ink-700 font-medium"
           >
             <option value="todos">Status: Todos</option>
-            <option value="Disponível">Disponível em Estoque</option>
-            <option value="Em uso">Em uso (Colaborador)</option>
-            <option value="Aguardando avaliação">Aguardando Avaliação (Estoque)</option>
-            <option value="Em manutenção">Em Manutenção</option>
-            <option value="Reservado">Reservado no Estoque</option>
-            <option value="Aguardando baixa patrimonial">Aguardando Baixa</option>
-            <option value="Baixado">Baixado</option>
+            {catalogs.deviceStatuses.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}
           </select>
 
           {/* Departamento */}
@@ -279,7 +277,7 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
 
                   {/* Custódia / Responsável */}
                   <td className="py-3 px-4">
-                    {device.status === 'Em uso' && device.currentCollaboratorName ? (
+                    {device.status === inUseStatus && device.currentCollaboratorName ? (
                       <div>
                         <span className="font-semibold text-ink-900">{device.currentCollaboratorName}</span>
                         {device.currentDepartment && (
@@ -312,7 +310,7 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
                     </button>
 
                     {/* Ação se Aguardando Avaliação: Liberar para Estoque Disponível */}
-                    {device.status === 'Aguardando avaliação' && (
+                    {device.status === evaluationStatus && (
                       <button
                         title="Conferir e Liberar Ativo para Estoque Disponível"
                         onClick={() => setReleasingDevice(device)}
@@ -443,7 +441,7 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
                       <StatusBadge status={detailDevice.status} type="device" />
                     </div>
                     <p className="text-xs text-ink-500">
-                      Número de Série: <span className="font-mono">{detailDevice.serialNumber}</span> · Custódia: <strong>{detailDevice.status === 'Em uso' ? detailDevice.currentCollaboratorName : STOCK_LABEL}</strong>
+                      Número de Série: <span className="font-mono">{detailDevice.serialNumber}</span> · Custódia: <strong>{detailDevice.status === inUseStatus ? detailDevice.currentCollaboratorName : STOCK_LABEL}</strong>
                     </p>
                   </div>
                 </div>
@@ -629,7 +627,7 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
                 {/* 4. Custódia Atual */}
                 {detailTab === 'responsavel' && (
                   <div className="space-y-3">
-                    {detailDevice.status === 'Em uso' && detailDevice.currentCollaboratorId ? (
+                    {detailDevice.status === inUseStatus && detailDevice.currentCollaboratorId ? (
                       <div className="p-4 bg-ink-50 border border-ink-200 rounded-lg space-y-2">
                         <div className="flex items-center gap-2">
                           <User className="w-4 h-4 text-iane-600" />

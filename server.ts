@@ -357,6 +357,19 @@ async function autoMigrateDatabase(client: pg.PoolClient) {
       CREATE INDEX IF NOT EXISTS idx_movements_date ON movements(movement_date);
     `);
 
+    // Renomeia o status de linha legado para o novo estado de catálogo, sem remover registros.
+    await client.query(`
+      UPDATE phone_lines
+         SET status = CASE WHEN status = 'Ativa' THEN 'Em Uso' ELSE status END,
+             data = CASE WHEN data->>'status' = 'Ativa' THEN jsonb_set(COALESCE(data, '{}'::jsonb), '{status}', '"Em Uso"'::jsonb, true) ELSE COALESCE(data, '{}'::jsonb) END
+       WHERE status = 'Ativa' OR data->>'status' = 'Ativa';
+      UPDATE movements
+         SET data = jsonb_set(jsonb_set(COALESCE(data, '{}'::jsonb), '{previousLineStatus}',
+           CASE WHEN data->>'previousLineStatus' = 'Ativa' THEN '"Em Uso"'::jsonb ELSE COALESCE(data->'previousLineStatus', 'null'::jsonb) END, true),
+           '{newLineStatus}', CASE WHEN data->>'newLineStatus' = 'Ativa' THEN '"Em Uso"'::jsonb ELSE COALESCE(data->'newLineStatus', 'null'::jsonb) END, true)
+       WHERE data->>'previousLineStatus' = 'Ativa' OR data->>'newLineStatus' = 'Ativa';
+    `);
+
     // 7.1 Migração do campo Setor (cadastro de colaboradores).
     //      Registros anteriores não possuem "sector" no JSONB: ficam Administrativo/TI,
     //      preservando todos os outros dados gravados.
@@ -1273,7 +1286,7 @@ async function upsertLine(q: Queryable, l: any, overwrite = true) {
       str(l.accountNumber),
       str(l.planName),
       l.monthlyCost === undefined || l.monthlyCost === null || l.monthlyCost === '' ? null : num(l.monthlyCost),
-      str(l.status) || 'Disponível',
+      str(l.status) || (await getCatalogsFromDb(q)).lineStatuses.find((item) => item.id === 'line-status-available')?.name || 'Disponível',
       str(l.associatedDeviceId),
       str(l.currentCollaboratorId),
       str(l.notes),
@@ -1310,7 +1323,7 @@ async function upsertDevice(q: Queryable, d: any, overwrite = true) {
       num(d.purchaseValue),
       str(d.purchaseDate),
       str(d.condition) || 'Novo',
-      str(d.status) || 'Disponível',
+      str(d.status) || (await getCatalogsFromDb(q)).deviceStatuses.find((item) => item.id === 'device-status-available')?.name || 'Disponível',
       str(d.currentCollaboratorId),
       str(d.associatedLineId ?? d.current_line_id),
       str(d.notes ?? d.stockCustodyNotes),
@@ -1427,8 +1440,12 @@ async function insertAudit(q: Queryable, a: any) {
   );
 }
 
-const CATALOG_TYPES = ['departments', 'sectors', 'models', 'brands', 'units', 'accessories'] as const;
+const CATALOG_TYPES = ['departments', 'sectors', 'models', 'brands', 'units', 'accessories', 'lineStatuses', 'deviceStatuses'] as const;
 type CatalogType = typeof CATALOG_TYPES[number];
+const REQUIRED_STATUS_IDS: Partial<Record<CatalogType, string[]>> = {
+  lineStatuses: ['line-status-available', 'line-status-in-use'],
+  deviceStatuses: ['device-status-available', 'device-status-in-use'],
+};
 type CatalogList = Array<{ id: string; name: string }>;
 type CatalogRecord = Record<CatalogType, CatalogList>;
 
@@ -1440,6 +1457,20 @@ const initialAccessories = [
   'Carregador Original', 'Cabo USB-C / Lightning', 'Capa Protetora Anti-Impacto',
   'Película de Vidro Aplicada', 'Chave Ejetora de Chip (SIM)', 'Embalagem / Caixa Original', 'Fone de Ouvido Corporativo',
 ];
+const initialLineStatuses = [
+  { id: 'line-status-available', name: 'Disponível' },
+  { id: 'line-status-in-use', name: 'Em Uso' },
+];
+const initialDeviceStatuses = [
+  { id: 'device-status-available', name: 'Disponível' },
+  { id: 'device-status-in-use', name: 'Em uso' },
+  { id: 'device-status-awaiting-evaluation', name: 'Aguardando avaliação' },
+  { id: 'device-status-maintenance', name: 'Em manutenção' },
+  { id: 'device-status-reserved', name: 'Reservado' },
+  { id: 'device-status-awaiting-disposal', name: 'Aguardando baixa patrimonial' },
+  { id: 'device-status-disposed', name: 'Baixado' },
+  { id: 'device-status-missing', name: 'Extraviado' },
+];
 
 const uniqueCatalogItems = (type: CatalogType, names: string[]): CatalogList =>
   Array.from(new Set(names.map((name) => String(name || '').trim()).filter(Boolean)))
@@ -1449,8 +1480,13 @@ async function getCatalogsFromDb(q: Queryable): Promise<CatalogRecord> {
   const existing = await q.query('SELECT catalogs FROM system_catalogs WHERE id = $1', ['global']);
   if (existing.rows[0]?.catalogs) {
     const saved = existing.rows[0].catalogs as Partial<CatalogRecord>;
-    if (!Array.isArray(saved.accessories)) {
-      const migrated = { ...saved, accessories: uniqueCatalogItems('accessories', initialAccessories) } as CatalogRecord;
+    if (!Array.isArray(saved.accessories) || !Array.isArray(saved.lineStatuses) || !Array.isArray(saved.deviceStatuses)) {
+      const migrated = {
+        ...saved,
+        accessories: saved.accessories || uniqueCatalogItems('accessories', initialAccessories),
+        lineStatuses: saved.lineStatuses || initialLineStatuses,
+        deviceStatuses: saved.deviceStatuses || initialDeviceStatuses,
+      } as CatalogRecord;
       await q.query('UPDATE system_catalogs SET catalogs = $1::jsonb, updated_at = CURRENT_TIMESTAMP WHERE id = $2', [JSON.stringify(migrated), 'global']);
       return migrated;
     }
@@ -1468,6 +1504,8 @@ async function getCatalogsFromDb(q: Queryable): Promise<CatalogRecord> {
     models: uniqueCatalogItems('models', models.rows.map((row: any) => row.name)),
     units: [],
     accessories: uniqueCatalogItems('accessories', initialAccessories),
+    lineStatuses: initialLineStatuses,
+    deviceStatuses: initialDeviceStatuses,
   } satisfies CatalogRecord;
   await q.query(
     `INSERT INTO system_catalogs (id, catalogs) VALUES ($1, $2::jsonb) ON CONFLICT (id) DO NOTHING`,
@@ -1497,9 +1535,18 @@ const catalogReferenceTables: Record<CatalogType, Array<{ table: string; conditi
     { table: 'devices', condition: `data->>'unit' = $1` },
     { table: 'phone_lines', condition: `data->>'unit' = $1` },
   ],
-  accessories: [
-    { table: 'movements', condition: `$1 = ANY(COALESCE(accessories_returned, ARRAY[]::text[])) OR data->'accessoriesIncluded' @> jsonb_build_array($1::text)` },
-    { table: 'terms_documents', condition: `data->'accessoriesList' @> jsonb_build_array($1::text)` },
+    accessories: [
+      { table: 'movements', condition: `$1 = ANY(COALESCE(accessories_returned, ARRAY[]::text[])) OR data->'accessoriesIncluded' @> jsonb_build_array($1::text)` },
+      { table: 'terms_documents', condition: `data->'accessoriesList' @> jsonb_build_array($1::text)` },
+    ],
+  lineStatuses: [
+    { table: 'phone_lines', condition: `status = $1 OR data->>'status' = $1` },
+    { table: 'movements', condition: `data->>'previousLineStatus' = $1 OR data->>'newLineStatus' = $1` },
+  ],
+  deviceStatuses: [
+    { table: 'devices', condition: `status = $1 OR data->>'status' = $1` },
+    { table: 'movements', condition: `data->>'previousDeviceStatus' = $1 OR data->>'newDeviceStatus' = $1 OR data->'stockTransit'->>'stockStatusAfter' = $1` },
+    { table: 'movement_requests', condition: `data->>'destinationStatusAfterReturn' = $1 OR data->>'oldDestinationStatus' = $1` },
   ],
 };
 
@@ -1550,6 +1597,29 @@ async function renameCatalogReferences(q: Queryable, type: CatalogType, oldName:
           FROM jsonb_array_elements_text(COALESCE(data->'accessoriesList', '[]'::jsonb)) AS item(value)), true)
        WHERE data->'accessoriesList' @> jsonb_build_array($1::text)`,
     ],
+    lineStatuses: [
+      `UPDATE phone_lines SET status = CASE WHEN status = $1 THEN $2 ELSE status END,
+       data = CASE WHEN data->>'status' = $1 THEN jsonb_set(COALESCE(data, '{}'::jsonb), '{status}', to_jsonb($2::text), true) ELSE COALESCE(data, '{}'::jsonb) END
+       WHERE status = $1 OR data->>'status' = $1`,
+      `UPDATE movements SET data = jsonb_set(jsonb_set(COALESCE(data, '{}'::jsonb), '{previousLineStatus}',
+       CASE WHEN data->>'previousLineStatus' = $1 THEN to_jsonb($2::text) ELSE COALESCE(data->'previousLineStatus', 'null'::jsonb) END, true),
+       '{newLineStatus}', CASE WHEN data->>'newLineStatus' = $1 THEN to_jsonb($2::text) ELSE COALESCE(data->'newLineStatus', 'null'::jsonb) END, true)
+       WHERE data->>'previousLineStatus' = $1 OR data->>'newLineStatus' = $1`,
+    ],
+    deviceStatuses: [
+      `UPDATE devices SET status = CASE WHEN status = $1 THEN $2 ELSE status END,
+       data = CASE WHEN data->>'status' = $1 THEN jsonb_set(COALESCE(data, '{}'::jsonb), '{status}', to_jsonb($2::text), true) ELSE COALESCE(data, '{}'::jsonb) END
+       WHERE status = $1 OR data->>'status' = $1`,
+      `UPDATE movements SET data = jsonb_set(jsonb_set(jsonb_set(COALESCE(data, '{}'::jsonb), '{previousDeviceStatus}',
+       CASE WHEN data->>'previousDeviceStatus' = $1 THEN to_jsonb($2::text) ELSE COALESCE(data->'previousDeviceStatus', 'null'::jsonb) END, true),
+       '{newDeviceStatus}', CASE WHEN data->>'newDeviceStatus' = $1 THEN to_jsonb($2::text) ELSE COALESCE(data->'newDeviceStatus', 'null'::jsonb) END, true),
+       '{stockTransit,stockStatusAfter}', CASE WHEN data->'stockTransit'->>'stockStatusAfter' = $1 THEN to_jsonb($2::text) ELSE COALESCE(data->'stockTransit'->'stockStatusAfter', 'null'::jsonb) END, true)
+       WHERE data->>'previousDeviceStatus' = $1 OR data->>'newDeviceStatus' = $1 OR data->'stockTransit'->>'stockStatusAfter' = $1`,
+      `UPDATE movement_requests SET data = jsonb_set(jsonb_set(COALESCE(data, '{}'::jsonb), '{destinationStatusAfterReturn}',
+       CASE WHEN data->>'destinationStatusAfterReturn' = $1 THEN to_jsonb($2::text) ELSE COALESCE(data->'destinationStatusAfterReturn', 'null'::jsonb) END, true),
+       '{oldDestinationStatus}', CASE WHEN data->>'oldDestinationStatus' = $1 THEN to_jsonb($2::text) ELSE COALESCE(data->'oldDestinationStatus', 'null'::jsonb) END, true)
+       WHERE data->>'destinationStatusAfterReturn' = $1 OR data->>'oldDestinationStatus' = $1`,
+    ],
   };
   for (const statement of statements[type]) await q.query(statement, [oldName, newName]);
 }
@@ -1567,6 +1637,8 @@ app.get('/api/catalogs', requireReadAccess, route(async (_req, res) => {
       models: uniqueCatalogItems('models', memoryStore.devices.map((device: any) => device.model)),
       units: [],
       accessories: uniqueCatalogItems('accessories', initialAccessories),
+      lineStatuses: initialLineStatuses,
+      deviceStatuses: initialDeviceStatuses,
     };
   }
   return res.json({ success: true, data: memoryStore.catalogs });
@@ -1590,6 +1662,7 @@ app.put('/api/catalogs/:type', requirePermission('configuracoes'), route(async (
       const currentItems = current[type] || [];
       const nextIds = new Set(items.map((item) => item.id));
       for (const removed of currentItems.filter((item) => !nextIds.has(item.id))) {
+        if (REQUIRED_STATUS_IDS[type]?.includes(removed.id)) throw new HttpError(409, `O status operacional "${removed.name}" é obrigatório e não pode ser excluído.`);
         const inUse = await countCatalogReferences(client, type, removed.name);
         if (inUse > 0) throw new HttpError(409, `Não é possível excluir "${removed.name}": está em uso por ${inUse} registro(s).`);
       }
@@ -1616,6 +1689,7 @@ app.put('/api/catalogs/:type', requirePermission('configuracoes'), route(async (
   const currentItems = current[type] || [];
   const nextIds = new Set(items.map((item) => item.id));
   for (const removed of currentItems.filter((item) => !nextIds.has(item.id))) {
+    if (REQUIRED_STATUS_IDS[type]?.includes(removed.id)) throw new HttpError(409, `O status operacional "${removed.name}" é obrigatório e não pode ser excluído.`);
     const refs = type === 'departments'
       ? memoryStore.collaborators.filter((item: any) => item.department === removed.name).length + memoryStore.devices.filter((item: any) => item.currentDepartment === removed.name).length + memoryStore.lines.filter((item: any) => item.department === removed.name).length
       : type === 'sectors'
@@ -1626,6 +1700,10 @@ app.put('/api/catalogs/:type', requirePermission('configuracoes'), route(async (
       ? memoryStore.devices.filter((item: any) => item.brand === removed.name).length
       : type === 'units'
       ? memoryStore.collaborators.filter((item: any) => item.unit === removed.name).length + memoryStore.devices.filter((item: any) => item.unit === removed.name).length + memoryStore.lines.filter((item: any) => item.unit === removed.name).length
+      : type === 'lineStatuses'
+      ? memoryStore.lines.filter((item: any) => item.status === removed.name).length + memoryStore.movements.filter((item: any) => item.previousLineStatus === removed.name || item.newLineStatus === removed.name).length
+      : type === 'deviceStatuses'
+      ? memoryStore.devices.filter((item: any) => item.status === removed.name).length + memoryStore.movements.filter((item: any) => item.previousDeviceStatus === removed.name || item.newDeviceStatus === removed.name || item.stockTransit?.stockStatusAfter === removed.name).length + memoryStore.requests.filter((item: any) => item.data?.destinationStatusAfterReturn === removed.name || item.data?.oldDestinationStatus === removed.name).length
       : memoryStore.movements.filter((item: any) => item.accessoriesIncluded?.includes(removed.name)).length + memoryStore.terms.filter((item: any) => item.accessoriesList?.includes(removed.name)).length;
     if (refs > 0) throw new HttpError(409, `Não é possível excluir "${removed.name}": está em uso por ${refs} registro(s).`);
   }
@@ -1640,6 +1718,24 @@ app.put('/api/catalogs/:type', requirePermission('configuracoes'), route(async (
     else if (type === 'models') { replace(memoryStore.devices, 'model'); replace(memoryStore.lines, 'associatedDeviceModel'); }
     else if (type === 'brands') replace(memoryStore.devices, 'brand');
     else if (type === 'units') { replace(memoryStore.collaborators, 'unit'); replace(memoryStore.devices, 'unit'); replace(memoryStore.lines, 'unit'); }
+    else if (type === 'lineStatuses') {
+      replace(memoryStore.lines, 'status');
+      for (const movement of memoryStore.movements) {
+        if (movement.previousLineStatus === oldName) movement.previousLineStatus = newName;
+        if (movement.newLineStatus === oldName) movement.newLineStatus = newName;
+      }
+    } else if (type === 'deviceStatuses') {
+      replace(memoryStore.devices, 'status');
+      for (const movement of memoryStore.movements) {
+        if (movement.previousDeviceStatus === oldName) movement.previousDeviceStatus = newName;
+        if (movement.newDeviceStatus === oldName) movement.newDeviceStatus = newName;
+        if (movement.stockTransit?.stockStatusAfter === oldName) movement.stockTransit.stockStatusAfter = newName;
+      }
+      for (const request of memoryStore.requests) {
+        if (request.data?.destinationStatusAfterReturn === oldName) request.data.destinationStatusAfterReturn = newName;
+        if (request.data?.oldDestinationStatus === oldName) request.data.oldDestinationStatus = newName;
+      }
+    }
     else {
       for (const movement of memoryStore.movements) if (Array.isArray(movement.accessoriesIncluded)) movement.accessoriesIncluded = movement.accessoriesIncluded.map((value: string) => value === oldName ? newName : value);
       for (const term of memoryStore.terms) if (Array.isArray(term.accessoriesList)) term.accessoriesList = term.accessoriesList.map((value: string) => value === oldName ? newName : value);
@@ -2279,6 +2375,9 @@ app.post('/api/movements/transfer', requirePermission('movimentacoes'), async (r
 
     const batchOperationId = `batch-transf-${Date.now()}`;
     const STOCK_LABEL = 'Estoque';
+    const catalogs = await getCatalogsFromDb(client);
+    const availableDeviceStatus = catalogs.deviceStatuses.find((item) => item.id === 'device-status-available')?.name || 'Disponível';
+    const inUseDeviceStatus = catalogs.deviceStatuses.find((item) => item.id === 'device-status-in-use')?.name || 'Em uso';
 
     const devRes = await client.query('SELECT * FROM devices WHERE id = $1 FOR UPDATE', [deviceId]);
     if (devRes.rows.length === 0) throw new Error('Dispositivo não encontrado');
@@ -2307,7 +2406,7 @@ app.post('/api/movements/transfer', requirePermission('movimentacoes'), async (r
     ]);
 
     // ETAPA 2: Apenas se 'Disponível'
-    if (stockDestinationStatus === 'Disponível') {
+    if (stockDestinationStatus === availableDeviceStatus) {
       const stage2Id = `mov-${Date.now()}-2`;
       await client.query(`
         INSERT INTO movements (
@@ -2324,12 +2423,12 @@ app.post('/api/movements/transfer', requirePermission('movimentacoes'), async (r
 
       await client.query(`
         UPDATE devices
-        SET status = 'Em uso',
+        SET status = $4,
             current_collaborator_id = $1,
             condition = $2,
             updated_at = CURRENT_TIMESTAMP
         WHERE id = $3
-      `, [destinationCollaboratorId, conditionAtEvaluation, device.id]);
+      `, [destinationCollaboratorId, conditionAtEvaluation, device.id, inUseDeviceStatus]);
     } else {
       await client.query(`
         UPDATE devices
@@ -2352,7 +2451,7 @@ app.post('/api/movements/transfer', requirePermission('movimentacoes'), async (r
     res.json({
       success: true,
       batchOperationId,
-      message: stockDestinationStatus === 'Disponível'
+      message: stockDestinationStatus === availableDeviceStatus
         ? 'Transferência atômica em 2 etapas concluída com sucesso no PostgreSQL!'
         : `Etapa 1 executada: Aparelho devolvido ao estoque com status '${stockDestinationStatus}'.`
     });

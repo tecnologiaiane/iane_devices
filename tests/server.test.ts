@@ -701,8 +701,10 @@ test('cadastros globais validam nomes, permitem CRUD e protegem itens em uso', a
   const headers = bearer(adminToken);
   const loaded = await api('/api/catalogs', { headers });
   assert.equal(loaded.response.status, 200, JSON.stringify(loaded.body));
+  assert.deepEqual(loaded.body.data.lineStatuses.map((item: any) => item.name), ['Disponível', 'Em Uso']);
+  assert.ok(loaded.body.data.deviceStatuses.some((item: any) => item.name === 'Disponível'));
 
-  const types = ['departments', 'sectors', 'models', 'brands', 'units', 'accessories'];
+  const types = ['departments', 'sectors', 'models', 'brands', 'units', 'accessories', 'lineStatuses', 'deviceStatuses'];
   const added: Record<string, { id: string; name: string }> = {};
   for (const type of types) {
     const base = loaded.body.data[type];
@@ -779,5 +781,38 @@ test('cadastros globais validam nomes, permitem CRUD e protegem itens em uso', a
     const result = await api(`/api/catalogs/${type}`, { method: 'PUT', headers, body: JSON.stringify({ items: current[type].filter((item: any) => item.id !== removedId) }) });
     assert.equal(result.response.status, 200, JSON.stringify(result.body));
     current = result.body.data;
+  }
+});
+
+test('desvincular uma linha de aparelho libera a linha e remove a custódia', async () => {
+  const originalStorage = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  const values = new Map<string, string>();
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => { values.set(key, String(value)); },
+      removeItem: (key: string) => { values.delete(key); },
+      clear: () => values.clear(),
+    },
+  });
+  try {
+    const { dataService } = await import('../src/services/dataStorage');
+    const deviceId = 'device-line-unlink-test';
+    const lineId = 'line-unlink-test';
+    values.set('iane_devices_v3', JSON.stringify([{ id: deviceId, assetTag: 'UNLINK-1', model: 'Teste', brand: 'Teste', status: 'Em uso', associatedLineId: lineId, associatedPhoneNumber: '(11) 90000-0000' }]));
+    values.set('iane_lines_v3', JSON.stringify([{ id: lineId, phoneNumber: '(11) 90000-0000', carrier: 'Vivo', status: 'Em Uso', associatedDeviceId: deviceId, associatedDeviceTag: 'UNLINK-1', associatedDeviceModel: 'Teste', currentCollaboratorId: 'collab-unlink', currentCollaboratorName: 'Teste', department: 'TI' }]));
+    const result = dataService.disassociateLine(lineId);
+    assert.equal(result.success, true);
+    const line = dataService.getLines().find((item) => item.id === lineId)!;
+    const device = dataService.getDevices().find((item) => item.id === deviceId)!;
+    assert.equal(line.status, 'Disponível');
+    assert.equal(line.associatedDeviceId, undefined);
+    assert.equal(line.currentCollaboratorId, undefined);
+    assert.equal(device.associatedLineId, undefined);
+  } finally {
+    values.clear();
+    if (originalStorage) Object.defineProperty(globalThis, 'localStorage', originalStorage);
+    else delete (globalThis as any).localStorage;
   }
 });

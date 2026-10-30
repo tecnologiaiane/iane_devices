@@ -28,7 +28,7 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
   const [purchaseDate, setPurchaseDate] = useState('');
   const [purchaseValue, setPurchaseValue] = useState('');
   const [condition, setCondition] = useState<DeviceCondition>('Excelente');
-  const [status, setStatus] = useState<DeviceStatus>('Disponível');
+  const [status, setStatus] = useState<DeviceStatus>(() => dataService.getCatalogStatus('deviceStatuses', 'device-status-available', 'Disponível'));
   const [sector, setSector] = useState('');
   const [unit, setUnit] = useState('');
   const [currentDepartment, setCurrentDepartment] = useState('');
@@ -39,7 +39,10 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
   useEffect(() => {
     if (isOpen) void dataService.fetchCatalogs().then((loaded) => {
       setCatalogs(loaded);
-      if (!deviceToEdit && !brand) setBrand(loaded.brands[0]?.name || '');
+      if (!deviceToEdit) {
+        if (!brand) setBrand(loaded.brands[0]?.name || '');
+        setStatus(loaded.deviceStatuses.find((item) => item.id === 'device-status-available')?.name || 'Disponível');
+      }
     });
   }, [isOpen]);
 
@@ -73,7 +76,7 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
         setPurchaseDate(todayISO());
         setPurchaseValue('');
         setCondition('Novo');
-        setStatus('Disponível');
+        setStatus(dataService.getCatalogStatus('deviceStatuses', 'device-status-available', 'Disponível'));
         setSector('');
         setUnit('');
         setCurrentDepartment('');
@@ -138,6 +141,9 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
     if (current && !values.some((item) => item.name === current)) values.push({ id: `legacy-${current}`, name: current });
     return values.map((item) => ({ value: item.name, label: item.name }));
   };
+  const deviceStatusOptions = [...catalogs.deviceStatuses];
+  if (status && !deviceStatusOptions.some((item) => item.name === status)) deviceStatusOptions.push({ id: `legacy-${status}`, name: status });
+  const inUseStatus = dataService.getCatalogStatus('deviceStatuses', 'device-status-in-use', 'Em uso');
 
   return (
     <Modal
@@ -267,22 +273,13 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
             </label>
             <select
               value={status}
-              disabled={deviceToEdit?.status === 'Em uso'}
+              disabled={deviceToEdit?.status === inUseStatus}
               onChange={(e) => setStatus(e.target.value as DeviceStatus)}
               className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500 disabled:bg-ink-100"
             >
-              <option value="Disponível">Disponível em estoque</option>
-              <option value="Aguardando avaliação">Aguardando avaliação (Estoque)</option>
-              <option value="Em manutenção">Em manutenção</option>
-              <option value="Reservado">Reservado no estoque</option>
-              <option value="Aguardando baixa patrimonial">Aguardando baixa patrimonial</option>
-              <option value="Extraviado">Extraviado</option>
-              <option value="Baixado">Baixado definitivamente</option>
-              {deviceToEdit?.status === 'Em uso' && (
-                <option value="Em uso">Em uso (Vínculo ativo com colaborador)</option>
-              )}
+              {deviceStatusOptions.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}
             </select>
-            {deviceToEdit?.status === 'Em uso' && (
+            {deviceToEdit?.status === inUseStatus && (
               <p className="text-[10px] text-gold-700 mt-0.5">
                 Para alterar status de aparelho "Em uso", realize a movimentação de Devolução.
               </p>

@@ -318,7 +318,7 @@ export const ReportsView: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-ink-100">
-                {devices.filter(d => d.status === 'Disponível').map((d) => (
+                {devices.filter(d => d.status === dataService.getCatalogStatus('deviceStatuses', 'device-status-available', 'Disponível')).map((d) => (
                   <tr key={d.id} className="hover:bg-ink-50/50">
                     <td className="py-2.5 px-3 font-mono font-bold text-ink-900">{d.assetTag}</td>
                     <td className="py-2.5 px-3 font-medium text-ink-900">{d.model}</td>
@@ -446,7 +446,7 @@ export const ReportsView: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-ink-100">
-                {devices.filter(d => d.status === 'Em manutenção').map((d) => (
+                {devices.filter(d => d.status === dataService.getCatalogStatus('deviceStatuses', 'device-status-maintenance', 'Em manutenção')).map((d) => (
                   <tr key={d.id} className="hover:bg-ink-50/50">
                     <td className="py-2.5 px-3 font-mono font-bold text-ink-900">{d.assetTag}</td>
                     <td className="py-2.5 px-3 font-medium text-ink-900">{d.model}</td>

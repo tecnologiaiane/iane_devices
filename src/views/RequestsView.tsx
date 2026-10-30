@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Collaborator, Device, PhoneLine, RequestRecord, RequestType, User } from '../types';
+import { Catalogs, Collaborator, Device, PhoneLine, RequestRecord, RequestType, User } from '../types';
 import { dataService } from '../services/dataStorage';
 import { Modal } from '../components/Modal';
 import { StatusBadge } from '../components/StatusBadge';
@@ -440,12 +440,14 @@ interface RequestModalProps {
 }
 
 const RequestModal: React.FC<RequestModalProps> = ({ flow, onClose, onCreated }) => {
+  const [catalogs, setCatalogs] = useState<Catalogs>(() => dataService.getCatalogs());
+  useEffect(() => { void dataService.fetchCatalogs().then(setCatalogs); }, []);
   const [form, setForm] = useState<Record<string, any>>({
     condition: 'Excelente',
     oldCondition: 'Bom',
     newCondition: 'Novo',
-    destinationStatus: 'Disponível',
-    oldDestinationStatus: 'Aguardando avaliação',
+    destinationStatus: dataService.getCatalogStatus('deviceStatuses', 'device-status-available', 'Disponível'),
+    oldDestinationStatus: dataService.getCatalogStatus('deviceStatuses', 'device-status-awaiting-evaluation', 'Aguardando avaliação'),
     lineHandling: 'transferir_linha_junto',
     returnLineHandling: 'retornar_ao_estoque',
     lineOption: 'manter_linha_atual_no_novo',
@@ -462,12 +464,19 @@ const RequestModal: React.FC<RequestModalProps> = ({ flow, onClose, onCreated })
 
   const setValue = (key: string, value: any) => setForm((previous) => ({ ...previous, [key]: value }));
   const activeCollaborators = collaborators.filter((collaborator) => collaborator.status === 'Ativo');
+  const inUseDeviceStatus = dataService.getCatalogStatus('deviceStatuses', 'device-status-in-use', 'Em uso');
+  const availableDeviceStatus = dataService.getCatalogStatus('deviceStatuses', 'device-status-available', 'Disponível');
+  const deviceStatusOptions = (ids: string[], current: string) => {
+    const options = catalogs.deviceStatuses.filter((item) => ids.includes(item.id));
+    if (current && !options.some((item) => item.name === current)) options.push({ id: `legacy-${current}`, name: current });
+    return options;
+  };
   const selectedCollaborator = collaborators.find((collaborator) => collaborator.id === form.collaboratorId);
   const returnLines = selectedCollaborator
     ? lines.filter((line) => line.currentCollaboratorId === selectedCollaborator.id)
     : [];
   const returnDevices = selectedCollaborator
-    ? devices.filter((device) => device.currentCollaboratorId === selectedCollaborator.id)
+      ? devices.filter((device) => device.currentCollaboratorId === selectedCollaborator.id)
     : [];
 
   const collaboratorOptions = collaborators.map((collaborator) => ({
@@ -483,7 +492,6 @@ const RequestModal: React.FC<RequestModalProps> = ({ flow, onClose, onCreated })
     id: device.id,
     label: `${device.assetTag} · ${device.model}${device.imei1 ? ` · IMEI ${device.imei1}` : ''}`,
   }));
-
   const toggleAccessory = (key: string, accessory: string) => {
     const selected: string[] = form[key] || [];
     setValue(key, selected.includes(accessory)
@@ -730,7 +738,7 @@ const RequestModal: React.FC<RequestModalProps> = ({ flow, onClose, onCreated })
                 <SearchableSelect value={form.originCollaboratorId || ''} options={activeCollaborators.map((c) => ({ id: c.id, label: `${c.fullName} · ${c.registrationNumber || 'Sem matrícula'}` }))} placeholder="Pesquisar colaborador..." onChange={(value) => { setValue('originCollaboratorId', value); setValue('deviceId', ''); }} />
               </Field>
               <Field label="Aparelho em uso pelo Colaborador A *">
-                <SearchableSelect value={form.deviceId || ''} options={deviceOptions(devices.filter((device) => device.status === 'Em uso' && device.currentCollaboratorId === form.originCollaboratorId))} placeholder="Pesquisar aparelho..." onChange={(value) => setValue('deviceId', value)} />
+                      <SearchableSelect value={form.deviceId || ''} options={deviceOptions(devices.filter((device) => device.status === inUseDeviceStatus && device.currentCollaboratorId === form.originCollaboratorId))} placeholder="Pesquisar aparelho..." onChange={(value) => setValue('deviceId', value)} />
               </Field>
             </FormSection>
             <FormSection icon={<UserRound className="h-4 w-4 text-iane-600" />} title="Destino: Colaborador B (Novo Responsável)">
@@ -743,8 +751,8 @@ const RequestModal: React.FC<RequestModalProps> = ({ flow, onClose, onCreated })
                 <select value={form.condition} onChange={(event) => setValue('condition', event.target.value)} className={selectClass}><ConditionOptions /></select>
               </Field>
               <Field label="Status do aparelho ao entrar no Estoque">
-                <select value={form.destinationStatus} onChange={(event) => setValue('destinationStatus', event.target.value)} className={selectClass}>
-                  <option value="Disponível">Disponível para nova entrega</option><option value="Aguardando avaliação">Aguardando avaliação / Vistoria</option><option value="Em manutenção">Em manutenção (Assistência técnica)</option>
+                  <select value={form.destinationStatus} onChange={(event) => setValue('destinationStatus', event.target.value)} className={selectClass}>
+                    {deviceStatusOptions(['device-status-available', 'device-status-awaiting-evaluation', 'device-status-maintenance'], form.destinationStatus).map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}
                 </select>
               </Field>
               <Field label="Tratamento da Linha Telefônica">
@@ -768,19 +776,19 @@ const RequestModal: React.FC<RequestModalProps> = ({ flow, onClose, onCreated })
             </FormSection>
             <FormSection tone="sun" icon={<Smartphone className="h-4 w-4 text-gold-700" />} title="Aparelho Antigo (será devolvido ao Estoque)">
               <Field label="Aparelho Antigo *">
-                <SearchableSelect value={form.oldDeviceId || ''} options={deviceOptions(devices.filter((device) => device.status === 'Em uso' && device.currentCollaboratorId === form.collaboratorId))} placeholder="Pesquisar aparelho..." onChange={(value) => setValue('oldDeviceId', value)} />
+                  <SearchableSelect value={form.oldDeviceId || ''} options={deviceOptions(devices.filter((device) => device.status === inUseDeviceStatus && device.currentCollaboratorId === form.collaboratorId))} placeholder="Pesquisar aparelho..." onChange={(value) => setValue('oldDeviceId', value)} />
               </Field>
               <Field label="Condição do antigo"><select value={form.oldCondition} onChange={(event) => setValue('oldCondition', event.target.value)} className={selectClass}><ConditionOptions /></select></Field>
               <Field label="Destino do Aparelho Antigo no Estoque">
-                <select value={form.oldDestinationStatus} onChange={(event) => setValue('oldDestinationStatus', event.target.value)} className={selectClass}>
-                  <option value="Aguardando avaliação">Aguardando avaliação / Vistoria</option><option value="Em manutenção">Em manutenção (Assistência técnica)</option><option value="Disponível">Disponível em estoque</option><option value="Aguardando baixa patrimonial">Aguardando baixa patrimonial</option>
+                  <select value={form.oldDestinationStatus} onChange={(event) => setValue('oldDestinationStatus', event.target.value)} className={selectClass}>
+                    {deviceStatusOptions(['device-status-awaiting-evaluation', 'device-status-maintenance', 'device-status-available', 'device-status-awaiting-disposal'], form.oldDestinationStatus).map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}
                 </select>
               </Field>
               <AccessoryChoices selected={form.oldAccessories || []} onToggle={(item) => toggleAccessory('oldAccessories', item)} label="Acessórios do aparelho antigo" />
             </FormSection>
             <FormSection tone="green" icon={<Package className="h-4 w-4 text-emerald-700" />} title="Novo Aparelho (será entregue do Estoque)">
               <Field label="Novo Aparelho *">
-                <SearchableSelect value={form.newDeviceId || ''} options={deviceOptions(devices.filter((device) => device.status === 'Disponível' && device.id !== form.oldDeviceId))} placeholder="Pesquisar aparelho disponível..." onChange={(value) => setValue('newDeviceId', value)} />
+                  <SearchableSelect value={form.newDeviceId || ''} options={deviceOptions(devices.filter((device) => device.status === availableDeviceStatus && device.id !== form.oldDeviceId))} placeholder="Pesquisar aparelho disponível..." onChange={(value) => setValue('newDeviceId', value)} />
               </Field>
               <Field label="Condição do novo"><select value={form.newCondition} onChange={(event) => setValue('newCondition', event.target.value)} className={selectClass}><ConditionOptions /></select></Field>
               <Field label="Linha Telefônica no Novo Aparelho">
@@ -790,7 +798,7 @@ const RequestModal: React.FC<RequestModalProps> = ({ flow, onClose, onCreated })
               </Field>
               {form.lineOption === 'selecionar_outra_linha' && (
                 <Field label="Outra Linha do Estoque">
-                  <SearchableSelect value={form.customLineId || ''} options={lineOptions.filter((line) => lines.some((item) => item.id === line.id && item.status === 'Disponível'))} placeholder="Pesquisar linha disponível..." onChange={(value) => setValue('customLineId', value)} />
+                    <SearchableSelect value={form.customLineId || ''} options={lineOptions.filter((line) => lines.some((item) => item.id === line.id && item.status === dataService.getCatalogStatus('lineStatuses', 'line-status-available', 'Disponível')))} placeholder="Pesquisar linha disponível..." onChange={(value) => setValue('customLineId', value)} />
                 </Field>
               )}
               <AccessoryChoices selected={form.newAccessories || []} onToggle={(item) => toggleAccessory('newAccessories', item)} label="Acessórios do novo aparelho" />

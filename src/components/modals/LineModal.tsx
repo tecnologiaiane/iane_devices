@@ -24,7 +24,7 @@ export const LineModal: React.FC<LineModalProps> = ({
   const [carrier, setCarrier] = useState<Carrier>('Vivo');
   const [planName, setPlanName] = useState('');
   const [monthlyCost, setMonthlyCost] = useState('');
-  const [status, setStatus] = useState<LineStatus>('Disponível');
+  const [status, setStatus] = useState<LineStatus>(() => dataService.getCatalogStatus('lineStatuses', 'line-status-available', 'Disponível'));
   const [department, setDepartment] = useState('');
   const [unit, setUnit] = useState('');
   const [activationDate, setActivationDate] = useState('');
@@ -34,7 +34,10 @@ export const LineModal: React.FC<LineModalProps> = ({
   const [catalogs, setCatalogs] = useState<Catalogs>(() => dataService.getCatalogs());
 
   useEffect(() => {
-    if (isOpen) void dataService.fetchCatalogs().then(setCatalogs);
+    if (isOpen) void dataService.fetchCatalogs().then((loaded) => {
+      setCatalogs(loaded);
+      if (!lineToEdit) setStatus(loaded.lineStatuses.find((item) => item.id === 'line-status-available')?.name || 'Disponível');
+    });
   }, [isOpen]);
 
   useEffect(() => {
@@ -56,7 +59,7 @@ export const LineModal: React.FC<LineModalProps> = ({
         setCarrier('Vivo');
         setPlanName('');
         setMonthlyCost('');
-        setStatus('Disponível');
+        setStatus(dataService.getCatalogStatus('lineStatuses', 'line-status-available', 'Disponível'));
         setDepartment('');
         setUnit('');
         setActivationDate(todayISO());
@@ -115,6 +118,8 @@ export const LineModal: React.FC<LineModalProps> = ({
     if (current && !values.some((item) => item.name === current)) values.push({ id: `legacy-${current}`, name: current });
     return values.map((item) => ({ value: item.name, label: item.name }));
   };
+  const lineStatusOptions = [...catalogs.lineStatuses];
+  if (status && !lineStatusOptions.some((item) => item.name === status)) lineStatusOptions.push({ id: `legacy-${status}`, name: status });
 
   return (
     <Modal
@@ -203,11 +208,7 @@ export const LineModal: React.FC<LineModalProps> = ({
               onChange={(e) => setStatus(e.target.value as LineStatus)}
               className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500 font-medium"
             >
-              <option value="Disponível">Disponível (Pronta para uso)</option>
-              <option value="Ativa">Ativa (Em uso por colaborador)</option>
-              <option value="Suspensa">Suspensa (Temporária)</option>
-              <option value="Em processo de cancelamento">Em processo de cancelamento</option>
-              <option value="Cancelada">Cancelada</option>
+              {lineStatusOptions.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}
             </select>
           </div>
 
