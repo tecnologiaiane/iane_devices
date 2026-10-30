@@ -1,6 +1,6 @@
 # IANE - Gestão de Dispositivos
 
-Sistema corporativo para gerenciamento patrimonial completo de smartphones, linhas telefônicas corporativas, termos de responsabilidade e histórico de custódia da IANE Indústria e Comércio.
+Sistema corporativo para gerenciamento patrimonial completo de smartphones, linhas telefônicas corporativas, termos de responsabilidade e histórico de custódia da IANE - Industria de Alimentos do Nordeste LTDA.
 
 Desenvolvido para modernizar e substituir controles manuais em planilhas (*Dashboard*, *Analítico* e *Base de Dados*), garantindo integridade e conformidade nos processos de entrega, devolução, transferência e troca de aparelhos.
 

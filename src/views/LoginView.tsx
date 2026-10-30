@@ -192,7 +192,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
 
       {/* Rodapé institucional discreto */}
       <footer className="absolute bottom-3 text-center text-[11px] text-white/50 tracking-wider">
-        IANE Indústria e Comércio © {new Date().getFullYear()} — Todos os direitos reservados
+        IANE - Industria de Alimentos do Nordeste LTDA © {new Date().getFullYear()} — Todos os direitos reservados
       </footer>
     </div>
   );

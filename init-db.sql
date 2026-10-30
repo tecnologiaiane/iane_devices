@@ -1,6 +1,6 @@
 -- ==============================================================================
 -- TelecomAsset Pro — Script de Inicialização PostgreSQL (init-db.sql)
--- Criado para: IANE Indústria e Comércio
+-- Criado para: IANE - Industria de Alimentos do Nordeste LTDA
 -- ==============================================================================
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
