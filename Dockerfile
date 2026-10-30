@@ -42,6 +42,8 @@ RUN npm install --omit=dev --legacy-peer-deps && npm install -g tsx
 COPY --from=builder /app/dist ./dist
 COPY server.ts ./
 COPY init-db.sql ./
+# Configurações compartilhadas importadas pelo backend em runtime.
+COPY src/config ./src/config
 
 # Pasta das cópias de segurança (montada como volume no docker-compose)
 RUN mkdir -p /app/backups
