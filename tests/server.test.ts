@@ -702,7 +702,7 @@ test('cadastros globais validam nomes, permitem CRUD e protegem itens em uso', a
   const loaded = await api('/api/catalogs', { headers });
   assert.equal(loaded.response.status, 200, JSON.stringify(loaded.body));
 
-  const types = ['departments', 'sectors', 'models', 'brands', 'units'];
+  const types = ['departments', 'sectors', 'models', 'brands', 'units', 'accessories'];
   const added: Record<string, { id: string; name: string }> = {};
   for (const type of types) {
     const base = loaded.body.data[type];
@@ -728,6 +728,13 @@ test('cadastros globais validam nomes, permitem CRUD e protegem itens em uso', a
     body: JSON.stringify({ id: collaboratorId, fullName: 'Teste Catálogo', registrationNumber: collaboratorId, department: department.name, sector: 'TI', position: 'Teste', corporateEmail: '', status: 'Ativo' }),
   });
   assert.equal(collaborator.response.status, 201, JSON.stringify(collaborator.body));
+  const noPositionId = `collab-no-position-${Date.now()}`;
+  const noPosition = await api('/api/collaborators', {
+    method: 'POST', headers,
+    body: JSON.stringify({ id: noPositionId, fullName: 'Sem cargo', registrationNumber: noPositionId, department: 'Administrativo', sector: 'TI', position: '', status: 'Ativo' }),
+  });
+  assert.equal(noPosition.response.status, 201, JSON.stringify(noPosition.body));
+  await api(`/api/collaborators/${noPositionId}`, { method: 'DELETE', headers });
 
   let current = (await api('/api/catalogs', { headers })).body.data;
   department = { ...department, name: `${department.name} Renomeado` };

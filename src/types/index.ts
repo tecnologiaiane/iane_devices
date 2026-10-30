@@ -168,7 +168,7 @@ export interface Movement {
   };
 }
 
-export type CatalogType = 'departments' | 'sectors' | 'models' | 'brands' | 'units';
+export type CatalogType = 'departments' | 'sectors' | 'models' | 'brands' | 'units' | 'accessories';
 
 export interface CatalogItem {
   id: string;

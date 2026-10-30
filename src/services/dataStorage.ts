@@ -23,6 +23,7 @@ import { apiClient, ApiResponse } from './apiClient';
 import { authService } from './authService';
 import { todayISO, nowLocalDateTime } from '../utils/dates';
 import { DEPARTMENTS, SECTORS } from '../utils/collaborators';
+import { INITIAL_ACCESSORIES } from '../utils/assetCatalogs';
 import { canAccessRequests, canApproveRequests, canViewAllRequests } from '../config/requestAccess';
 
 const STORAGE_KEYS = {
@@ -95,11 +96,18 @@ class DataStorageService {
       models: uniqueItems(devices.map((device) => device.model)),
       brands: uniqueItems(devices.map((device) => device.brand)),
       units: [],
+      accessories: uniqueItems(INITIAL_ACCESSORIES),
     };
   }
 
   public getCatalogs(): Catalogs {
-    return this.get<Catalogs>(STORAGE_KEYS.CATALOGS, this.buildInitialCatalogs());
+    const defaults = this.buildInitialCatalogs();
+    const saved = this.get<Partial<Catalogs>>(STORAGE_KEYS.CATALOGS, {});
+    return {
+      ...defaults,
+      ...saved,
+      accessories: saved.accessories || defaults.accessories,
+    };
   }
 
   public async fetchCatalogs(): Promise<Catalogs> {
@@ -139,10 +147,18 @@ class DataStorageService {
         replace(STORAGE_KEYS.LINES, this.getLines(), 'associatedDeviceModel');
       } else if (type === 'brands') {
         replace(STORAGE_KEYS.DEVICES, this.getDevices(), 'brand');
-      } else {
+      } else if (type === 'units') {
         replace(STORAGE_KEYS.COLLABORATORS, this.getCollaborators(), 'unit');
         replace(STORAGE_KEYS.DEVICES, this.getDevices(), 'unit');
         replace(STORAGE_KEYS.LINES, this.getLines(), 'unit');
+      } else {
+        const updateArray = <T extends { [key: string]: any }>(key: string, records: T[], field: string) => {
+          this.set(key, records.map((record) => Array.isArray(record[field]) && record[field].includes(oldName)
+            ? { ...record, [field]: record[field].map((value: string) => value === oldName ? newName : value) }
+            : record));
+        };
+        updateArray(STORAGE_KEYS.MOVEMENTS, this.getMovements(), 'accessoriesIncluded');
+        updateArray(STORAGE_KEYS.TERMS, this.getTerms(), 'accessoriesList');
       }
     }
     return { success: true, message: 'Lista atualizada.', catalogs: response.data };
@@ -2233,7 +2249,7 @@ class DataStorageService {
       this.set(STORAGE_KEYS.AUDIT, data.audit || []);
       if (data.catalogs && typeof data.catalogs === 'object') {
         this.set(STORAGE_KEYS.CATALOGS, data.catalogs);
-        for (const type of ['departments', 'sectors', 'models', 'brands', 'units'] as CatalogType[]) {
+        for (const type of ['departments', 'sectors', 'models', 'brands', 'units', 'accessories'] as CatalogType[]) {
           if (Array.isArray(data.catalogs[type])) void this.saveCatalog(type, data.catalogs[type]);
         }
       }

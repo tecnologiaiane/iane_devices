@@ -1427,7 +1427,7 @@ async function insertAudit(q: Queryable, a: any) {
   );
 }
 
-const CATALOG_TYPES = ['departments', 'sectors', 'models', 'brands', 'units'] as const;
+const CATALOG_TYPES = ['departments', 'sectors', 'models', 'brands', 'units', 'accessories'] as const;
 type CatalogType = typeof CATALOG_TYPES[number];
 type CatalogList = Array<{ id: string; name: string }>;
 type CatalogRecord = Record<CatalogType, CatalogList>;
@@ -1436,6 +1436,10 @@ const initialCatalogValues: Record<'departments' | 'sectors', string[]> = {
   departments: ['Administrativo', 'Comercial', 'Diretoria', 'Financeiro', 'Industrial', 'Logística', 'Contábil'],
   sectors: ['Administrativo', 'Contabilidade', 'TI', 'Comercial', 'Trade', 'Vendas', 'Diretoria', 'Financeiro', 'Industrial', 'Manutenção', 'Produção', 'Qualidade', 'Suprimentos', 'Logística', 'Transportes', 'Expedição'],
 };
+const initialAccessories = [
+  'Carregador Original', 'Cabo USB-C / Lightning', 'Capa Protetora Anti-Impacto',
+  'Película de Vidro Aplicada', 'Chave Ejetora de Chip (SIM)', 'Embalagem / Caixa Original', 'Fone de Ouvido Corporativo',
+];
 
 const uniqueCatalogItems = (type: CatalogType, names: string[]): CatalogList =>
   Array.from(new Set(names.map((name) => String(name || '').trim()).filter(Boolean)))
@@ -1443,7 +1447,15 @@ const uniqueCatalogItems = (type: CatalogType, names: string[]): CatalogList =>
 
 async function getCatalogsFromDb(q: Queryable): Promise<CatalogRecord> {
   const existing = await q.query('SELECT catalogs FROM system_catalogs WHERE id = $1', ['global']);
-  if (existing.rows[0]?.catalogs) return existing.rows[0].catalogs as CatalogRecord;
+  if (existing.rows[0]?.catalogs) {
+    const saved = existing.rows[0].catalogs as Partial<CatalogRecord>;
+    if (!Array.isArray(saved.accessories)) {
+      const migrated = { ...saved, accessories: uniqueCatalogItems('accessories', initialAccessories) } as CatalogRecord;
+      await q.query('UPDATE system_catalogs SET catalogs = $1::jsonb, updated_at = CURRENT_TIMESTAMP WHERE id = $2', [JSON.stringify(migrated), 'global']);
+      return migrated;
+    }
+    return saved as CatalogRecord;
+  }
 
   const [brands, models] = await Promise.all([
     q.query('SELECT DISTINCT brand AS name FROM devices WHERE BTRIM(COALESCE(brand, \'\')) <> \'\' ORDER BY name'),
@@ -1455,6 +1467,7 @@ async function getCatalogsFromDb(q: Queryable): Promise<CatalogRecord> {
     brands: uniqueCatalogItems('brands', brands.rows.map((row: any) => row.name)),
     models: uniqueCatalogItems('models', models.rows.map((row: any) => row.name)),
     units: [],
+    accessories: uniqueCatalogItems('accessories', initialAccessories),
   } satisfies CatalogRecord;
   await q.query(
     `INSERT INTO system_catalogs (id, catalogs) VALUES ($1, $2::jsonb) ON CONFLICT (id) DO NOTHING`,
@@ -1483,6 +1496,10 @@ const catalogReferenceTables: Record<CatalogType, Array<{ table: string; conditi
     { table: 'collaborators', condition: `data->>'unit' = $1` },
     { table: 'devices', condition: `data->>'unit' = $1` },
     { table: 'phone_lines', condition: `data->>'unit' = $1` },
+  ],
+  accessories: [
+    { table: 'movements', condition: `$1 = ANY(COALESCE(accessories_returned, ARRAY[]::text[])) OR data->'accessoriesIncluded' @> jsonb_build_array($1::text)` },
+    { table: 'terms_documents', condition: `data->'accessoriesList' @> jsonb_build_array($1::text)` },
   ],
 };
 
@@ -1520,6 +1537,19 @@ async function renameCatalogReferences(q: Queryable, type: CatalogType, oldName:
       `UPDATE devices SET data = jsonb_set(COALESCE(data, '{}'::jsonb), '{unit}', to_jsonb($2::text), true) WHERE data->>'unit' = $1`,
       `UPDATE phone_lines SET data = jsonb_set(COALESCE(data, '{}'::jsonb), '{unit}', to_jsonb($2::text), true) WHERE data->>'unit' = $1`,
     ],
+    accessories: [
+      `UPDATE movements
+       SET accessories_returned = array_replace(accessories_returned, $1, $2),
+           data = jsonb_set(COALESCE(data, '{}'::jsonb), '{accessoriesIncluded}',
+             (SELECT COALESCE(jsonb_agg(to_jsonb(CASE WHEN value = $1 THEN $2 ELSE value END)), '[]'::jsonb)
+              FROM jsonb_array_elements_text(COALESCE(data->'accessoriesIncluded', '[]'::jsonb)) AS item(value)), true)
+       WHERE $1 = ANY(COALESCE(accessories_returned, ARRAY[]::text[])) OR data->'accessoriesIncluded' @> jsonb_build_array($1::text)`,
+      `UPDATE terms_documents
+       SET data = jsonb_set(COALESCE(data, '{}'::jsonb), '{accessoriesList}',
+         (SELECT COALESCE(jsonb_agg(to_jsonb(CASE WHEN value = $1 THEN $2 ELSE value END)), '[]'::jsonb)
+          FROM jsonb_array_elements_text(COALESCE(data->'accessoriesList', '[]'::jsonb)) AS item(value)), true)
+       WHERE data->'accessoriesList' @> jsonb_build_array($1::text)`,
+    ],
   };
   for (const statement of statements[type]) await q.query(statement, [oldName, newName]);
 }
@@ -1536,6 +1566,7 @@ app.get('/api/catalogs', requireReadAccess, route(async (_req, res) => {
       brands: uniqueCatalogItems('brands', memoryStore.devices.map((device: any) => device.brand)),
       models: uniqueCatalogItems('models', memoryStore.devices.map((device: any) => device.model)),
       units: [],
+      accessories: uniqueCatalogItems('accessories', initialAccessories),
     };
   }
   return res.json({ success: true, data: memoryStore.catalogs });
@@ -1593,7 +1624,9 @@ app.put('/api/catalogs/:type', requirePermission('configuracoes'), route(async (
       ? memoryStore.devices.filter((item: any) => item.model === removed.name).length + memoryStore.lines.filter((item: any) => item.associatedDeviceModel === removed.name).length
       : type === 'brands'
       ? memoryStore.devices.filter((item: any) => item.brand === removed.name).length
-      : memoryStore.collaborators.filter((item: any) => item.unit === removed.name).length + memoryStore.devices.filter((item: any) => item.unit === removed.name).length + memoryStore.lines.filter((item: any) => item.unit === removed.name).length;
+      : type === 'units'
+      ? memoryStore.collaborators.filter((item: any) => item.unit === removed.name).length + memoryStore.devices.filter((item: any) => item.unit === removed.name).length + memoryStore.lines.filter((item: any) => item.unit === removed.name).length
+      : memoryStore.movements.filter((item: any) => item.accessoriesIncluded?.includes(removed.name)).length + memoryStore.terms.filter((item: any) => item.accessoriesList?.includes(removed.name)).length;
     if (refs > 0) throw new HttpError(409, `Não é possível excluir "${removed.name}": está em uso por ${refs} registro(s).`);
   }
   const renames = currentItems.flatMap((old) => {
@@ -1606,7 +1639,11 @@ app.put('/api/catalogs/:type', requirePermission('configuracoes'), route(async (
     else if (type === 'sectors') { replace(memoryStore.collaborators, 'sector'); replace(memoryStore.devices, 'sector'); }
     else if (type === 'models') { replace(memoryStore.devices, 'model'); replace(memoryStore.lines, 'associatedDeviceModel'); }
     else if (type === 'brands') replace(memoryStore.devices, 'brand');
-    else { replace(memoryStore.collaborators, 'unit'); replace(memoryStore.devices, 'unit'); replace(memoryStore.lines, 'unit'); }
+    else if (type === 'units') { replace(memoryStore.collaborators, 'unit'); replace(memoryStore.devices, 'unit'); replace(memoryStore.lines, 'unit'); }
+    else {
+      for (const movement of memoryStore.movements) if (Array.isArray(movement.accessoriesIncluded)) movement.accessoriesIncluded = movement.accessoriesIncluded.map((value: string) => value === oldName ? newName : value);
+      for (const term of memoryStore.terms) if (Array.isArray(term.accessoriesList)) term.accessoriesList = term.accessoriesList.map((value: string) => value === oldName ? newName : value);
+    }
   }
   memoryStore.catalogs = { ...current, [type]: items };
   return res.json({ success: true, data: memoryStore.catalogs });

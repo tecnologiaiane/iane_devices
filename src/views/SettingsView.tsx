@@ -175,8 +175,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [errorMessage, setErrorMessage] = useState('');
   const [openSection, setOpenSection] = useState<SettingsSectionId | null>(null);
   const [catalogs, setCatalogs] = useState<Catalogs>(() => dataService.getCatalogs());
-  const [catalogSearch, setCatalogSearch] = useState<Record<CatalogType, string>>({ departments: '', sectors: '', models: '', brands: '', units: '' });
-  const [catalogDraft, setCatalogDraft] = useState<Record<CatalogType, string>>({ departments: '', sectors: '', models: '', brands: '', units: '' });
+  const [catalogSearch, setCatalogSearch] = useState<Record<CatalogType, string>>({ departments: '', sectors: '', models: '', brands: '', units: '', accessories: '' });
+  const [catalogDraft, setCatalogDraft] = useState<Record<CatalogType, string>>({ departments: '', sectors: '', models: '', brands: '', units: '', accessories: '' });
   const [editingCatalogItem, setEditingCatalogItem] = useState<{ type: CatalogType; id: string } | null>(null);
   const [savingCatalog, setSavingCatalog] = useState<CatalogType | null>(null);
 
@@ -275,7 +275,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const catalogLabels: Record<CatalogType, string> = {
-    departments: 'Departamentos', sectors: 'Setores', models: 'Modelos de aparelhos', brands: 'Marcas', units: 'Unidades da empresa',
+    departments: 'Departamentos', sectors: 'Setores', models: 'Modelos de aparelhos', brands: 'Marcas', units: 'Unidades da empresa', accessories: 'Acessórios para aparelhos',
   };
 
   const catalogUsageCount = (type: CatalogType, name: string): number => {
@@ -286,7 +286,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     if (type === 'sectors') return collaborators.filter((item) => item.sector === name).length + devices.filter((item) => item.sector === name).length;
     if (type === 'models') return devices.filter((item) => item.model === name).length + lines.filter((item) => item.associatedDeviceModel === name).length;
     if (type === 'brands') return devices.filter((item) => item.brand === name).length;
-    return collaborators.filter((item) => item.unit === name).length + devices.filter((item) => item.unit === name).length + lines.filter((item) => item.unit === name).length;
+    if (type === 'units') return collaborators.filter((item) => item.unit === name).length + devices.filter((item) => item.unit === name).length + lines.filter((item) => item.unit === name).length;
+    return dataService.getMovements().filter((item) => item.accessoriesIncluded?.includes(name)).length + dataService.getTerms().filter((item) => item.accessoriesList?.includes(name)).length;
   };
 
   const persistCatalog = async (type: CatalogType, nextItems: CatalogItem[]) => {

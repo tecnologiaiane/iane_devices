@@ -82,10 +82,6 @@ export const CollaboratorModal: React.FC<CollaboratorModalProps> = ({
       setErrorMessage('Informe o nome completo do colaborador.');
       return;
     }
-    if (!position.trim()) {
-      setErrorMessage('Informe o cargo ou função do colaborador.');
-      return;
-    }
     if (corporateEmail.trim() && !corporateEmail.includes('@')) {
       setErrorMessage('Informe um e-mail válido.');
       return;
@@ -191,7 +187,7 @@ export const CollaboratorModal: React.FC<CollaboratorModalProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-semibold text-ink-700 mb-1">
-              Cargo / Função *
+              Cargo / Função
             </label>
             <input
               type="text"
@@ -199,7 +195,6 @@ export const CollaboratorModal: React.FC<CollaboratorModalProps> = ({
               onChange={(e) => setPosition(e.target.value)}
               placeholder="Ex: Gerente Regional de Vendas"
               className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500"
-              required
             />
           </div>
 

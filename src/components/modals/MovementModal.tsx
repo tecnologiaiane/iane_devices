@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Modal } from '../Modal';
-import { Device, PhoneLine, Collaborator, DeviceCondition, DocumentTerm, RequestRecord } from '../../types';
+import { Device, PhoneLine, Collaborator, DeviceCondition, DocumentTerm, RequestRecord, TermType, CatalogItem } from '../../types';
 import { dataService } from '../../services/dataStorage';
 import { todayISO } from '../../utils/dates';
 import {
@@ -16,9 +16,11 @@ import {
   Info,
   X,
   Search,
+  FileText,
 } from 'lucide-react';
 import { SearchableMultiSelect, SearchableOption, SearchableSelect } from '../SearchableSelect';
 import { formatPhone } from '../../utils/formatters';
+import { MAX_PDF_BYTES, formatFileSize, readFileAsBase64, validatePdfFile } from '../../utils/pdfUpload';
 
 export type OfficialFlowType = 
   | 'entrega' 
@@ -35,16 +37,6 @@ interface MovementModalProps {
   defaultFlow?: OfficialFlowType;
   approvalRequest?: RequestRecord | null;
 }
-
-const COMMON_ACCESSORIES = [
-  'Carregador Original',
-  'Cabo USB-C / Lightning',
-  'Capa Protetora Anti-Impacto',
-  'Película de Vidro Aplicada',
-  'Chave Ejetora de Chip (SIM)',
-  'Embalagem / Caixa Original',
-  'Fone de Ouvido Corporativo',
-];
 
 const FLOW_LABELS: Record<OfficialFlowType, string> = {
   entrega: 'Entrega',
@@ -67,22 +59,21 @@ export const MovementModal: React.FC<MovementModalProps> = ({
   const [showSummary, setShowSummary] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [isApprovalSubmitting, setIsApprovalSubmitting] = useState(false);
+  const [isAttachingPdf, setIsAttachingPdf] = useState(false);
 
   // Lists
   const [devices, setDevices] = useState<Device[]>([]);
   const [lines, setLines] = useState<PhoneLine[]>([]);
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
+  const [catalogAccessories, setCatalogAccessories] = useState<CatalogItem[]>(() => dataService.getCatalogs().accessories);
+  const defaultAccessories = (count: number) => catalogAccessories.slice(0, count).map((item) => item.name);
 
   // --- State for ENTREGA (Estoque -> Colaborador) ---
   const [entregaDeviceId, setEntregaDeviceId] = useState('');
   const [entregaCollabId, setEntregaCollabId] = useState('');
   const [entregaLineId, setEntregaLineId] = useState('');
   const [entregaCondition, setEntregaCondition] = useState<DeviceCondition>('Novo');
-  const [entregaAccessories, setEntregaAccessories] = useState<string[]>([
-    'Carregador Original',
-    'Cabo USB-C / Lightning',
-    'Capa Protetora Anti-Impacto',
-  ]);
+  const [entregaAccessories, setEntregaAccessories] = useState<string[]>(() => defaultAccessories(3));
   const [entregaReason, setEntregaReason] = useState('');
 
   // --- State for DEVOLUÇÃO (Colaborador -> Estoque) ---
@@ -91,11 +82,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
   const [devolucaoCondition, setDevolucaoCondition] = useState<DeviceCondition>('Excelente');
   const [devolucaoDestinoEstoque, setDevolucaoDestinoEstoque] = useState<'Disponível' | 'Aguardando avaliação' | 'Em manutenção' | 'Reservado' | 'Aguardando baixa patrimonial'>('Disponível');
   const [devolucaoLineHandling, setDevolucaoLineHandling] = useState<'retornar_ao_estoque' | 'manter_com_colaborador' | 'desassociar_e_suspender'>('retornar_ao_estoque');
-  const [devolucaoAccessories, setDevolucaoAccessories] = useState<string[]>([
-    'Carregador Original',
-    'Cabo USB-C / Lightning',
-    'Capa Protetora Anti-Impacto',
-  ]);
+  const [devolucaoAccessories, setDevolucaoAccessories] = useState<string[]>(() => defaultAccessories(3));
   const [devolucaoReason, setDevolucaoReason] = useState('Devolução de aparelho para o Estoque.');
 
   // --- State for TRANSFERÊNCIA (Colaborador A -> Estoque -> Colaborador B) ---
@@ -105,10 +92,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
   const [transfCondition, setTransfCondition] = useState<DeviceCondition>('Excelente');
   const [transfDestinoEstoque, setTransfDestinoEstoque] = useState<'Disponível' | 'Aguardando avaliação' | 'Em manutenção'>('Disponível');
   const [transfLineHandling, setTransfLineHandling] = useState<'transferir_linha_junto' | 'manter_linha_com_origem' | 'retornar_linha_ao_estoque'>('transferir_linha_junto');
-  const [transfAccessories, setTransfAccessories] = useState<string[]>([
-    'Carregador Original',
-    'Cabo USB-C / Lightning',
-  ]);
+  const [transfAccessories, setTransfAccessories] = useState<string[]>(() => defaultAccessories(2));
   const [transfReason, setTransfReason] = useState('Readequação de equipe e transferência patrimonial.');
 
   // --- State for TROCA (Colaborador A [Antigo] -> Estoque | Estoque [Novo] -> Colaborador A) ---
@@ -116,17 +100,10 @@ export const MovementModal: React.FC<MovementModalProps> = ({
   const [trocaOldDeviceId, setTrocaOldDeviceId] = useState('');
   const [trocaOldCondition, setTrocaOldCondition] = useState<DeviceCondition>('Bom');
   const [trocaOldDestinoEstoque, setTrocaOldDestinoEstoque] = useState<'Disponível' | 'Aguardando avaliação' | 'Em manutenção' | 'Aguardando baixa patrimonial'>('Aguardando avaliação');
-  const [trocaOldAccessories, setTrocaOldAccessories] = useState<string[]>([
-    'Carregador Original',
-    'Cabo USB-C / Lightning',
-  ]);
+  const [trocaOldAccessories, setTrocaOldAccessories] = useState<string[]>(() => defaultAccessories(2));
   const [trocaNewDeviceId, setTrocaNewDeviceId] = useState('');
   const [trocaNewCondition, setTrocaNewCondition] = useState<DeviceCondition>('Novo');
-  const [trocaNewAccessories, setTrocaNewAccessories] = useState<string[]>([
-    'Carregador Original',
-    'Cabo USB-C / Lightning',
-    'Capa Protetora Anti-Impacto',
-  ]);
+  const [trocaNewAccessories, setTrocaNewAccessories] = useState<string[]>(() => defaultAccessories(3));
   const [trocaLineOption, setTrocaLineOption] = useState<'manter_linha_atual_no_novo' | 'sem_linha' | 'selecionar_outra_linha'>('manter_linha_atual_no_novo');
   const [trocaCustomLineId, setTrocaCustomLineId] = useState('');
   const [trocaReason, setTrocaReason] = useState('Atualização de modelo e substituição periódica.');
@@ -139,6 +116,8 @@ export const MovementModal: React.FC<MovementModalProps> = ({
   const [isTermPickerOpen, setIsTermPickerOpen] = useState(false);
   const [termSearch, setTermSearch] = useState('');
   const [termDraftIds, setTermDraftIds] = useState<string[]>([]);
+  const [termPdfFile, setTermPdfFile] = useState<File | null>(null);
+  const [termPdfError, setTermPdfError] = useState('');
 
   // Initial load
   useEffect(() => {
@@ -150,6 +129,15 @@ export const MovementModal: React.FC<MovementModalProps> = ({
       setLines(lineList);
       setCollaborators(collabList);
       setAvailableTerms(dataService.getTerms());
+      void dataService.fetchCatalogs().then((catalogs) => {
+        const names = catalogs.accessories.map((item) => item.name);
+        setCatalogAccessories(catalogs.accessories);
+        setEntregaAccessories((current) => current.filter((item) => names.includes(item)));
+        setDevolucaoAccessories((current) => current.filter((item) => names.includes(item)));
+        setTransfAccessories((current) => current.filter((item) => names.includes(item)));
+        setTrocaOldAccessories((current) => current.filter((item) => names.includes(item)));
+        setTrocaNewAccessories((current) => current.filter((item) => names.includes(item)));
+      });
        setSelectedTermIds([]);
        setIsTermPickerOpen(false);
        setTermSearch('');
@@ -282,12 +270,27 @@ export const MovementModal: React.FC<MovementModalProps> = ({
     value: collaborator.id,
     label: `${collaborator.fullName} · ${collaborator.registrationNumber || 'Sem matrícula'} · ${collaborator.department || 'Sem departamento'}`,
   }));
-  const accessoryOptions = COMMON_ACCESSORIES.map((item) => ({ value: item, label: item }));
+  const accessoryOptions = catalogAccessories.map((item) => ({ value: item.name, label: item.name }));
+  const handleTermPdfSelect = async (file?: File) => {
+    setTermPdfError('');
+    if (!file) return;
+    if (file.size > MAX_PDF_BYTES) {
+      setTermPdfError(`O PDF tem ${formatFileSize(file.size)} e excede o limite de 10 MB.`);
+      return;
+    }
+    const validationError = await validatePdfFile(file);
+    if (validationError) {
+      setTermPdfError(validationError);
+      return;
+    }
+    setTermPdfFile(file);
+  };
 
   // Validation before opening summary
   const handleReview = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
+    if (termPdfError) return setErrorMessage(termPdfError);
 
     if (activeFlow === 'entrega') {
       if (!entregaDeviceId) return setErrorMessage('Selecione um aparelho disponível no estoque.');
@@ -415,6 +418,69 @@ export const MovementModal: React.FC<MovementModalProps> = ({
     if (selectedTermIds.length) {
       const linked = dataService.linkTermsToMovement(completedMovementId, completedBatchId, selectedTermIds);
       if (!linked.success) return setErrorMessage(linked.message);
+    }
+
+    if (termPdfFile) {
+      const movements = dataService.getMovements();
+      const movement = (completedMovementId ? movements.find((item) => item.id === completedMovementId) : undefined) ||
+        (completedBatchId ? movements.find((item) => item.batchOperationId === completedBatchId && item.type.includes('Entrega')) : undefined) ||
+        (completedBatchId ? movements.find((item) => item.batchOperationId === completedBatchId) : undefined);
+      if (!movement) {
+        window.alert('Movimentação registrada, mas não foi possível localizar o registro para vincular o PDF.');
+      } else {
+        setIsAttachingPdf(true);
+        try {
+          const device = movement.deviceId ? dataService.getDeviceById(movement.deviceId) : undefined;
+          const collaboratorId = movement.destinationCollaboratorId || movement.originCollaboratorId;
+          const collaborator = collaboratorId ? dataService.getCollaboratorById(collaboratorId) : undefined;
+          const line = movement.phoneLineId ? lines.find((item) => item.id === movement.phoneLineId) : undefined;
+          const termType: TermType = activeFlow === 'entrega'
+            ? 'Termo de Entrega'
+            : activeFlow === 'devolucao'
+            ? 'Termo de Devolução'
+            : activeFlow === 'transferencia'
+            ? 'Termo de Transferência'
+            : 'Outro';
+          const termId = `term-movement-pdf-${movement.id}`;
+          const term: DocumentTerm = {
+            id: termId,
+            code: `${movement.code}-PDF`,
+            type: termType,
+            title: `${termType} · ${termPdfFile.name}`,
+            date: movement.date,
+            movementId: movement.id,
+            batchOperationId: movement.batchOperationId,
+            deviceId: movement.deviceId,
+            deviceTag: movement.deviceTag,
+            deviceModel: movement.deviceName,
+            deviceImei: movement.imei,
+            phoneLineId: movement.phoneLineId,
+            phoneNumber: movement.phoneNumber || line?.phoneNumber,
+            collaboratorId,
+            collaboratorName: collaborator?.fullName || movement.destinationCollaboratorName || movement.originCollaboratorName,
+            collaboratorRegistration: collaborator?.registrationNumber,
+            collaboratorCpf: collaborator?.cpf,
+            collaboratorDepartment: collaborator?.department,
+            status: 'Pendente de Assinatura',
+            accessoriesList: movement.accessoriesIncluded || [],
+            clauses: [],
+            notes: 'PDF anexado diretamente à movimentação.',
+            fileName: termPdfFile.name,
+          };
+          const fileData = await readFileAsBase64(termPdfFile);
+          const uploaded = await dataService.createTermWithPdf(term, fileData);
+          if (!uploaded.success) {
+            window.alert(`Movimentação registrada, mas o PDF não foi anexado: ${uploaded.message}`);
+          } else {
+            const linked = dataService.linkTermsToMovement(movement.id, movement.batchOperationId, [...selectedTermIds, termId]);
+            if (!linked.success) window.alert(`PDF anexado, mas não foi possível atualizar o vínculo: ${linked.message}`);
+          }
+        } catch {
+          window.alert('Movimentação registrada, mas não foi possível enviar o PDF. O termo pode ser anexado depois em Termos e documentos.');
+        } finally {
+          setIsAttachingPdf(false);
+        }
+      }
     }
 
     onSuccess();
@@ -564,6 +630,16 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                       <option value="Regular">Regular</option>
                       <option value="Danificado">Danificado</option>
                     </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-ink-600 mb-1">Data da movimentação *</label>
+                    <input
+                      type="date"
+                      value={date}
+                      onChange={(e) => setDate(e.target.value)}
+                      required
+                      className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
+                    />
                   </div>
                 </div>
 
@@ -871,7 +947,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
               </div>
             )}
 
-            <div>
+            {activeFlow !== 'entrega' && <div>
               <label className="block text-xs font-medium text-ink-600 mb-1">Data da movimentação *</label>
               <input
                 type="date"
@@ -880,7 +956,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                 required
                 className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
               />
-            </div>
+            </div>}
 
             {/* Observações Gerais */}
             <div>
@@ -895,14 +971,19 @@ export const MovementModal: React.FC<MovementModalProps> = ({
 
             {/* Botão Revisar */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
-              <div className="flex flex-wrap items-center gap-1.5">
+              <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                 {selectedTerms.map((term) => (
                   <span key={term.id} className="inline-flex items-center gap-1 rounded-md border border-iane-200 bg-iane-50 px-2 py-1 text-[11px] font-medium text-iane-800">
                     {term.code}<button type="button" aria-label={`Remover termo ${term.code}`} onClick={() => setSelectedTermIds((current) => current.filter((id) => id !== term.id))} className="text-iane-600 hover:text-rose-600"><X className="h-3 w-3" /></button>
                   </span>
                 ))}
+                {termPdfFile && <span className="inline-flex max-w-full items-center gap-1 rounded-md border border-ink-200 bg-white px-2 py-1 text-[11px] text-ink-700"><span className="max-w-44 truncate">{termPdfFile.name}</span><button type="button" aria-label="Remover PDF anexado" onClick={() => { setTermPdfFile(null); setTermPdfError(''); }} className="text-ink-500 hover:text-rose-600"><X className="h-3 w-3" /></button></span>}
               </div>
               <div className="flex justify-end gap-2">
+                <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-ink-300 bg-white px-4 py-2 text-sm font-semibold text-ink-700 transition-colors hover:bg-ink-50">
+                  <input type="file" accept="application/pdf,.pdf" className="hidden" onChange={(event) => { void handleTermPdfSelect(event.target.files?.[0]); event.target.value = ''; }} />
+                  <FileText className="h-4 w-4" />Anexar PDF
+                </label>
                 <button
                   type="button"
                   onClick={() => { setTermSearch(''); setTermDraftIds(selectedTermIds); setIsTermPickerOpen(true); }}
@@ -919,6 +1000,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
               </button>
               </div>
             </div>
+            {termPdfError && <p role="alert" className="text-xs text-rose-700">{termPdfError}</p>}
           </form>
         )}
 
@@ -1109,11 +1191,11 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                 <button
                   type="button"
                   onClick={handleConfirmOperation}
-                  disabled={isApprovalSubmitting}
+                  disabled={isApprovalSubmitting || isAttachingPdf}
                   className="inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-xs transition-colors disabled:opacity-60"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
-                  {isApprovalSubmitting ? 'Aprovando...' : approvalRequest ? 'Aprovar e Registrar Operação' : 'Confirmar e Registrar Operação Oficial'}
+                  {isAttachingPdf ? 'Anexando PDF...' : isApprovalSubmitting ? 'Aprovando...' : approvalRequest ? 'Aprovar e Registrar Operação' : 'Confirmar e Registrar Operação Oficial'}
                 </button>
               </div>
             </div>
