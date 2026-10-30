@@ -152,7 +152,7 @@ docker compose up -d --build
 
 > Se o volume `postgres_data` já existe, `POSTGRES_PASSWORD` precisa ser a senha com que o banco foi inicializado; alterar a variável não muda a senha dentro do volume. Trocar implica recriar o volume (`docker compose down -v`), o que apaga os dados.
 
-O compose recusa iniciar sem `POSTGRES_PASSWORD`, `DATABASE_URL` e `JWT_SECRET` definidos. A porta do PostgreSQL é publicada apenas em `127.0.0.1:5432` (acesso administrativo local); remova essa seção ou ajuste conscientemente para expor na rede. O container da aplicação define `TZ=America/Sao_Paulo` e `ALLOW_MEMORY_FALLBACK=false`. Senhas com caracteres especiais (`@`, `#`, `/`, `:`) precisam ser codificadas na URL do `DATABASE_URL` (ex.: `@` → `%40`).
+O compose recusa iniciar sem `POSTGRES_PASSWORD`, `DATABASE_URL` e `JWT_SECRET` definidos. Por padrão, a porta do PostgreSQL é publicada apenas em `127.0.0.1:5432` (acesso administrativo local). Para liberar acesso externo, defina `POSTGRES_BIND_IP=0.0.0.0` no `.env` e restrinja a porta 5432 ao firewall da rede interna. O container da aplicação define `TZ=America/Sao_Paulo` e `ALLOW_MEMORY_FALLBACK=false`. Senhas com caracteres especiais (`@`, `#`, `/`, `:`) precisam ser codificadas na URL do `DATABASE_URL` (ex.: `@` → `%40`).
 
 #### Login retorna 503 e o log mostra `password authentication failed`
 
@@ -181,12 +181,27 @@ Alternativa (somente se não houver dados a preservar): `docker compose down -v 
 
 #### DBeaver / acesso externo ao PostgreSQL
 
-Como a porta está publicada em `127.0.0.1`, conexões de outra máquina são recusadas por padrão. Use túnel SSH:
+Como a porta é publicada em `127.0.0.1` por padrão, conexões de outra máquina são recusadas. A opção mais segura é usar túnel SSH:
 
 ```bash
 ssh -L 5433:127.0.0.1:5432 iane@app04
 # no DBeaver: host localhost, porta 5433, banco telecom_assets, usuário iane_admin
 ```
+
+Para conectar diretamente pelo IP do servidor, defina no `.env` o IP da interface interna (ex.: `10.0.0.45`) ou `0.0.0.0`:
+
+```bash
+POSTGRES_BIND_IP=10.0.0.45
+```
+
+Depois recrie o container e libere a porta 5432 apenas para a rede interna no firewall:
+
+```bash
+docker compose up -d postgres
+# no DBeaver: host 10.0.0.45, porta 5432, banco telecom_assets, usuário iane_admin
+```
+
+Evite expor a porta 5432 para a internet.
 
 
 ---

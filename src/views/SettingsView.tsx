@@ -495,17 +495,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const handleSaveUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    const normalizedUsername = formUsername.trim().toLowerCase();
+    const trimmedUsername = formUsername.trim();
 
-    if (!formFullName.trim() || !normalizedUsername) {
+    if (!formFullName.trim() || !trimmedUsername) {
       setErrorMessage('Nome completo e nome de usuário são obrigatórios.');
       return;
     }
 
     if (
-      normalizedUsername.length < 3 ||
-      normalizedUsername.length > 100 ||
-      !/^[a-z0-9._@-]+$/.test(normalizedUsername)
+      trimmedUsername.length < 3 ||
+      trimmedUsername.length > 100 ||
+      !/^[A-Za-z0-9._@-]+$/.test(trimmedUsername)
     ) {
       setErrorMessage(
         'O nome de usuário deve ter de 3 a 100 caracteres e usar apenas letras, números, ponto, hífen, underline ou @.'
@@ -525,7 +525,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     const payload: SystemUserFormData = {
       id: userToEdit?.id,
       fullName: formFullName.trim(),
-      username: normalizedUsername,
+      username: trimmedUsername,
       email: formEmail.trim() || undefined,
       password: formPassword.trim() || undefined,
       role: formRole,
@@ -1112,7 +1112,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     required
                     disabled={!isAdmin}
                     value={formUsername}
-                    onChange={(e) => setFormUsername(e.target.value.toLowerCase())}
+                    onChange={(e) => setFormUsername(e.target.value)}
                     placeholder="Ex: carlos.silva"
                     className="w-full text-xs px-3 py-2 border border-ink-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-iane-500 disabled:bg-ink-100 disabled:text-ink-500 disabled:cursor-not-allowed"
                   />

@@ -58,7 +58,7 @@ class AuthService {
   }
 
   public async login(credentials: LoginCredentials): Promise<{ success: boolean; message?: string; user?: User }> {
-    const trimmedUser = credentials.username.trim().toLowerCase();
+    const trimmedUser = credentials.username.trim();
     const trimmedPass = credentials.password.trim();
 
     if (!trimmedUser || !trimmedPass) {

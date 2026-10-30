@@ -909,7 +909,7 @@ app.post('/api/users', requirePermission('manage_users'), async (req, res) => {
     return res.status(400).json({ success: false, message: 'Nome, usuário e senha são obrigatórios.' });
   }
 
-  const trimmedUsername = username.trim().toLowerCase();
+  const trimmedUsername = username.trim();
   const passwordHash = await bcrypt.hash(password.trim(), 10);
   const id = `user-${Date.now()}`;
   const userRole = role || 'operador';
@@ -919,7 +919,7 @@ app.post('/api/users', requirePermission('manage_users'), async (req, res) => {
   if (pool && isDbConnected) {
     try {
       // Verifica duplicação
-      const existing = await pool.query('SELECT id FROM system_users WHERE LOWER(username) = $1', [trimmedUsername]);
+      const existing = await pool.query('SELECT id FROM system_users WHERE LOWER(username) = LOWER($1)', [trimmedUsername]);
       if (existing.rows.length > 0) {
         return res.status(400).json({ success: false, message: 'Este nome de usuário já está em uso.' });
       }
@@ -937,7 +937,7 @@ app.post('/api/users', requirePermission('manage_users'), async (req, res) => {
   }
 
   // Fallback
-  if (memoryStore.users.some(u => u.username.toLowerCase() === trimmedUsername)) {
+  if (memoryStore.users.some(u => u.username.toLowerCase() === trimmedUsername.toLowerCase())) {
     return res.status(400).json({ success: false, message: 'Este nome de usuário já está em uso.' });
   }
   const newUser = {
@@ -963,14 +963,14 @@ app.put('/api/users/:id', requirePermission('manage_users'), async (req, res) =>
   const { fullName, email, password, role, permissions, active } = body;
 
   const usernameProvided = Object.prototype.hasOwnProperty.call(body, 'username');
-  const newUsername = usernameProvided ? String(body.username ?? '').trim().toLowerCase() : undefined;
+  const newUsername = usernameProvided ? String(body.username ?? '').trim() : undefined;
 
   if (usernameProvided) {
     if (
       !newUsername ||
       newUsername.length < 3 ||
       newUsername.length > 100 ||
-      !/^[a-z0-9._@-]+$/.test(newUsername)
+      !/^[A-Za-z0-9._@-]+$/.test(newUsername)
     ) {
       return res.status(400).json({
         success: false,
@@ -993,7 +993,7 @@ app.put('/api/users/:id', requirePermission('manage_users'), async (req, res) =>
       // Somente o Super Admin pode alterar o nome de login de um usuário.
       if (
         newUsername !== undefined &&
-        newUsername !== String(currentUser.username || '').toLowerCase() &&
+        newUsername.toLowerCase() !== String(currentUser.username || '').toLowerCase() &&
         (req as any).user?.role !== 'admin'
       ) {
         return res.status(403).json({
@@ -1004,7 +1004,7 @@ app.put('/api/users/:id', requirePermission('manage_users'), async (req, res) =>
 
       if (newUsername !== undefined) {
         const duplicate = await pool.query(
-          'SELECT id FROM system_users WHERE LOWER(username) = $1 AND id <> $2',
+          'SELECT id FROM system_users WHERE LOWER(username) = LOWER($1) AND id <> $2',
           [newUsername, id]
         );
         if (duplicate.rows.length > 0) {
@@ -1075,7 +1075,7 @@ app.put('/api/users/:id', requirePermission('manage_users'), async (req, res) =>
   // Somente o Super Admin pode alterar o nome de login de um usuário.
   if (
     newUsername !== undefined &&
-    newUsername !== user.username.toLowerCase() &&
+    newUsername.toLowerCase() !== user.username.toLowerCase() &&
     (req as any).user?.role !== 'admin'
   ) {
     return res.status(403).json({
@@ -1085,7 +1085,7 @@ app.put('/api/users/:id', requirePermission('manage_users'), async (req, res) =>
   }
 
   if (newUsername !== undefined) {
-    if (memoryStore.users.some(u => u.id !== id && u.username.toLowerCase() === newUsername)) {
+    if (memoryStore.users.some(u => u.id !== id && u.username.toLowerCase() === newUsername.toLowerCase())) {
       return res.status(409).json({ success: false, message: 'Este nome de usuário já está em uso por outro operador.' });
     }
     user.username = newUsername;

@@ -577,13 +577,14 @@ test('administrador pode alterar o nome de login de um usuário', async () => {
     method: 'POST',
     headers: bearer(adminToken),
     body: JSON.stringify({
-      username: 'login.antigo',
+      username: 'Login.Antigo',
       password: 'Teste@123',
       fullName: 'Usuário com Login Alterável',
       permissions: ['dashboard'],
     }),
   });
   assert.equal(created.response.status, 201, JSON.stringify(created.body));
+  assert.equal(created.body.data.username, 'Login.Antigo');
   const userId = created.body.data.id;
 
   const userToken = await login('login.antigo', 'Teste@123');
@@ -591,19 +592,22 @@ test('administrador pode alterar o nome de login de um usuário', async () => {
   const updated = await api(`/api/users/${userId}`, {
     method: 'PUT',
     headers: bearer(adminToken),
-    body: JSON.stringify({ username: 'Login.Novo' }),
+    body: JSON.stringify({ username: 'Dioclecio.Souza' }),
   });
   assert.equal(updated.response.status, 200, JSON.stringify(updated.body));
-  assert.equal(updated.body.data.username, 'login.novo');
+  assert.equal(updated.body.data.username, 'Dioclecio.Souza');
 
   const oldLogin = await api('/api/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ username: 'login.antigo', password: 'Teste@123' }),
+    body: JSON.stringify({ username: 'Login.Antigo', password: 'Teste@123' }),
   });
   assert.equal(oldLogin.response.status, 401);
 
-  const newToken = await login('login.novo', 'Teste@123');
+  // O login preserva a grafia cadastrada e continua aceitando qualquer caixa.
+  const newToken = await login('dioclecio.souza', 'Teste@123');
   assert.ok(newToken);
+  const upperCaseToken = await login('DIOCLECIO.SOUZA', 'Teste@123');
+  assert.ok(upperCaseToken);
 
   // Trocar apenas o login não derruba a sessão já autenticada (o vínculo é pelo ID).
   const stillValid = await api('/api/devices', { headers: bearer(userToken) });
