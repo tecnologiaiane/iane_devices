@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { dataService } from '../services/dataStorage';
 import { authService } from '../services/authService';
 import { apiClient } from '../services/apiClient';
-import { User, UserRole, SystemUserFormData } from '../types';
+import { User, UserRole, SystemUserFormData, CatalogItem, Catalogs, CatalogType } from '../types';
 import { todayISO } from '../utils/dates';
 import {
   Download,
@@ -30,6 +30,9 @@ import {
   Clock,
   ShieldAlert,
   RotateCcw,
+  Search,
+  Plus,
+  Save,
 } from 'lucide-react';
 
 interface SettingsViewProps {
@@ -37,7 +40,7 @@ interface SettingsViewProps {
   currentUser?: User | null;
 }
 
-type SettingsSectionId = 'users' | 'backup' | 'audit' | 'danger';
+type SettingsSectionId = 'catalogs' | 'users' | 'backup' | 'audit' | 'danger';
 
 interface BackupFileInfo {
   fileName: string;
@@ -171,6 +174,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [openSection, setOpenSection] = useState<SettingsSectionId | null>(null);
+  const [catalogs, setCatalogs] = useState<Catalogs>(() => dataService.getCatalogs());
+  const [catalogSearch, setCatalogSearch] = useState<Record<CatalogType, string>>({ departments: '', sectors: '', models: '', brands: '', units: '' });
+  const [catalogDraft, setCatalogDraft] = useState<Record<CatalogType, string>>({ departments: '', sectors: '', models: '', brands: '', units: '' });
+  const [editingCatalogItem, setEditingCatalogItem] = useState<{ type: CatalogType; id: string } | null>(null);
+  const [savingCatalog, setSavingCatalog] = useState<CatalogType | null>(null);
 
   // Status do banco (dropdown minimalista no canto)
   const [serverHealth, setServerHealth] = useState<{
@@ -261,6 +269,69 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   };
 
+  const loadCatalogs = async () => {
+    const loaded = await dataService.fetchCatalogs();
+    setCatalogs(loaded);
+  };
+
+  const catalogLabels: Record<CatalogType, string> = {
+    departments: 'Departamentos', sectors: 'Setores', models: 'Modelos de aparelhos', brands: 'Marcas', units: 'Unidades da empresa',
+  };
+
+  const catalogUsageCount = (type: CatalogType, name: string): number => {
+    const collaborators = dataService.getCollaborators();
+    const devices = dataService.getDevices();
+    const lines = dataService.getLines();
+    if (type === 'departments') return collaborators.filter((item) => item.department === name).length + devices.filter((item) => item.currentDepartment === name).length + lines.filter((item) => item.department === name).length;
+    if (type === 'sectors') return collaborators.filter((item) => item.sector === name).length + devices.filter((item) => item.sector === name).length;
+    if (type === 'models') return devices.filter((item) => item.model === name).length + lines.filter((item) => item.associatedDeviceModel === name).length;
+    if (type === 'brands') return devices.filter((item) => item.brand === name).length;
+    return collaborators.filter((item) => item.unit === name).length + devices.filter((item) => item.unit === name).length + lines.filter((item) => item.unit === name).length;
+  };
+
+  const persistCatalog = async (type: CatalogType, nextItems: CatalogItem[]) => {
+    setSavingCatalog(type);
+    setErrorMessage('');
+    setSuccessMessage('');
+    const result = await dataService.saveCatalog(type, nextItems);
+    if (result.success && result.catalogs) {
+      setCatalogs(result.catalogs);
+      setSuccessMessage(`${catalogLabels[type]} atualizados.`);
+      setEditingCatalogItem(null);
+      setCatalogDraft((current) => ({ ...current, [type]: '' }));
+    } else {
+      setErrorMessage(result.message);
+    }
+    setSavingCatalog(null);
+  };
+
+  const handleCatalogSubmit = (type: CatalogType, item?: CatalogItem) => {
+    const name = catalogDraft[type].trim();
+    if (!name) {
+      setErrorMessage('Informe o nome do item do cadastro.');
+      return;
+    }
+    const items = catalogs[type] || [];
+    if (items.some((existing) => existing.id !== item?.id && existing.name.trim().toLocaleLowerCase('pt-BR') === name.toLocaleLowerCase('pt-BR'))) {
+      setErrorMessage(`Já existe um item com esse nome em ${catalogLabels[type]}.`);
+      return;
+    }
+    const next = item
+      ? items.map((existing) => existing.id === item.id ? { ...existing, name } : existing)
+      : [...items, { id: `catalog-${type}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, name }];
+    void persistCatalog(type, next);
+  };
+
+  const handleCatalogDelete = (type: CatalogType, item: CatalogItem) => {
+    const inUse = catalogUsageCount(type, item.name);
+    if (inUse > 0) {
+      setErrorMessage(`Não é possível excluir "${item.name}": está em uso por ${inUse} registro(s).`);
+      return;
+    }
+    if (!window.confirm(`Excluir "${item.name}" de ${catalogLabels[type]}?`)) return;
+    void persistCatalog(type, catalogs[type].filter((existing) => existing.id !== item.id));
+  };
+
   useEffect(() => {
     void checkHealth();
     const timer = window.setInterval(() => {
@@ -301,6 +372,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const handleToggleSection = (id: SettingsSectionId) => {
     setOpenSection((current) => (current === id ? null : id));
 
+    if (id === 'catalogs') void loadCatalogs();
     if (id === 'audit') {
       void dataService
         .fetchAuditLogs()
@@ -613,7 +685,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <div>
           <h2 className="text-base font-bold text-ink-900">Configurações e administração</h2>
           <p className="text-xs text-ink-500 mt-0.5">
-            Backup, usuários e auditoria organizados em seções recolhíveis.
+            Cadastros, backup, usuários e auditoria organizados em seções recolhíveis.
           </p>
         </div>
 
@@ -708,6 +780,60 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           )}
         </div>
       </div>
+
+      <SettingsSection
+        id="catalogs"
+        title="Cadastros"
+        description="Gerencie departamentos, setores, marcas, modelos e unidades usados nos formulários."
+        icon={Database}
+        badge={`${Object.values(catalogs).reduce((sum, items) => sum + items.length, 0)} itens`}
+        isOpen={openSection === 'catalogs'}
+        onToggle={handleToggleSection}
+      >
+        <div className="p-4 sm:p-5 space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {(Object.keys(catalogLabels) as CatalogType[]).map((type) => {
+              const query = catalogSearch[type].trim().toLocaleLowerCase('pt-BR');
+              const visibleItems = (catalogs[type] || []).filter((item) => item.name.toLocaleLowerCase('pt-BR').includes(query));
+              const editing = editingCatalogItem?.type === type;
+              const editingItem = editing ? catalogs[type].find((item) => item.id === editingCatalogItem?.id) : undefined;
+              return (
+                <section key={type} className="rounded-lg border border-ink-200 p-3 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="text-xs font-bold text-ink-900">{catalogLabels[type]}</h3>
+                    <span className="text-[10px] text-ink-400 tabular-nums">{catalogs[type]?.length || 0} itens</span>
+                  </div>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-ink-400" />
+                    <input value={catalogSearch[type]} onChange={(event) => setCatalogSearch((current) => ({ ...current, [type]: event.target.value }))} placeholder={`Buscar em ${catalogLabels[type].toLowerCase()}...`} className="w-full rounded-lg border border-ink-300 bg-white py-2 pl-8 pr-3 text-xs text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500" />
+                  </div>
+                  {editingItem ? (
+                    <form onSubmit={(event) => { event.preventDefault(); handleCatalogSubmit(type, editingItem); }} className="flex gap-2">
+                      <input autoFocus value={catalogDraft[type]} onChange={(event) => setCatalogDraft((current) => ({ ...current, [type]: event.target.value }))} aria-label="Nome" placeholder="Nome" className="min-w-0 flex-1 rounded-lg border border-ink-300 bg-white px-3 py-2 text-xs text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500" />
+                      <button type="submit" disabled={savingCatalog === type} className="inline-flex items-center gap-1 rounded-lg bg-iane-600 px-3 py-2 text-xs font-semibold text-white hover:bg-iane-700 disabled:opacity-50"><Save className="h-3.5 w-3.5" />Salvar</button>
+                      <button type="button" onClick={() => { setEditingCatalogItem(null); setCatalogDraft((current) => ({ ...current, [type]: '' })); }} className="rounded-lg bg-ink-100 px-3 py-2 text-xs font-medium text-ink-700 hover:bg-ink-200">Cancelar</button>
+                    </form>
+                  ) : (
+                    <form onSubmit={(event) => { event.preventDefault(); handleCatalogSubmit(type); }} className="flex gap-2">
+                      <input value={catalogDraft[type]} onChange={(event) => setCatalogDraft((current) => ({ ...current, [type]: event.target.value }))} aria-label="Nome" placeholder="Nome" className="min-w-0 flex-1 rounded-lg border border-ink-300 bg-white px-3 py-2 text-xs text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500" />
+                      <button type="submit" disabled={savingCatalog === type} className="inline-flex items-center gap-1 rounded-lg bg-iane-600 px-3 py-2 text-xs font-semibold text-white hover:bg-iane-700 disabled:opacity-50"><Plus className="h-3.5 w-3.5" />Adicionar</button>
+                    </form>
+                  )}
+                  <ul className="max-h-48 divide-y divide-ink-100 overflow-y-auto rounded-md border border-ink-100">
+                    {visibleItems.length ? visibleItems.map((item) => (
+                      <li key={item.id} className="flex items-center gap-2 px-2.5 py-2 hover:bg-ink-50/70">
+                        <span className="min-w-0 flex-1 truncate text-xs text-ink-700">{item.name}</span>
+                        <button type="button" title="Editar" onClick={() => { setEditingCatalogItem({ type, id: item.id }); setCatalogDraft((current) => ({ ...current, [type]: item.name })); setErrorMessage(''); }} className="rounded p-1 text-ink-400 hover:bg-iane-50 hover:text-iane-700"><Edit2 className="h-3.5 w-3.5" /></button>
+                        <button type="button" title="Excluir" onClick={() => handleCatalogDelete(type, item)} className="rounded p-1 text-ink-400 hover:bg-rose-50 hover:text-rose-600"><Trash2 className="h-3.5 w-3.5" /></button>
+                      </li>
+                    )) : <li className="px-3 py-4 text-center text-[11px] text-ink-400">{query ? 'Nenhum resultado.' : 'Nenhum item cadastrado.'}</li>}
+                  </ul>
+                </section>
+              );
+            })}
+          </div>
+        </div>
+      </SettingsSection>
 
       {/* Gestão de Usuários */}
       {canManageUsers && (

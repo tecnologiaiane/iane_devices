@@ -410,6 +410,10 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
                   <span className="text-ink-400 text-[11px] block">Responsável Atual</span>
                   <span className="font-semibold text-ink-900">{detailLine.currentCollaboratorName || 'Sem responsável'}</span>
                 </div>
+                <div>
+                  <span className="text-ink-400 text-[11px] block">Unidade</span>
+                  <span className="font-semibold text-ink-900">{detailLine.unit || 'Não informada'}</span>
+                </div>
               </div>
 
               {detailLine.notes && (

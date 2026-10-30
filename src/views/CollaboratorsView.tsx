@@ -273,7 +273,7 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
                       <StatusBadge status={detailCollab.status} type="collaborator" />
                     </div>
                     <p className="text-xs text-ink-500">
-                      Matrícula: <span className="font-mono font-bold text-ink-700">{detailCollab.registrationNumber}</span> · {detailCollab.department} · Setor: {detailCollab.sector || 'Não informado'} ({detailCollab.position})
+                      Matrícula: <span className="font-mono font-bold text-ink-700">{detailCollab.registrationNumber}</span> · {detailCollab.department} · Setor: {detailCollab.sector || 'Não informado'}{detailCollab.unit ? ` · Unidade: ${detailCollab.unit}` : ''} ({detailCollab.position})
                     </p>
                   </div>
                 </div>

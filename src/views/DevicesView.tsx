@@ -576,6 +576,10 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
                         <span className="font-semibold text-ink-900">{detailDevice.sector || 'Não informado'}</span>
                       </div>
                       <div>
+                        <span className="text-ink-400 text-[11px] block">Unidade</span>
+                        <span className="font-semibold text-ink-900">{detailDevice.unit || 'Não informada'}</span>
+                      </div>
+                      <div>
                         <span className="text-ink-400 text-[11px] block">IMEI</span>
                         <span className="font-mono text-ink-900">{formatImei(detailDevice.imei1)}</span>
                       </div>

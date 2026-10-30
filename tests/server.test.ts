@@ -695,3 +695,82 @@ test('somente Super Admin altera nome de login e remove aparelhos', async () => 
   await api(`/api/users/${targetId}`, { method: 'DELETE', headers: bearer(adminToken) });
   await api(`/api/users/${managerId}`, { method: 'DELETE', headers: bearer(adminToken) });
 });
+
+test('cadastros globais validam nomes, permitem CRUD e protegem itens em uso', async () => {
+  const adminToken = await login(ADMIN.username, ADMIN.password);
+  const headers = bearer(adminToken);
+  const loaded = await api('/api/catalogs', { headers });
+  assert.equal(loaded.response.status, 200, JSON.stringify(loaded.body));
+
+  const types = ['departments', 'sectors', 'models', 'brands', 'units'];
+  const added: Record<string, { id: string; name: string }> = {};
+  for (const type of types) {
+    const base = loaded.body.data[type];
+    const id = `catalog-test-${type}-${Date.now()}`;
+    const name = `Teste ${type} ${Date.now()}`;
+    added[type] = { id, name };
+    const create = await api(`/api/catalogs/${type}`, { method: 'PUT', headers, body: JSON.stringify({ items: [...base, { id, name }] }) });
+    assert.equal(create.response.status, 200, JSON.stringify(create.body));
+    const duplicate = await api(`/api/catalogs/${type}`, { method: 'PUT', headers, body: JSON.stringify({ items: [...create.body.data[type], { id: `${id}-duplicate`, name: ` ${name.toLocaleUpperCase('pt-BR')} ` }] }) });
+    assert.equal(duplicate.response.status, 409);
+    const blank = await api(`/api/catalogs/${type}`, { method: 'PUT', headers, body: JSON.stringify({ items: [...create.body.data[type], { id: `${id}-blank`, name: '  ' }] }) });
+    assert.equal(blank.response.status, 400);
+    const renamed = { ...create.body.data[type].find((item: any) => item.id === id), name: `${name} Editado` };
+    const edit = await api(`/api/catalogs/${type}`, { method: 'PUT', headers, body: JSON.stringify({ items: create.body.data[type].map((item: any) => item.id === id ? renamed : item) }) });
+    assert.equal(edit.response.status, 200, JSON.stringify(edit.body));
+    added[type] = renamed;
+  }
+
+  let department = added.departments;
+  const collaboratorId = `collab-catalog-test-${Date.now()}`;
+  const collaborator = await api('/api/collaborators', {
+    method: 'POST', headers,
+    body: JSON.stringify({ id: collaboratorId, fullName: 'Teste Catálogo', registrationNumber: collaboratorId, department: department.name, sector: 'TI', position: 'Teste', corporateEmail: '', status: 'Ativo' }),
+  });
+  assert.equal(collaborator.response.status, 201, JSON.stringify(collaborator.body));
+
+  let current = (await api('/api/catalogs', { headers })).body.data;
+  department = { ...department, name: `${department.name} Renomeado` };
+  const renameDepartment = await api('/api/catalogs/departments', {
+    method: 'PUT', headers,
+    body: JSON.stringify({ items: current.departments.map((item: any) => item.id === department.id ? department : item) }),
+  });
+  assert.equal(renameDepartment.response.status, 200, JSON.stringify(renameDepartment.body));
+  current = renameDepartment.body.data;
+  const collaboratorsAfterRename = await api('/api/collaborators', { headers });
+  assert.equal(collaboratorsAfterRename.body.data.find((item: any) => item.id === collaboratorId)?.department, department.name);
+  const blocked = await api('/api/catalogs/departments', { method: 'PUT', headers, body: JSON.stringify({ items: current.departments.filter((item: any) => item.id !== department.id) }) });
+  assert.equal(blocked.response.status, 409);
+  assert.match(blocked.body.message, /1 registro/);
+
+  const release = await api('/api/collaborators', {
+    method: 'POST', headers,
+    body: JSON.stringify({ ...collaborator.body.data, department: 'Administrativo' }),
+  });
+  assert.equal(release.response.status, 201);
+  const deleted = await api('/api/catalogs/departments', { method: 'PUT', headers, body: JSON.stringify({ items: current.departments.filter((item: any) => item.id !== department.id) }) });
+  assert.equal(deleted.response.status, 200, JSON.stringify(deleted.body));
+  await api(`/api/collaborators/${collaboratorId}`, { method: 'DELETE', headers });
+
+  current = deleted.body.data;
+  const unit = added.units;
+  const unitDeviceId = `dev-unit-test-${Date.now()}`;
+  const unitLineId = `line-unit-test-${Date.now()}`;
+  const unitCollaboratorId = `collab-unit-test-${Date.now()}`;
+  await api('/api/devices', { method: 'POST', headers, body: JSON.stringify({ id: unitDeviceId, assetTag: unitDeviceId, brand: 'Marca teste', model: 'Modelo teste', status: 'Disponível', unit: unit.name }) });
+  await api('/api/lines', { method: 'POST', headers, body: JSON.stringify({ id: unitLineId, phoneNumber: `119${String(Date.now()).slice(-8)}`, carrier: 'Vivo', status: 'Disponível', unit: unit.name }) });
+  await api('/api/collaborators', { method: 'POST', headers, body: JSON.stringify({ id: unitCollaboratorId, fullName: 'Unidade teste', registrationNumber: unitCollaboratorId, department: 'Administrativo', sector: 'TI', position: 'Teste', status: 'Ativo', unit: unit.name }) });
+  assert.equal((await api('/api/devices', { headers })).body.data.find((item: any) => item.id === unitDeviceId)?.unit, unit.name);
+  assert.equal((await api('/api/lines', { headers })).body.data.find((item: any) => item.id === unitLineId)?.unit, unit.name);
+  assert.equal((await api('/api/collaborators', { headers })).body.data.find((item: any) => item.id === unitCollaboratorId)?.unit, unit.name);
+  await api(`/api/devices/${unitDeviceId}`, { method: 'DELETE', headers });
+  await api(`/api/lines/${unitLineId}`, { method: 'DELETE', headers });
+  await api(`/api/collaborators/${unitCollaboratorId}`, { method: 'DELETE', headers });
+
+  for (const type of types.filter((item) => item !== 'departments')) {
+    const removedId = added[type].id;
+    const result = await api(`/api/catalogs/${type}`, { method: 'PUT', headers, body: JSON.stringify({ items: current[type].filter((item: any) => item.id !== removedId) }) });
+    assert.equal(result.response.status, 200, JSON.stringify(result.body));
+    current = result.body.data;
+  }
+});

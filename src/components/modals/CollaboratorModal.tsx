@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Modal } from '../Modal';
-import { Collaborator, CollaboratorStatus } from '../../types';
+import { Catalogs, Collaborator, CollaboratorStatus } from '../../types';
 import { dataService } from '../../services/dataStorage';
-import { DEPARTMENTS, SECTORS } from '../../utils/collaborators';
+import { SearchableOption, SearchableSelect } from '../SearchableSelect';
 import { AlertTriangle, UserPlus } from 'lucide-react';
 
 interface CollaboratorModalProps {
@@ -20,8 +20,9 @@ export const CollaboratorModal: React.FC<CollaboratorModalProps> = ({
 }) => {
   const [fullName, setFullName] = useState('');
   const [registrationNumber, setRegistrationNumber] = useState('');
-  const [department, setDepartment] = useState(DEPARTMENTS[0]);
-  const [sector, setSector] = useState(SECTORS[0]);
+  const [department, setDepartment] = useState(dataService.getCatalogs().departments[0]?.name || '');
+  const [sector, setSector] = useState(dataService.getCatalogs().sectors[0]?.name || '');
+  const [unit, setUnit] = useState('');
   const [position, setPosition] = useState('');
   const [corporateEmail, setCorporateEmail] = useState('');
   const [contactPhone, setContactPhone] = useState('');
@@ -29,6 +30,17 @@ export const CollaboratorModal: React.FC<CollaboratorModalProps> = ({
   const [status, setStatus] = useState<CollaboratorStatus>('Ativo');
   const [notes, setNotes] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [catalogs, setCatalogs] = useState<Catalogs>(() => dataService.getCatalogs());
+
+  useEffect(() => {
+    if (isOpen) void dataService.fetchCatalogs().then((loaded) => {
+      setCatalogs(loaded);
+      if (!collaboratorToEdit) {
+        setDepartment(loaded.departments[0]?.name || '');
+        setSector(loaded.sectors[0]?.name || '');
+      }
+    });
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -37,7 +49,8 @@ export const CollaboratorModal: React.FC<CollaboratorModalProps> = ({
         setFullName(collaboratorToEdit.fullName);
         setRegistrationNumber(collaboratorToEdit.registrationNumber);
         setDepartment(collaboratorToEdit.department);
-        setSector(collaboratorToEdit.sector || SECTORS[0]);
+        setSector(collaboratorToEdit.sector || catalogs.sectors[0]?.name || '');
+        setUnit(collaboratorToEdit.unit || '');
         setPosition(collaboratorToEdit.position);
         setCorporateEmail(collaboratorToEdit.corporateEmail);
         setContactPhone(collaboratorToEdit.contactPhone || '');
@@ -48,8 +61,9 @@ export const CollaboratorModal: React.FC<CollaboratorModalProps> = ({
         const count = dataService.getCollaborators().length;
         setFullName('');
         setRegistrationNumber(`MAT-${1000 + count * 15 + Math.floor(Math.random() * 10)}`);
-        setDepartment(DEPARTMENTS[0]);
-        setSector(SECTORS[0]);
+        setDepartment(catalogs.departments[0]?.name || '');
+        setSector(catalogs.sectors[0]?.name || '');
+        setUnit('');
         setPosition('');
         setCorporateEmail('');
         setContactPhone('');
@@ -83,6 +97,7 @@ export const CollaboratorModal: React.FC<CollaboratorModalProps> = ({
       registrationNumber: registrationNumber.trim().toUpperCase(),
       department,
       sector,
+      unit: unit || undefined,
       position: position.trim(),
       corporateEmail: corporateEmail.trim().toLowerCase(),
       contactPhone: contactPhone.trim() || undefined,
@@ -99,6 +114,12 @@ export const CollaboratorModal: React.FC<CollaboratorModalProps> = ({
 
     onSuccess();
     onClose();
+  };
+
+  const catalogOptions = (items: Catalogs['departments'], current: string): SearchableOption[] => {
+    const values = [...items];
+    if (current && !values.some((item) => item.name === current)) values.push({ id: `legacy-${current}`, name: current });
+    return values.map((item) => ({ value: item.name, label: item.name }));
   };
 
   return (
@@ -151,31 +172,20 @@ export const CollaboratorModal: React.FC<CollaboratorModalProps> = ({
             <label className="block text-xs font-semibold text-ink-700 mb-1">
               Departamento / Área *
             </label>
-            <select
-              value={department}
-              onChange={(e) => setDepartment(e.target.value)}
-              className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500"
-            >
-              {DEPARTMENTS.map((d) => (
-                <option key={d} value={d}>{d}</option>
-              ))}
-            </select>
+            <SearchableSelect value={department} onChange={setDepartment} options={catalogOptions(catalogs.departments, department)} placeholder="Selecione o departamento" />
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-ink-700 mb-1">
               Setor *
             </label>
-            <select
-              value={sector}
-              onChange={(e) => setSector(e.target.value)}
-              className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500"
-            >
-              {SECTORS.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
+            <SearchableSelect value={sector} onChange={setSector} options={catalogOptions(catalogs.sectors, sector)} placeholder="Selecione o setor" />
           </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-ink-700 mb-1">Unidade</label>
+          <SearchableSelect value={unit} onChange={setUnit} options={catalogOptions(catalogs.units, unit)} placeholder="Selecione a unidade (opcional)" />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

@@ -15,6 +15,9 @@ import {
   SystemUserFormData,
   RequestRecord,
   RequestType,
+  CatalogItem,
+  CatalogType,
+  Catalogs,
 } from '../types';
 import { apiClient, ApiResponse } from './apiClient';
 import { authService } from './authService';
@@ -31,6 +34,7 @@ const STORAGE_KEYS = {
   TERMS: 'iane_terms_v3',
   AUDIT: 'iane_audit_v3',
   INITIALIZED: 'iane_initialized_v3',
+  CATALOGS: 'iane_catalogs_v1',
 };
 
 const OUTBOX_KEY = 'iane_outbox_v1';
@@ -81,6 +85,69 @@ const INITIAL_MOVEMENTS: Movement[] = [];
 const INITIAL_AUDIT: AuditLog[] = [];
 
 class DataStorageService {
+  private buildInitialCatalogs(): Catalogs {
+    const uniqueItems = (names: string[]) => Array.from(new Set(names.map((name) => name.trim()).filter(Boolean)))
+      .map((name) => ({ id: `catalog-${name.toLocaleLowerCase('pt-BR').replace(/[^a-z0-9]+/g, '-')}`, name }));
+    const devices = this.get<Device[]>(STORAGE_KEYS.DEVICES, INITIAL_DEVICES);
+    return {
+      departments: uniqueItems(DEPARTMENTS),
+      sectors: uniqueItems(SECTORS),
+      models: uniqueItems(devices.map((device) => device.model)),
+      brands: uniqueItems(devices.map((device) => device.brand)),
+      units: [],
+    };
+  }
+
+  public getCatalogs(): Catalogs {
+    return this.get<Catalogs>(STORAGE_KEYS.CATALOGS, this.buildInitialCatalogs());
+  }
+
+  public async fetchCatalogs(): Promise<Catalogs> {
+    const response = await apiClient.get<Catalogs>('/api/catalogs');
+    if (response.success && response.data) {
+      this.set(STORAGE_KEYS.CATALOGS, response.data);
+      return response.data;
+    }
+    return this.getCatalogs();
+  }
+
+  public async saveCatalog(type: CatalogType, items: CatalogItem[]): Promise<{ success: boolean; message: string; catalogs?: Catalogs }> {
+    const previous = this.getCatalogs();
+    const response = await apiClient.put<Catalogs>(`/api/catalogs/${type}`, { items });
+    if (!response.success || !response.data) {
+      return { success: false, message: response.message || response.error || 'Não foi possível salvar a lista.' };
+    }
+    this.set(STORAGE_KEYS.CATALOGS, response.data);
+    const renames = (previous[type] || []).flatMap((item) => {
+      const updated = items.find((candidate) => candidate.id === item.id);
+      return updated && updated.name !== item.name ? [{ oldName: item.name, newName: updated.name }] : [];
+    });
+    for (const { oldName, newName } of renames) {
+      const replace = <T extends Record<string, any>>(key: string, records: T[], field: string) => {
+        const updated = records.map((record) => record[field] === oldName ? { ...record, [field]: newName } : record);
+        this.set(key, updated);
+      };
+      if (type === 'departments') {
+        replace(STORAGE_KEYS.COLLABORATORS, this.getCollaborators(), 'department');
+        replace(STORAGE_KEYS.DEVICES, this.getDevices(), 'currentDepartment');
+        replace(STORAGE_KEYS.LINES, this.getLines(), 'department');
+      } else if (type === 'sectors') {
+        replace(STORAGE_KEYS.COLLABORATORS, this.getCollaborators(), 'sector');
+        replace(STORAGE_KEYS.DEVICES, this.getDevices(), 'sector');
+      } else if (type === 'models') {
+        replace(STORAGE_KEYS.DEVICES, this.getDevices(), 'model');
+        replace(STORAGE_KEYS.LINES, this.getLines(), 'associatedDeviceModel');
+      } else if (type === 'brands') {
+        replace(STORAGE_KEYS.DEVICES, this.getDevices(), 'brand');
+      } else {
+        replace(STORAGE_KEYS.COLLABORATORS, this.getCollaborators(), 'unit');
+        replace(STORAGE_KEYS.DEVICES, this.getDevices(), 'unit');
+        replace(STORAGE_KEYS.LINES, this.getLines(), 'unit');
+      }
+    }
+    return { success: true, message: 'Lista atualizada.', catalogs: response.data };
+  }
+
   private get<T>(key: string, defaultValue: T): T {
     try {
       const data = localStorage.getItem(key);
@@ -259,6 +326,7 @@ class DataStorageService {
       movements: this.getMovements(),
       terms: this.getTerms(),
       auditLogs: this.getAuditLogs(),
+      catalogs: this.getCatalogs(),
     };
   }
 
@@ -837,6 +905,7 @@ class DataStorageService {
         condition: device.condition || 'Novo',
         status: device.status || 'Disponível', // Em estoque
         sector: device.sector,
+        unit: device.unit,
         currentDepartment: device.currentDepartment,
         currentCollaboratorId: device.currentCollaboratorId,
         currentCollaboratorName: device.currentCollaboratorName,
@@ -920,6 +989,7 @@ class DataStorageService {
         currentCollaboratorId: line.currentCollaboratorId,
         currentCollaboratorName: line.currentCollaboratorName,
         department: line.department,
+        unit: line.unit,
         activationDate: line.activationDate,
         iccid: line.iccid,
         notes: line.notes,
@@ -1004,6 +1074,7 @@ class DataStorageService {
         registrationNumber: collab.registrationNumber || `MAT-${Math.floor(1000 + Math.random() * 9000)}`,
         department: collab.department || DEPARTMENTS[0],
         sector: collab.sector || SECTORS[0],
+        unit: collab.unit,
         position: collab.position || '',
         corporateEmail: collab.corporateEmail || '',
         contactPhone: collab.contactPhone,
@@ -1060,6 +1131,52 @@ class DataStorageService {
 
   public getTermById(id: string): DocumentTerm | undefined {
     return this.getTerms().find(t => t.id === id);
+  }
+
+  public linkTermsToMovement(movementId: string | undefined, batchOperationId: string | undefined, termIds: string[]): { success: boolean; message: string } {
+    const movements = this.getMovements();
+    const movement = (movementId ? movements.find((item) => item.id === movementId) : undefined) ||
+      (batchOperationId ? movements.find((item) => item.batchOperationId === batchOperationId && item.type.includes('Entrega')) : undefined) ||
+      (batchOperationId ? movements.find((item) => item.batchOperationId === batchOperationId) : undefined);
+    if (!movement) return { success: false, message: 'Não foi possível localizar a movimentação para vincular os termos.' };
+
+    const terms = this.getTerms();
+    const selected = terms.filter((term) => termIds.includes(term.id));
+    if (selected.length !== termIds.length) return { success: false, message: 'Um ou mais termos selecionados não foram encontrados.' };
+    const device = movement.deviceId ? this.getDeviceById(movement.deviceId) : undefined;
+    const line = movement.phoneLineId ? this.getLines().find((item) => item.id === movement.phoneLineId) : undefined;
+    const collaboratorId = movement.destinationCollaboratorId || movement.originCollaboratorId;
+    const collaborator = collaboratorId ? this.getCollaboratorById(collaboratorId) : undefined;
+    const linkedTerms = selected.map((term) => ({ id: term.id, code: term.code, type: term.type }));
+
+    for (const term of selected) {
+      Object.assign(term, {
+        movementId: movement.id,
+        batchOperationId: movement.batchOperationId,
+        date: movement.date,
+        deviceId: movement.deviceId,
+        deviceTag: movement.deviceTag,
+        deviceModel: movement.deviceName,
+        deviceImei: movement.imei,
+        phoneLineId: movement.phoneLineId,
+        phoneNumber: movement.phoneNumber,
+        collaboratorId,
+        collaboratorName: collaborator?.fullName || movement.destinationCollaboratorName || movement.originCollaboratorName,
+        collaboratorRegistration: collaborator?.registrationNumber,
+        collaboratorDepartment: collaborator?.department,
+        accessoriesList: term.accessoriesList?.length ? term.accessoriesList : movement.accessoriesIncluded,
+      });
+    }
+    movement.linkedTerms = linkedTerms;
+    movement.documentId = selected[0]?.id;
+    movement.documentCode = selected[0]?.code;
+    movement.documentType = selected[0]?.type;
+
+    this.set(STORAGE_KEYS.TERMS, terms);
+    this.set(STORAGE_KEYS.MOVEMENTS, movements);
+    selected.forEach((term) => this.apiSync('/api/terms', 'POST', term));
+    this.apiSync('/api/movements', 'POST', movement);
+    return { success: true, message: `${selected.length} termo(s) vinculado(s) à movimentação.` };
   }
 
   /** Baixa o PDF anexado ao termo (requer autenticação). */
@@ -2096,7 +2213,8 @@ class DataStorageService {
       collaborators: this.getCollaborators(),
       movements: this.getMovements(),
       terms: this.getTerms(),
-      audit: this.getAuditLogs()
+      audit: this.getAuditLogs(),
+      catalogs: this.getCatalogs(),
     };
     return JSON.stringify(data, null, 2);
   }
@@ -2113,6 +2231,12 @@ class DataStorageService {
       this.set(STORAGE_KEYS.MOVEMENTS, data.movements || []);
       this.set(STORAGE_KEYS.TERMS, data.terms || []);
       this.set(STORAGE_KEYS.AUDIT, data.audit || []);
+      if (data.catalogs && typeof data.catalogs === 'object') {
+        this.set(STORAGE_KEYS.CATALOGS, data.catalogs);
+        for (const type of ['departments', 'sectors', 'models', 'brands', 'units'] as CatalogType[]) {
+          if (Array.isArray(data.catalogs[type])) void this.saveCatalog(type, data.catalogs[type]);
+        }
+      }
       this.batchSyncToServer().then((r) => {
         if (!r.success) {
           // Mantém o backup restaurado: força nova tentativa (sem sobrescrever o banco) no próximo ciclo

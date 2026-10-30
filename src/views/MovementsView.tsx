@@ -130,7 +130,8 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
       const matchDest = stockDisplayName(m.destinationCollaboratorName).toLowerCase().includes(q);
       const matchOrig = stockDisplayName(m.originCollaboratorName).toLowerCase().includes(q);
       const matchReason = m.reason?.toLowerCase().includes(q) || false;
-      if (!matchCode && !matchBatch && !matchDevice && !matchName && !matchLine && !matchDest && !matchOrig && !matchReason) {
+      const matchTerm = m.linkedTerms?.some((term) => term.code.toLowerCase().includes(q)) || m.documentCode?.toLowerCase().includes(q) || false;
+      if (!matchCode && !matchBatch && !matchDevice && !matchName && !matchLine && !matchDest && !matchOrig && !matchReason && !matchTerm) {
         return false;
       }
     }
@@ -523,25 +524,24 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
                 </div>
               )}
 
-              {detailMovement.documentId && (
-                <div className="p-3 bg-iane-50 border border-iane-200 rounded-lg flex items-center justify-between text-xs">
+              {(detailMovement.linkedTerms?.length || detailMovement.documentId) && (
+                <div className="p-3 bg-iane-50 border border-iane-200 rounded-lg space-y-2 text-xs">
                   <div className="flex items-center gap-2">
                     <FileText className="w-4 h-4 text-iane-600" />
-                    <div>
-                      <span className="font-bold text-iane-800">{detailMovement.documentCode}</span>
-                      <span className="text-iane-700 block text-[11px]">Termo gerado nesta operação</span>
-                    </div>
+                    <span className="font-bold text-iane-800">Documentos vinculados</span>
                   </div>
-                  <button
-                    onClick={() => {
-                      const id = detailMovement.documentId;
-                      setDetailMovement(null);
-                      handleOpenLinkedTerm(id);
-                    }}
-                    className="px-3 py-1 bg-iane-600 hover:bg-iane-700 text-white rounded font-semibold text-xs shadow-xs"
-                  >
-                    Abrir Termo
-                  </button>
+                  {(detailMovement.linkedTerms?.length ? detailMovement.linkedTerms : [{ id: detailMovement.documentId!, code: detailMovement.documentCode || 'Termo', type: detailMovement.documentType! }]).map((term) => (
+                    <div key={term.id} className="flex items-center justify-between gap-3 border-t border-iane-200 pt-2">
+                      <span className="min-w-0 truncate text-iane-800"><strong>{term.code}</strong> · {term.type}</span>
+                      <button
+                        onClick={() => {
+                          setDetailMovement(null);
+                          handleOpenLinkedTerm(term.id);
+                        }}
+                        className="shrink-0 rounded bg-iane-600 px-3 py-1 text-xs font-semibold text-white shadow-xs hover:bg-iane-700"
+                      >Abrir Termo</button>
+                    </div>
+                  ))}
                 </div>
               )}
 

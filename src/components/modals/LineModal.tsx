@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Modal } from '../Modal';
-import { PhoneLine, Carrier, LineStatus } from '../../types';
+import { Catalogs, PhoneLine, Carrier, LineStatus } from '../../types';
 import { dataService } from '../../services/dataStorage';
 import { todayISO } from '../../utils/dates';
+import { SearchableOption, SearchableSelect } from '../SearchableSelect';
 import { AlertTriangle, PhoneCall } from 'lucide-react';
 
 interface LineModalProps {
@@ -13,8 +14,6 @@ interface LineModalProps {
 }
 
 const CARRIERS: Carrier[] = ['Vivo', 'Claro', 'TIM', 'Outra'];
-const DEPARTMENTS = ['Comercial', 'Operações', 'Logística', 'TI', 'Diretoria', 'Financeiro', 'RH', 'Engenharia', 'Geral'];
-
 export const LineModal: React.FC<LineModalProps> = ({
   isOpen,
   onClose,
@@ -27,10 +26,16 @@ export const LineModal: React.FC<LineModalProps> = ({
   const [monthlyCost, setMonthlyCost] = useState('');
   const [status, setStatus] = useState<LineStatus>('Disponível');
   const [department, setDepartment] = useState('');
+  const [unit, setUnit] = useState('');
   const [activationDate, setActivationDate] = useState('');
   const [iccid, setIccid] = useState('');
   const [notes, setNotes] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [catalogs, setCatalogs] = useState<Catalogs>(() => dataService.getCatalogs());
+
+  useEffect(() => {
+    if (isOpen) void dataService.fetchCatalogs().then(setCatalogs);
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -42,6 +47,7 @@ export const LineModal: React.FC<LineModalProps> = ({
         setMonthlyCost(lineToEdit.monthlyCost ? String(lineToEdit.monthlyCost) : '');
         setStatus(lineToEdit.status);
         setDepartment(lineToEdit.department || '');
+        setUnit(lineToEdit.unit || '');
         setActivationDate(lineToEdit.activationDate || '');
         setIccid(lineToEdit.iccid || '');
         setNotes(lineToEdit.notes || '');
@@ -52,6 +58,7 @@ export const LineModal: React.FC<LineModalProps> = ({
         setMonthlyCost('');
         setStatus('Disponível');
         setDepartment('');
+        setUnit('');
         setActivationDate(todayISO());
         setIccid('');
         setNotes('');
@@ -87,6 +94,7 @@ export const LineModal: React.FC<LineModalProps> = ({
       monthlyCost: monthlyCost ? parseFloat(monthlyCost) : undefined,
       status,
       department: department || undefined,
+      unit: unit || undefined,
       activationDate: activationDate || undefined,
       iccid: iccid.trim() || undefined,
       notes: notes.trim() || undefined,
@@ -100,6 +108,12 @@ export const LineModal: React.FC<LineModalProps> = ({
 
     onSuccess();
     onClose();
+  };
+
+  const catalogOptions = (items: Catalogs['departments'], current: string): SearchableOption[] => {
+    const values = [...items];
+    if (current && !values.some((item) => item.name === current)) values.push({ id: `legacy-${current}`, name: current });
+    return values.map((item) => ({ value: item.name, label: item.name }));
   };
 
   return (
@@ -201,17 +215,13 @@ export const LineModal: React.FC<LineModalProps> = ({
             <label className="block text-xs font-medium text-ink-700 mb-1">
               Departamento
             </label>
-            <select
-              value={department}
-              onChange={(e) => setDepartment(e.target.value)}
-              className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500"
-            >
-              <option value="">-- Não especificado / Pool --</option>
-              {DEPARTMENTS.map((d) => (
-                <option key={d} value={d}>{d}</option>
-              ))}
-            </select>
+            <SearchableSelect value={department} onChange={setDepartment} options={catalogOptions(catalogs.departments, department)} placeholder="Não especificado / Pool" />
           </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-ink-700 mb-1">Unidade</label>
+          <SearchableSelect value={unit} onChange={setUnit} options={catalogOptions(catalogs.units, unit)} placeholder="Selecione a unidade (opcional)" />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

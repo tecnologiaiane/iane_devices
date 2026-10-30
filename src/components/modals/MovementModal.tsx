@@ -14,7 +14,11 @@ import {
   RotateCcw,
   Smartphone,
   Info,
+  X,
+  Search,
 } from 'lucide-react';
+import { SearchableMultiSelect, SearchableOption, SearchableSelect } from '../SearchableSelect';
+import { formatPhone } from '../../utils/formatters';
 
 export type OfficialFlowType = 
   | 'entrega' 
@@ -79,7 +83,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
     'Cabo USB-C / Lightning',
     'Capa Protetora Anti-Impacto',
   ]);
-  const [entregaReason, setEntregaReason] = useState('Entrega de ativo do estoque para exercício funcional.');
+  const [entregaReason, setEntregaReason] = useState('');
 
   // --- State for DEVOLUÇÃO (Colaborador -> Estoque) ---
   const [devolucaoDeviceId, setDevolucaoDeviceId] = useState('');
@@ -130,8 +134,11 @@ export const MovementModal: React.FC<MovementModalProps> = ({
   const [observations, setObservations] = useState('');
 
   // Documento do termo: apenas vincular a um termo já existente (PDF já anexado)
-  const [existingTermId, setExistingTermId] = useState('');
+  const [selectedTermIds, setSelectedTermIds] = useState<string[]>([]);
   const [availableTerms, setAvailableTerms] = useState<DocumentTerm[]>([]);
+  const [isTermPickerOpen, setIsTermPickerOpen] = useState(false);
+  const [termSearch, setTermSearch] = useState('');
+  const [termDraftIds, setTermDraftIds] = useState<string[]>([]);
 
   // Initial load
   useEffect(() => {
@@ -143,7 +150,9 @@ export const MovementModal: React.FC<MovementModalProps> = ({
       setLines(lineList);
       setCollaborators(collabList);
       setAvailableTerms(dataService.getTerms());
-      setExistingTermId('');
+       setSelectedTermIds([]);
+       setIsTermPickerOpen(false);
+       setTermSearch('');
       setErrorMessage('');
       setShowSummary(false);
       setActiveFlow(defaultFlow);
@@ -157,36 +166,32 @@ export const MovementModal: React.FC<MovementModalProps> = ({
       const selectedDevice = preselectedDeviceId
         ? devList.find(d => d.id === preselectedDeviceId)
         : undefined;
-      const firstAvailable = devList.find(d => d.status === 'Disponível');
-      const firstInUse = devList.find(d => d.status === 'Em uso');
-
-      if (defaultFlow === 'entrega') {
-        const dev = selectedDevice?.status === 'Disponível' ? selectedDevice : firstAvailable;
-        if (dev) setEntregaDeviceId(dev.id);
-      } else if (defaultFlow === 'devolucao') {
-        const dev = selectedDevice?.status === 'Em uso' ? selectedDevice : firstInUse;
+       if (defaultFlow === 'entrega') {
+         const dev = selectedDevice?.status === 'Disponível' ? selectedDevice : undefined;
+         if (dev) setEntregaDeviceId(dev.id);
+       } else if (defaultFlow === 'devolucao') {
+         const dev = selectedDevice?.status === 'Em uso' ? selectedDevice : undefined;
         if (dev) {
           setDevolucaoDeviceId(dev.id);
           if (dev.currentCollaboratorId) setDevolucaoCollabId(dev.currentCollaboratorId);
         }
-      } else if (defaultFlow === 'transferencia') {
-        const dev = selectedDevice?.status === 'Em uso' ? selectedDevice : firstInUse;
+       } else if (defaultFlow === 'transferencia') {
+         const dev = selectedDevice?.status === 'Em uso' ? selectedDevice : undefined;
         if (dev) {
           setTransfDeviceId(dev.id);
           if (dev.currentCollaboratorId) setTransfCollabAId(dev.currentCollaboratorId);
         }
-      } else if (defaultFlow === 'troca') {
-        const dev = selectedDevice?.status === 'Em uso' ? selectedDevice : firstInUse;
+       } else if (defaultFlow === 'troca') {
+         const dev = selectedDevice?.status === 'Em uso' ? selectedDevice : undefined;
         if (dev) {
           setTrocaOldDeviceId(dev.id);
           if (dev.currentCollaboratorId) setTrocaCollabId(dev.currentCollaboratorId);
         }
-        if (firstAvailable) setTrocaNewDeviceId(firstAvailable.id);
-      }
+       }
 
       if (preselectedCollaboratorId) {
-        setEntregaCollabId(preselectedCollaboratorId);
-        setTransfCollabBId(preselectedCollaboratorId);
+          setEntregaCollabId(preselectedCollaboratorId);
+          setTransfCollabBId(preselectedCollaboratorId);
       }
 
       if (approvalRequest) {
@@ -264,13 +269,20 @@ export const MovementModal: React.FC<MovementModalProps> = ({
     }
   };
 
-  const toggleAccessoryList = (list: string[], setList: (val: string[]) => void, item: string) => {
-    if (list.includes(item)) {
-      setList(list.filter(i => i !== item));
-    } else {
-      setList([...list, item]);
-    }
-  };
+  const deviceOptions = (items: Device[]): SearchableOption[] => items.map((device) => ({
+    value: device.id,
+    label: `${device.assetTag} · ${device.model} · ${device.brand}${device.imei1 ? ` · IMEI ${device.imei1}` : ' · Sem IMEI'}`,
+  }));
+  const lineOptions = (items: PhoneLine[]): SearchableOption[] => items.map((line) => ({
+    value: line.id,
+    label: `${formatPhone(line.phoneNumber)} · ${line.carrier || 'Sem operadora'}`,
+    phoneSearch: line.phoneNumber,
+  }));
+  const collaboratorOptions = (items: Collaborator[]): SearchableOption[] => items.map((collaborator) => ({
+    value: collaborator.id,
+    label: `${collaborator.fullName} · ${collaborator.registrationNumber || 'Sem matrícula'} · ${collaborator.department || 'Sem departamento'}`,
+  }));
+  const accessoryOptions = COMMON_ACCESSORIES.map((item) => ({ value: item, label: item }));
 
   // Validation before opening summary
   const handleReview = (e: React.FormEvent) => {
@@ -279,22 +291,17 @@ export const MovementModal: React.FC<MovementModalProps> = ({
 
     if (activeFlow === 'entrega') {
       if (!entregaDeviceId) return setErrorMessage('Selecione um aparelho disponível no estoque.');
-      if (!entregaCollabId) return setErrorMessage('Selecione o colaborador destinatário.');
       const dev = devices.find(d => d.id === entregaDeviceId);
       if (dev?.status !== 'Disponível') {
         return setErrorMessage('O aparelho selecionado não consta como "Disponível" no estoque.');
       }
     } else if (activeFlow === 'devolucao') {
       if (!devolucaoDeviceId) return setErrorMessage('Selecione o aparelho em uso que está sendo devolvido.');
-      if (!devolucaoCollabId) return setErrorMessage('Identifique o colaborador responsável atual.');
     } else if (activeFlow === 'transferencia') {
-      if (!transfCollabAId) return setErrorMessage('Selecione o colaborador de origem.');
-      if (!transfDeviceId) return setErrorMessage('Nenhum aparelho em uso vinculado ao colaborador de origem.');
-      if (!transfCollabBId) return setErrorMessage('Selecione o novo colaborador destinatário.');
-      if (transfCollabAId === transfCollabBId) return setErrorMessage('O colaborador de origem e destino devem ser diferentes.');
+      if (!transfDeviceId) return setErrorMessage('Selecione um aparelho em uso.');
+      if (transfCollabAId && transfCollabBId && transfCollabAId === transfCollabBId) return setErrorMessage('O colaborador de origem e destino devem ser diferentes.');
     } else if (activeFlow === 'troca') {
-      if (!trocaCollabId) return setErrorMessage('Selecione o colaborador que realizará a troca.');
-      if (!trocaOldDeviceId) return setErrorMessage('O colaborador não possui aparelho vinculado para troca.');
+      if (!trocaOldDeviceId) return setErrorMessage('Selecione o aparelho antigo.');
       if (!trocaNewDeviceId) return setErrorMessage('Selecione o novo aparelho disponível no estoque.');
       if (trocaOldDeviceId === trocaNewDeviceId) return setErrorMessage('O novo aparelho deve ser diferente do aparelho antigo.');
     }
@@ -317,7 +324,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
         accessories: entregaAccessories,
         reason: entregaReason,
         observations,
-        existingTermId: existingTermId || undefined,
+        existingTermId: selectedTermIds[0],
       };
     } else if (activeFlow === 'devolucao') {
       params = {
@@ -330,7 +337,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
         accessoriesReturned: devolucaoAccessories,
         reason: devolucaoReason,
         observations,
-        existingTermId: existingTermId || undefined,
+        existingTermId: selectedTermIds[0],
       };
     } else if (activeFlow === 'transferencia') {
       params = {
@@ -344,7 +351,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
         accessories: transfAccessories,
         reason: transfReason,
         observations,
-        existingTermId: existingTermId || undefined,
+        existingTermId: selectedTermIds[0],
       };
     } else {
       params = {
@@ -361,10 +368,12 @@ export const MovementModal: React.FC<MovementModalProps> = ({
         date,
         reason: trocaReason,
         observations,
-        existingTermId: existingTermId || undefined,
+        existingTermId: selectedTermIds[0],
       };
     }
 
+    let completedMovementId: string | undefined;
+    let completedBatchId: string | undefined;
     if (approvalRequest) {
       if (approvalRequest.type === 'Entrega') {
         const requestedCpf = String(approvalRequest.data?.cpf || '').replace(/\D/g, '');
@@ -381,18 +390,31 @@ export const MovementModal: React.FC<MovementModalProps> = ({
         setIsApprovalSubmitting(false);
       }
       if (!result.success) return setErrorMessage(result.message);
+      completedMovementId = result.movements?.find((movement) => movement.type.includes('Entrega'))?.id || result.movements?.[0]?.id;
+      completedBatchId = result.movements?.[0]?.batchOperationId;
     } else if (activeFlow === 'entrega') {
       const result = dataService.executeDelivery({ ...(params as any), registeredBy: 'Gestor de Telefonia' });
       if (!result.success) return setErrorMessage(result.message);
+      completedMovementId = result.movement?.id;
+      completedBatchId = result.movement?.batchOperationId;
     } else if (activeFlow === 'devolucao') {
       const result = dataService.executeReturn({ ...(params as any), registeredBy: 'Gestor de Telefonia' });
       if (!result.success) return setErrorMessage(result.message);
+      completedMovementId = result.movement?.id;
+      completedBatchId = result.movement?.batchOperationId;
     } else if (activeFlow === 'transferencia') {
       const result = dataService.executeTransfer({ ...(params as any), registeredBy: 'Gestor de Telefonia' });
       if (!result.success) return setErrorMessage(result.message);
+      completedBatchId = result.batchOperationId;
     } else {
       const result = dataService.executeSwap({ ...(params as any), registeredBy: 'Gestor de Telefonia' });
       if (!result.success) return setErrorMessage(result.message);
+      completedBatchId = result.batchOperationId;
+    }
+
+    if (selectedTermIds.length) {
+      const linked = dataService.linkTermsToMovement(completedMovementId, completedBatchId, selectedTermIds);
+      if (!linked.success) return setErrorMessage(linked.message);
     }
 
     onSuccess();
@@ -413,11 +435,14 @@ export const MovementModal: React.FC<MovementModalProps> = ({
   const selTrocaCollab = collaborators.find(c => c.id === trocaCollabId);
   const selTrocaOldDev = devices.find(d => d.id === trocaOldDeviceId);
   const selTrocaNewDev = devices.find(d => d.id === trocaNewDeviceId);
+  const selectedTerms = availableTerms.filter((term) => selectedTermIds.includes(term.id));
 
-  return (
+    return (
+    <>
     <Modal
       isOpen={isOpen}
       onClose={onClose}
+      disableEscapeClose={isTermPickerOpen}
       title="Movimentação de Aparelhos"
       subtitle={FLOW_LABELS[activeFlow]}
       maxWidth="4xl"
@@ -519,37 +544,12 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-ink-600 mb-1">Aparelho *</label>
-                    <select
-                      value={entregaDeviceId}
-                      onChange={(e) => setEntregaDeviceId(e.target.value)}
-                      className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
-                      required
-                    >
-                      <option value="">-- Selecione um aparelho disponível --</option>
-                      {availableStockDevices.map((d) => (
-                        <option key={d.id} value={d.id}>
-                          {d.assetTag} · {d.model} · {d.imei1 ? `IMEI: ${d.imei1}` : 'Sem IMEI'}
-                        </option>
-                      ))}
-                    </select>
+                    <label className="block text-xs font-medium text-ink-600 mb-1">Aparelho</label>
+                    <SearchableSelect value={entregaDeviceId} onChange={setEntregaDeviceId} options={deviceOptions(availableStockDevices)} placeholder="Selecione o aparelho" />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-ink-600 mb-1">Linha Telefônica (opcional)</label>
-                    <select
-                      value={entregaLineId}
-                      onChange={(e) => setEntregaLineId(e.target.value)}
-                      className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
-                    >
-                      <option value="">-- Sem linha / Selecione --</option>
-                      {lines
-                        .filter(l => l.status === 'Disponível')
-                        .map((l) => (
-                          <option key={l.id} value={l.id}>
-                            {l.phoneNumber} · {l.carrier || 'Sem operadora'}
-                          </option>
-                        ))}
-                    </select>
+                    <SearchableSelect value={entregaLineId} onChange={setEntregaLineId} options={lineOptions(lines.filter((line) => line.status === 'Disponível'))} placeholder="Selecione a linha" />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-ink-600 mb-1">Condição na entrega</label>
@@ -573,22 +573,8 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-ink-600 mb-1">Colaborador *</label>
-                    <select
-                      value={entregaCollabId}
-                      onChange={(e) => setEntregaCollabId(e.target.value)}
-                      className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
-                      required
-                    >
-                      <option value="">-- Selecione o colaborador --</option>
-                      {collaborators
-                        .filter(c => c.status === 'Ativo')
-                        .map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.fullName} · {c.registrationNumber || 'Sem matrícula'} · {c.department || 'Sem depto'}
-                          </option>
-                        ))}
-                    </select>
+                    <label className="block text-xs font-medium text-ink-600 mb-1">Colaborador</label>
+                    <SearchableSelect value={entregaCollabId} onChange={setEntregaCollabId} options={collaboratorOptions(collaborators.filter((item) => item.status === 'Ativo'))} placeholder="Selecione o colaborador" />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-ink-600 mb-1">Motivo da entrega</label>
@@ -604,19 +590,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                 {/* Acessórios */}
                 <div className="p-3 bg-ink-50 border border-ink-200 rounded-lg space-y-2">
                   <span className="block text-xs font-semibold text-ink-700">Acessórios incluídos na entrega</span>
-                  <div className="flex flex-wrap gap-2">
-                    {COMMON_ACCESSORIES.map((acc) => (
-                      <label key={acc} className="flex items-center gap-1.5 cursor-pointer text-xs">
-                        <input
-                          type="checkbox"
-                          checked={entregaAccessories.includes(acc)}
-                          onChange={() => toggleAccessoryList(entregaAccessories, setEntregaAccessories, acc)}
-                          className="mt-0.5 text-iane-600 focus:ring-iane-500 rounded border-ink-300"
-                        />
-                        <span className="text-ink-700">{acc}</span>
-                      </label>
-                    ))}
-                  </div>
+                  <SearchableMultiSelect values={entregaAccessories} onChange={setEntregaAccessories} options={accessoryOptions} placeholder="Selecionar acessórios" />
                 </div>
               </div>
             )}
@@ -630,37 +604,12 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-ink-600 mb-1">Aparelho *</label>
-                    <select
-                      value={devolucaoDeviceId}
-                      onChange={(e) => handleDevolucaoDeviceChange(e.target.value)}
-                      className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
-                      required
-                    >
-                      <option value="">-- Selecione um aparelho em uso --</option>
-                      {returnFlowDevices.map((d) => (
-                        <option key={d.id} value={d.id}>
-                          {d.assetTag} · {d.model} · {d.currentCollaboratorName || 'Sem colaborador'}
-                        </option>
-                      ))}
-                    </select>
+                    <label className="block text-xs font-medium text-ink-600 mb-1">Aparelho</label>
+                    <SearchableSelect value={devolucaoDeviceId} onChange={handleDevolucaoDeviceChange} options={deviceOptions(returnFlowDevices)} placeholder="Selecione o aparelho" />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-ink-600 mb-1">Colaborador Responsável</label>
-                    <select
-                      value={devolucaoCollabId}
-                      onChange={(e) => setDevolucaoCollabId(e.target.value)}
-                      className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
-                    >
-                      <option value="">-- Selecione --</option>
-                      {collaborators
-                        .filter(c => c.status === 'Ativo')
-                        .map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.fullName} · {c.registrationNumber || 'Sem matrícula'}
-                          </option>
-                        ))}
-                    </select>
+                    <SearchableSelect value={devolucaoCollabId} onChange={setDevolucaoCollabId} options={collaboratorOptions(collaborators.filter((item) => item.status === 'Ativo'))} placeholder="Selecione o colaborador" />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-ink-600 mb-1">Condição na devolução</label>
@@ -713,19 +662,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                 {/* Acessórios */}
                 <div className="p-3 bg-ink-50 border border-ink-200 rounded-lg space-y-2">
                   <span className="block text-xs font-semibold text-ink-700">Acessórios devolvidos</span>
-                  <div className="flex flex-wrap gap-2">
-                    {COMMON_ACCESSORIES.map((acc) => (
-                      <label key={acc} className="flex items-center gap-1.5 cursor-pointer text-xs">
-                        <input
-                          type="checkbox"
-                          checked={devolucaoAccessories.includes(acc)}
-                          onChange={() => toggleAccessoryList(devolucaoAccessories, setDevolucaoAccessories, acc)}
-                          className="mt-0.5 text-iane-600 focus:ring-iane-500 rounded border-ink-300"
-                        />
-                        <span className="text-ink-700">{acc}</span>
-                      </label>
-                    ))}
-                  </div>
+                  <SearchableMultiSelect values={devolucaoAccessories} onChange={setDevolucaoAccessories} options={accessoryOptions} placeholder="Selecionar acessórios" />
                 </div>
 
                 <div>
@@ -752,40 +689,12 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                   <span className="block text-xs font-semibold text-iane-700">Origem: Colaborador A (Atual)</span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-medium text-ink-600 mb-1">Colaborador de Origem *</label>
-                      <select
-                        value={transfCollabAId}
-                        onChange={(e) => handleTransfCollabAChange(e.target.value)}
-                        className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
-                        required
-                      >
-                        <option value="">-- Selecione --</option>
-                        {collaborators
-                          .filter(c => c.status === 'Ativo')
-                          .map((c) => (
-                            <option key={c.id} value={c.id}>
-                              {c.fullName} · {c.registrationNumber || 'Sem matrícula'}
-                            </option>
-                          ))}
-                      </select>
+                      <label className="block text-xs font-medium text-ink-600 mb-1">Colaborador de Origem</label>
+                      <SearchableSelect value={transfCollabAId} onChange={handleTransfCollabAChange} options={collaboratorOptions(collaborators.filter((item) => item.status === 'Ativo'))} placeholder="Selecione o colaborador" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-ink-600 mb-1">Aparelho em uso pelo Colaborador A *</label>
-                      <select
-                        value={transfDeviceId}
-                        onChange={(e) => setTransfDeviceId(e.target.value)}
-                        className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
-                        required
-                      >
-                        <option value="">-- Selecione o colaborador primeiro --</option>
-                        {inUseDevices
-                          .filter(d => d.currentCollaboratorId === transfCollabAId)
-                          .map((d) => (
-                            <option key={d.id} value={d.id}>
-                              {d.assetTag} · {d.model}
-                            </option>
-                          ))}
-                      </select>
+                      <SearchableSelect value={transfDeviceId} onChange={setTransfDeviceId} options={deviceOptions(inUseDevices.filter((device) => device.currentCollaboratorId === transfCollabAId))} placeholder="Selecione o aparelho" />
                     </div>
                   </div>
                 </div>
@@ -793,22 +702,8 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                 <div className="p-3 bg-emerald-50/40 border border-emerald-200 rounded-lg space-y-3">
                   <span className="block text-xs font-semibold text-emerald-700">Destino: Colaborador B (Novo Responsável)</span>
                   <div>
-                    <label className="block text-xs font-medium text-ink-600 mb-1">Colaborador de Destino *</label>
-                    <select
-                      value={transfCollabBId}
-                      onChange={(e) => setTransfCollabBId(e.target.value)}
-                      className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
-                      required
-                    >
-                      <option value="">-- Selecione o novo responsável --</option>
-                      {collaborators
-                        .filter(c => c.status === 'Ativo' && c.id !== transfCollabAId)
-                        .map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.fullName} · {c.registrationNumber || 'Sem matrícula'} · {c.department || 'Sem depto'}
-                          </option>
-                        ))}
-                    </select>
+                    <label className="block text-xs font-medium text-ink-600 mb-1">Colaborador de Destino</label>
+                    <SearchableSelect value={transfCollabBId} onChange={setTransfCollabBId} options={collaboratorOptions(collaborators.filter((item) => item.status === 'Ativo' && item.id !== transfCollabAId))} placeholder="Selecione o colaborador" />
                   </div>
                 </div>
 
@@ -844,19 +739,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
 
                 <div className="p-3 bg-ink-50 border border-ink-200 rounded-lg space-y-2">
                   <span className="block text-xs font-semibold text-ink-700">Acessórios inclusos</span>
-                  <div className="flex flex-wrap gap-2">
-                    {COMMON_ACCESSORIES.map((acc) => (
-                      <label key={acc} className="flex items-center gap-1.5 cursor-pointer text-xs">
-                        <input
-                          type="checkbox"
-                          checked={transfAccessories.includes(acc)}
-                          onChange={() => toggleAccessoryList(transfAccessories, setTransfAccessories, acc)}
-                          className="mt-0.5 text-iane-600 focus:ring-iane-500 rounded border-ink-300"
-                        />
-                        <span className="text-ink-700">{acc}</span>
-                      </label>
-                    ))}
-                  </div>
+                  <SearchableMultiSelect values={transfAccessories} onChange={setTransfAccessories} options={accessoryOptions} placeholder="Selecionar acessórios" />
                 </div>
 
                 <div>
@@ -882,22 +765,8 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                 <div className="p-3 bg-iane-50/40 border border-iane-200 rounded-lg space-y-3">
                   <span className="block text-xs font-semibold text-iane-700">Colaborador que fará a troca</span>
                   <div>
-                    <label className="block text-xs font-medium text-ink-600 mb-1">Colaborador *</label>
-                    <select
-                      value={trocaCollabId}
-                      onChange={(e) => handleTrocaCollabChange(e.target.value)}
-                      className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
-                      required
-                    >
-                      <option value="">-- Selecione o colaborador --</option>
-                      {collaborators
-                        .filter(c => c.status === 'Ativo')
-                        .map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.fullName} · {c.registrationNumber || 'Sem matrícula'}
-                          </option>
-                        ))}
-                    </select>
+                    <label className="block text-xs font-medium text-ink-600 mb-1">Colaborador</label>
+                    <SearchableSelect value={trocaCollabId} onChange={handleTrocaCollabChange} options={collaboratorOptions(collaborators.filter((item) => item.status === 'Ativo'))} placeholder="Selecione o colaborador" />
                   </div>
                 </div>
 
@@ -906,22 +775,8 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                   <span className="block text-xs font-semibold text-gold-700">Aparelho Antigo (será devolvido ao Estoque)</span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-medium text-ink-600 mb-1">Aparelho Antigo *</label>
-                      <select
-                        value={trocaOldDeviceId}
-                        onChange={(e) => setTrocaOldDeviceId(e.target.value)}
-                        className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
-                        required
-                      >
-                        <option value="">-- Selecione --</option>
-                        {inUseDevices
-                          .filter(d => d.currentCollaboratorId === trocaCollabId)
-                          .map((d) => (
-                            <option key={d.id} value={d.id}>
-                              {d.assetTag} · {d.model}
-                            </option>
-                          ))}
-                      </select>
+                      <label className="block text-xs font-medium text-ink-600 mb-1">Aparelho Antigo</label>
+                      <SearchableSelect value={trocaOldDeviceId} onChange={setTrocaOldDeviceId} options={deviceOptions(inUseDevices.filter((device) => device.currentCollaboratorId === trocaCollabId))} placeholder="Selecione o aparelho" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-ink-600 mb-1">Condição do antigo</label>
@@ -953,19 +808,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
 
                   <div className="p-2 bg-white border border-ink-200 rounded-lg space-y-1">
                     <span className="block text-xs font-semibold text-ink-700">Acessórios do aparelho antigo</span>
-                    <div className="flex flex-wrap gap-2">
-                      {COMMON_ACCESSORIES.map((acc) => (
-                        <label key={acc} className="flex items-center gap-1.5 cursor-pointer text-xs">
-                          <input
-                            type="checkbox"
-                            checked={trocaOldAccessories.includes(acc)}
-                            onChange={() => toggleAccessoryList(trocaOldAccessories, setTrocaOldAccessories, acc)}
-                            className="mt-0.5 text-iane-600 focus:ring-iane-500 rounded border-ink-300"
-                          />
-                          <span className="text-ink-700">{acc}</span>
-                        </label>
-                      ))}
-                    </div>
+                    <SearchableMultiSelect values={trocaOldAccessories} onChange={setTrocaOldAccessories} options={accessoryOptions} placeholder="Selecionar acessórios" />
                   </div>
                 </div>
 
@@ -974,20 +817,8 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                   <span className="block text-xs font-semibold text-emerald-700">Novo Aparelho (será entregue do Estoque)</span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-medium text-ink-600 mb-1">Novo Aparelho *</label>
-                      <select
-                        value={trocaNewDeviceId}
-                        onChange={(e) => setTrocaNewDeviceId(e.target.value)}
-                        className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
-                        required
-                      >
-                        <option value="">-- Selecione um aparelho disponível --</option>
-                        {availableStockDevices.map((d) => (
-                          <option key={d.id} value={d.id}>
-                            {d.assetTag} · {d.model} · {d.imei1 ? `IMEI: ${d.imei1}` : 'Sem IMEI'}
-                          </option>
-                        ))}
-                      </select>
+                      <label className="block text-xs font-medium text-ink-600 mb-1">Novo Aparelho</label>
+                      <SearchableSelect value={trocaNewDeviceId} onChange={setTrocaNewDeviceId} options={deviceOptions(availableStockDevices)} placeholder="Selecione o aparelho" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-ink-600 mb-1">Condição do novo</label>
@@ -1017,39 +848,14 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                     {trocaLineOption === 'selecionar_outra_linha' && (
                       <div className="sm:col-span-2">
                         <label className="block text-xs font-medium text-ink-600 mb-1">Outra Linha do Estoque</label>
-                        <select
-                          value={trocaCustomLineId}
-                          onChange={(e) => setTrocaCustomLineId(e.target.value)}
-                          className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
-                        >
-                          <option value="">-- Selecione --</option>
-                          {lines
-                            .filter(l => l.status === 'Disponível')
-                            .map((l) => (
-                              <option key={l.id} value={l.id}>
-                                {l.phoneNumber} · {l.carrier || 'Sem operadora'}
-                              </option>
-                            ))}
-                        </select>
+                        <SearchableSelect value={trocaCustomLineId} onChange={setTrocaCustomLineId} options={lineOptions(lines.filter((line) => line.status === 'Disponível'))} placeholder="Selecione a linha" />
                       </div>
                     )}
                   </div>
 
                   <div className="p-2 bg-white border border-ink-200 rounded-lg space-y-1">
                     <span className="block text-xs font-semibold text-ink-700">Acessórios do novo aparelho</span>
-                    <div className="flex flex-wrap gap-2">
-                      {COMMON_ACCESSORIES.map((acc) => (
-                        <label key={acc} className="flex items-center gap-1.5 cursor-pointer text-xs">
-                          <input
-                            type="checkbox"
-                            checked={trocaNewAccessories.includes(acc)}
-                            onChange={() => toggleAccessoryList(trocaNewAccessories, setTrocaNewAccessories, acc)}
-                            className="mt-0.5 text-iane-600 focus:ring-iane-500 rounded border-ink-300"
-                          />
-                          <span className="text-ink-700">{acc}</span>
-                        </label>
-                      ))}
-                    </div>
+                    <SearchableMultiSelect values={trocaNewAccessories} onChange={setTrocaNewAccessories} options={accessoryOptions} placeholder="Selecionar acessórios" />
                   </div>
                 </div>
 
@@ -1064,32 +870,6 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                 </div>
               </div>
             )}
-
-            {/* Documento do Termo: vincular termo já existente (opcional) */}
-            <div className="p-3 bg-ink-50 border border-ink-200 rounded-lg space-y-2">
-              <span className="block text-xs font-semibold text-ink-700">
-                Documento / Termo desta movimentação (opcional)
-              </span>
-              <div className="pt-1">
-                <select
-                  value={existingTermId}
-                  onChange={(e) => setExistingTermId(e.target.value)}
-                  className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
-                >
-                  <option value="">-- Nenhum / Selecione um termo já existente --</option>
-                  {availableTerms.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.code} · {t.type} · {t.collaboratorName || 'Sem colaborador'} · {t.deviceTag || 'Sem TAG'} ({t.status})
-                    </option>
-                  ))}
-                </select>
-                {availableTerms.length === 0 && (
-                  <p className="text-[11px] text-ink-500 mt-1">
-                    Nenhum termo cadastrado. Cadastre termos na tela "Termos e documentos" anexando o PDF.
-                  </p>
-                )}
-              </div>
-            </div>
 
             <div>
               <label className="block text-xs font-medium text-ink-600 mb-1">Data da movimentação *</label>
@@ -1114,7 +894,22 @@ export const MovementModal: React.FC<MovementModalProps> = ({
             </div>
 
             {/* Botão Revisar */}
-            <div className="flex justify-end pt-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
+              <div className="flex flex-wrap items-center gap-1.5">
+                {selectedTerms.map((term) => (
+                  <span key={term.id} className="inline-flex items-center gap-1 rounded-md border border-iane-200 bg-iane-50 px-2 py-1 text-[11px] font-medium text-iane-800">
+                    {term.code}<button type="button" aria-label={`Remover termo ${term.code}`} onClick={() => setSelectedTermIds((current) => current.filter((id) => id !== term.id))} className="text-iane-600 hover:text-rose-600"><X className="h-3 w-3" /></button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setTermSearch(''); setTermDraftIds(selectedTermIds); setIsTermPickerOpen(true); }}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold bg-white hover:bg-ink-50 text-ink-700 border border-ink-300 rounded-lg transition-colors"
+                >
+                  <Search className="w-4 h-4" />Documento
+                </button>
               <button
                 type="submit"
                 className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold bg-iane-600 hover:bg-iane-700 text-white rounded-lg shadow-xs transition-colors"
@@ -1122,6 +917,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                 <ShieldCheck className="w-4 h-4" />
                 Revisar e Confirmar Operação
               </button>
+              </div>
             </div>
           </form>
         )}
@@ -1169,15 +965,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                     <span className="text-ink-500">Data: </span>
                     <strong>{date}</strong>
                   </div>
-                  <div>
-                    <span className="text-ink-500">Documento / Termo: </span>
-                    {existingTermId ? (() => {
-                      const t = availableTerms.find((x) => x.id === existingTermId);
-                      return <strong className="text-emerald-700">Vincular termo já existente — {t ? `${t.code} (${t.type})` : ''}</strong>;
-                    })() : (
-                      <span className="text-ink-500">Nenhum (opcional)</span>
-                    )}
-                  </div>
+                  <div><span className="text-ink-500">Documentos: </span><strong>{selectedTerms.map((term) => term.code).join(', ') || 'Nenhum (opcional)'}</strong></div>
                 </div>
               )}
 
@@ -1218,15 +1006,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                     <span className="text-ink-500">Data: </span>
                     <strong>{date}</strong>
                   </div>
-                  <div>
-                    <span className="text-ink-500">Documento / Termo: </span>
-                    {existingTermId ? (() => {
-                      const t = availableTerms.find((x) => x.id === existingTermId);
-                      return <strong className="text-emerald-700">Vincular termo já existente — {t ? `${t.code} (${t.type})` : ''}</strong>;
-                    })() : (
-                      <span className="text-ink-500">Nenhum (opcional)</span>
-                    )}
-                  </div>
+                  <div><span className="text-ink-500">Documentos: </span><strong>{selectedTerms.map((term) => term.code).join(', ') || 'Nenhum (opcional)'}</strong></div>
                 </div>
               )}
 
@@ -1268,15 +1048,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                     <span className="text-ink-500">Data: </span>
                     <strong>{date}</strong>
                   </div>
-                  <div>
-                    <span className="text-ink-500">Documento / Termo: </span>
-                    {existingTermId ? (() => {
-                      const t = availableTerms.find((x) => x.id === existingTermId);
-                      return <strong className="text-emerald-700">Vincular termo já existente — {t ? `${t.code} (${t.type})` : ''}</strong>;
-                    })() : (
-                      <span className="text-ink-500">Nenhum (opcional)</span>
-                    )}
-                  </div>
+                  <div><span className="text-ink-500">Documentos: </span><strong>{selectedTerms.map((term) => term.code).join(', ') || 'Nenhum (opcional)'}</strong></div>
                 </div>
               )}
 
@@ -1321,15 +1093,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                     <span className="text-ink-500">Data: </span>
                     <strong>{date}</strong>
                   </div>
-                  <div>
-                    <span className="text-ink-500">Documento / Termo: </span>
-                    {existingTermId ? (() => {
-                      const t = availableTerms.find((x) => x.id === existingTermId);
-                      return <strong className="text-emerald-700">Vincular termo já existente — {t ? `${t.code} (${t.type})` : ''}</strong>;
-                    })() : (
-                      <span className="text-ink-500">Nenhum (opcional)</span>
-                    )}
-                  </div>
+                  <div><span className="text-ink-500">Documentos: </span><strong>{selectedTerms.map((term) => term.code).join(', ') || 'Nenhum (opcional)'}</strong></div>
                 </div>
               )}
 
@@ -1357,5 +1121,37 @@ export const MovementModal: React.FC<MovementModalProps> = ({
         )}
       </div>
     </Modal>
+    <Modal isOpen={isTermPickerOpen} onClose={() => setIsTermPickerOpen(false)} title="Selecionar documentos" subtitle="Escolha um ou mais termos já cadastrados." maxWidth="2xl">
+      <div className="space-y-4">
+        <div className="relative">
+          <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-ink-400" />
+          <input value={termSearch} onChange={(event) => setTermSearch(event.target.value)} placeholder="Pesquisar código, tipo, colaborador ou aparelho..." className="w-full rounded-lg border border-ink-300 bg-white py-2 pl-9 pr-3 text-xs text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500" />
+        </div>
+        <div className="max-h-72 divide-y divide-ink-100 overflow-y-auto rounded-lg border border-ink-200">
+          {availableTerms.filter((term) => [term.code, term.type, term.title, term.collaboratorName, term.deviceTag].filter(Boolean).join(' ').toLocaleLowerCase('pt-BR').includes(termSearch.toLocaleLowerCase('pt-BR'))).length ? availableTerms
+            .filter((term) => [term.code, term.type, term.title, term.collaboratorName, term.deviceTag].filter(Boolean).join(' ').toLocaleLowerCase('pt-BR').includes(termSearch.toLocaleLowerCase('pt-BR')))
+            .map((term) => {
+              const selected = termDraftIds.includes(term.id);
+              return (
+                <button key={term.id} type="button" aria-pressed={selected} onClick={() => setTermDraftIds((current) => selected ? current.filter((id) => id !== term.id) : [...current, term.id])} className={`flex w-full items-start gap-3 px-3 py-2.5 text-left transition-colors ${selected ? 'bg-iane-50' : 'bg-white hover:bg-ink-50'}`}>
+                  <span className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border ${selected ? 'border-iane-600 bg-iane-600 text-white' : 'border-ink-300 bg-white'}`}>{selected && <CheckCircle2 className="h-3 w-3" />}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex flex-wrap items-center gap-2 text-xs font-semibold text-ink-900"><span className="font-mono">{term.code}</span><span>{term.type}</span><span className="rounded border border-ink-200 bg-ink-50 px-1.5 py-0.5 text-[10px] font-medium text-ink-600">{term.status}</span></span>
+                    <span className="mt-0.5 block truncate text-[11px] text-ink-500">{term.collaboratorName || 'Sem colaborador'} · {term.deviceTag || 'Sem aparelho'} · {term.title}</span>
+                  </span>
+                </button>
+              );
+            }) : <p className="px-3 py-8 text-center text-xs text-ink-400">{availableTerms.length ? 'Nenhum termo corresponde à pesquisa.' : 'Nenhum termo cadastrado. Cadastre documentos na tela Termos e documentos.'}</p>}
+        </div>
+        <div className="flex items-center justify-between border-t border-ink-100 pt-3">
+          <span className="text-[11px] text-ink-500">{termDraftIds.length} termo(s) selecionado(s)</span>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setIsTermPickerOpen(false)} className="rounded-lg bg-ink-100 px-4 py-2 text-xs font-medium text-ink-700 hover:bg-ink-200">Cancelar</button>
+            <button type="button" onClick={() => { setSelectedTermIds(termDraftIds); setIsTermPickerOpen(false); }} className="rounded-lg bg-iane-600 px-4 py-2 text-xs font-semibold text-white hover:bg-iane-700">Confirmar seleção</button>
+          </div>
+        </div>
+      </div>
+    </Modal>
+    </>
   );
 };

@@ -28,6 +28,7 @@ export interface Device {
   condition: DeviceCondition;
   status: DeviceStatus;
   sector?: string;
+  unit?: string;
   currentDepartment?: string;
   currentCollaboratorId?: string;
   currentCollaboratorName?: string;
@@ -60,6 +61,7 @@ export interface PhoneLine {
   currentCollaboratorId?: string;
   currentCollaboratorName?: string;
   department?: string;
+  unit?: string;
   activationDate?: string;
   iccid?: string; // Número do chip SIM
   notes?: string;
@@ -75,6 +77,7 @@ export interface Collaborator {
   registrationNumber: string; // Matrícula
   department: string;
   sector?: string; // Setor
+  unit?: string;
   position: string; // Cargo
   corporateEmail: string;
   contactPhone?: string;
@@ -149,6 +152,7 @@ export interface Movement {
   documentId?: string;
   documentCode?: string;
   documentType?: TermType;
+  linkedTerms?: Array<{ id: string; code: string; type: TermType }>;
   
   maintenanceProvider?: string;
   maintenanceCost?: number;
@@ -163,6 +167,15 @@ export interface Movement {
     primaryMovementId: string;
   };
 }
+
+export type CatalogType = 'departments' | 'sectors' | 'models' | 'brands' | 'units';
+
+export interface CatalogItem {
+  id: string;
+  name: string;
+}
+
+export type Catalogs = Record<CatalogType, CatalogItem[]>;
 
 export type RequestType = 'Entrega' | 'Devolução' | 'Transferência' | 'Troca de Aparelho';
 export type RequestStatus = 'Pendente de aprovação' | 'Aprovada' | 'Recusada';

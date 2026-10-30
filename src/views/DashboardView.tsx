@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { dataService, stockDisplayName } from '../services/dataStorage';
 import { formatDate } from '../utils/formatters';
-import { SECTORS } from '../utils/collaborators';
 import { StatusBadge } from '../components/StatusBadge';
 import { Modal } from '../components/Modal';
 import { NavTab } from '../components/Sidebar';
-import { User } from '../types';
+import { Catalogs, User } from '../types';
 import {
   Smartphone,
   PhoneCall,
@@ -50,6 +49,9 @@ function extractDdd(phoneNumber?: string): string | null {
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, currentUser }) => {
+  const [catalogs, setCatalogs] = useState<Catalogs>(() => dataService.getCatalogs());
+  useEffect(() => { void dataService.fetchCatalogs().then(setCatalogs); }, []);
+  const sectors = catalogs.sectors.map((item) => item.name);
   const metrics = dataService.getDashboardMetrics();
   const devices = dataService.getDevices();
   const lines = dataService.getLines();
@@ -145,7 +147,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
   }).length;
 
   // Aparelhos em uso por Setor (setor do próprio aparelho, definido no cadastro).
-  const inUseBySector = new Map<string, number>(SECTORS.map((sector) => [sector, 0]));
+  const inUseBySector = new Map<string, number>(sectors.map((sector) => [sector, 0]));
   let inUseWithoutSector = 0;
   devices.forEach((device) => {
     if (device.status !== 'Em uso') return;
@@ -473,7 +475,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
                 </tr>
               </thead>
               <tbody className="divide-y divide-ink-100">
-                {SECTORS.map((sector, index) => (
+                {sectors.map((sector, index) => (
                   <tr key={sector} className={index % 2 === 1 ? 'bg-ink-50/60' : undefined}>
                     <td className="py-2.5 px-4 font-medium text-ink-800">{sector}</td>
                     <td className="py-2.5 px-4 text-center font-mono tabular-nums text-ink-900">

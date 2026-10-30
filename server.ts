@@ -126,6 +126,7 @@ const memoryStore = {
   terms: [] as any[],
   auditLogs: [] as any[],
   requests: [] as any[],
+  catalogs: null as Record<string, Array<{ id: string; name: string }>> | null,
 };
 
 async function autoMigrateDatabase(client: pg.PoolClient) {
@@ -282,6 +283,13 @@ async function autoMigrateDatabase(client: pg.PoolClient) {
         decided_at TIMESTAMP WITH TIME ZONE,
         rejection_reason TEXT,
         movement_ids TEXT[]
+      );
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS system_catalogs (
+        id VARCHAR(30) PRIMARY KEY,
+        catalogs JSONB NOT NULL DEFAULT '{}'::jsonb,
+        updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
     `);
     const requestDecisionColumns = [
@@ -728,7 +736,7 @@ app.use((req, res, next) => {
 
 // Rotas de dados exigem o PostgreSQL. Sem banco, respondem 503 para que o front-end mantenha a gravação
 // na fila e tente de novo (antes o servidor respondia "sucesso" gravando só em memória).
-const DB_REQUIRED_PREFIXES = ['/api/devices', '/api/lines', '/api/collaborators', '/api/movements', '/api/requests', '/api/terms', '/api/audit-logs', '/api/sync', '/api/database', '/api/backup'];
+const DB_REQUIRED_PREFIXES = ['/api/devices', '/api/lines', '/api/collaborators', '/api/movements', '/api/requests', '/api/terms', '/api/catalogs', '/api/audit-logs', '/api/sync', '/api/database', '/api/backup'];
 app.use((req, res, next) => {
   if (!ALLOW_MEMORY_FALLBACK && !isDbConnected && DB_REQUIRED_PREFIXES.some(p => req.path.startsWith(p))) {
     return res.status(503).json({
@@ -1418,6 +1426,191 @@ async function insertAudit(q: Queryable, a: any) {
     ]
   );
 }
+
+const CATALOG_TYPES = ['departments', 'sectors', 'models', 'brands', 'units'] as const;
+type CatalogType = typeof CATALOG_TYPES[number];
+type CatalogList = Array<{ id: string; name: string }>;
+type CatalogRecord = Record<CatalogType, CatalogList>;
+
+const initialCatalogValues: Record<'departments' | 'sectors', string[]> = {
+  departments: ['Administrativo', 'Comercial', 'Diretoria', 'Financeiro', 'Industrial', 'Logística', 'Contábil'],
+  sectors: ['Administrativo', 'Contabilidade', 'TI', 'Comercial', 'Trade', 'Vendas', 'Diretoria', 'Financeiro', 'Industrial', 'Manutenção', 'Produção', 'Qualidade', 'Suprimentos', 'Logística', 'Transportes', 'Expedição'],
+};
+
+const uniqueCatalogItems = (type: CatalogType, names: string[]): CatalogList =>
+  Array.from(new Set(names.map((name) => String(name || '').trim()).filter(Boolean)))
+    .map((name, index) => ({ id: `catalog-${type}-${index + 1}`, name }));
+
+async function getCatalogsFromDb(q: Queryable): Promise<CatalogRecord> {
+  const existing = await q.query('SELECT catalogs FROM system_catalogs WHERE id = $1', ['global']);
+  if (existing.rows[0]?.catalogs) return existing.rows[0].catalogs as CatalogRecord;
+
+  const [brands, models] = await Promise.all([
+    q.query('SELECT DISTINCT brand AS name FROM devices WHERE BTRIM(COALESCE(brand, \'\')) <> \'\' ORDER BY name'),
+    q.query('SELECT DISTINCT model AS name FROM devices WHERE BTRIM(COALESCE(model, \'\')) <> \'\' ORDER BY name'),
+  ]);
+  const initial = {
+    departments: uniqueCatalogItems('departments', initialCatalogValues.departments),
+    sectors: uniqueCatalogItems('sectors', initialCatalogValues.sectors),
+    brands: uniqueCatalogItems('brands', brands.rows.map((row: any) => row.name)),
+    models: uniqueCatalogItems('models', models.rows.map((row: any) => row.name)),
+    units: [],
+  } satisfies CatalogRecord;
+  await q.query(
+    `INSERT INTO system_catalogs (id, catalogs) VALUES ($1, $2::jsonb) ON CONFLICT (id) DO NOTHING`,
+    ['global', JSON.stringify(initial)]
+  );
+  const saved = await q.query('SELECT catalogs FROM system_catalogs WHERE id = $1', ['global']);
+  return saved.rows[0].catalogs as CatalogRecord;
+}
+
+const catalogReferenceTables: Record<CatalogType, Array<{ table: string; condition: string }>> = {
+  departments: [
+    { table: 'collaborators', condition: `department = $1 OR data->>'department' = $1` },
+    { table: 'devices', condition: `data->>'currentDepartment' = $1` },
+    { table: 'phone_lines', condition: `data->>'department' = $1` },
+  ],
+  sectors: [
+    { table: 'collaborators', condition: `data->>'sector' = $1` },
+    { table: 'devices', condition: `data->>'sector' = $1` },
+  ],
+  models: [
+    { table: 'devices', condition: `model = $1 OR data->>'model' = $1` },
+    { table: 'phone_lines', condition: `data->>'associatedDeviceModel' = $1` },
+  ],
+  brands: [{ table: 'devices', condition: `brand = $1 OR data->>'brand' = $1` }],
+  units: [
+    { table: 'collaborators', condition: `data->>'unit' = $1` },
+    { table: 'devices', condition: `data->>'unit' = $1` },
+    { table: 'phone_lines', condition: `data->>'unit' = $1` },
+  ],
+};
+
+async function countCatalogReferences(q: Queryable, type: CatalogType, name: string): Promise<number> {
+  let count = 0;
+  for (const reference of catalogReferenceTables[type]) {
+    const result = await q.query(`SELECT COUNT(*)::int AS count FROM ${reference.table} WHERE ${reference.condition}`, [name]);
+    count += Number(result.rows[0]?.count || 0);
+  }
+  return count;
+}
+
+async function renameCatalogReferences(q: Queryable, type: CatalogType, oldName: string, newName: string): Promise<void> {
+  const statements: Record<CatalogType, string[]> = {
+    departments: [
+      `UPDATE collaborators SET department = CASE WHEN department = $1 THEN $2 ELSE department END,
+       data = jsonb_set(COALESCE(data, '{}'::jsonb), '{department}', to_jsonb($2::text), true)
+       WHERE department = $1 OR data->>'department' = $1`,
+      `UPDATE devices SET data = jsonb_set(COALESCE(data, '{}'::jsonb), '{currentDepartment}', to_jsonb($2::text), true) WHERE data->>'currentDepartment' = $1`,
+      `UPDATE phone_lines SET data = jsonb_set(COALESCE(data, '{}'::jsonb), '{department}', to_jsonb($2::text), true) WHERE data->>'department' = $1`,
+    ],
+    sectors: [
+      `UPDATE collaborators SET data = jsonb_set(COALESCE(data, '{}'::jsonb), '{sector}', to_jsonb($2::text), true) WHERE data->>'sector' = $1`,
+      `UPDATE devices SET data = jsonb_set(COALESCE(data, '{}'::jsonb), '{sector}', to_jsonb($2::text), true) WHERE data->>'sector' = $1`,
+    ],
+    models: [
+      `UPDATE devices SET model = CASE WHEN model = $1 THEN $2 ELSE model END,
+       data = jsonb_set(COALESCE(data, '{}'::jsonb), '{model}', to_jsonb($2::text), true) WHERE model = $1 OR data->>'model' = $1`,
+      `UPDATE phone_lines SET data = jsonb_set(COALESCE(data, '{}'::jsonb), '{associatedDeviceModel}', to_jsonb($2::text), true) WHERE data->>'associatedDeviceModel' = $1`,
+    ],
+    brands: [`UPDATE devices SET brand = CASE WHEN brand = $1 THEN $2 ELSE brand END,
+      data = jsonb_set(COALESCE(data, '{}'::jsonb), '{brand}', to_jsonb($2::text), true) WHERE brand = $1 OR data->>'brand' = $1`],
+    units: [
+      `UPDATE collaborators SET data = jsonb_set(COALESCE(data, '{}'::jsonb), '{unit}', to_jsonb($2::text), true) WHERE data->>'unit' = $1`,
+      `UPDATE devices SET data = jsonb_set(COALESCE(data, '{}'::jsonb), '{unit}', to_jsonb($2::text), true) WHERE data->>'unit' = $1`,
+      `UPDATE phone_lines SET data = jsonb_set(COALESCE(data, '{}'::jsonb), '{unit}', to_jsonb($2::text), true) WHERE data->>'unit' = $1`,
+    ],
+  };
+  for (const statement of statements[type]) await q.query(statement, [oldName, newName]);
+}
+
+app.get('/api/catalogs', requireReadAccess, route(async (_req, res) => {
+  if (pool && isDbConnected) {
+    const catalogs = await getCatalogsFromDb(pool);
+    return res.json({ success: true, data: catalogs });
+  }
+  if (!memoryStore.catalogs) {
+    memoryStore.catalogs = {
+      departments: uniqueCatalogItems('departments', initialCatalogValues.departments),
+      sectors: uniqueCatalogItems('sectors', initialCatalogValues.sectors),
+      brands: uniqueCatalogItems('brands', memoryStore.devices.map((device: any) => device.brand)),
+      models: uniqueCatalogItems('models', memoryStore.devices.map((device: any) => device.model)),
+      units: [],
+    };
+  }
+  return res.json({ success: true, data: memoryStore.catalogs });
+}));
+
+app.put('/api/catalogs/:type', requirePermission('configuracoes'), route(async (req, res) => {
+  const type = req.params.type as CatalogType;
+  if (!CATALOG_TYPES.includes(type)) throw new HttpError(404, 'Lista de cadastro não encontrada.');
+  const rawItems = req.body?.items;
+  if (!Array.isArray(rawItems)) throw new HttpError(400, 'Informe a lista de itens.');
+  const items: CatalogList = rawItems.map((item: any) => ({ id: str(item?.id) || '', name: str(item?.name) || '' }));
+  if (items.some((item) => !item.id || !item.name)) throw new HttpError(400, 'O nome de cada item é obrigatório.');
+  const normalizedNames = items.map((item) => item.name.trim().toLocaleLowerCase('pt-BR'));
+  if (new Set(normalizedNames).size !== normalizedNames.length) throw new HttpError(409, 'Já existe um item com esse nome nesta lista.');
+
+  if (pool && isDbConnected) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const current = await getCatalogsFromDb(client);
+      const currentItems = current[type] || [];
+      const nextIds = new Set(items.map((item) => item.id));
+      for (const removed of currentItems.filter((item) => !nextIds.has(item.id))) {
+        const inUse = await countCatalogReferences(client, type, removed.name);
+        if (inUse > 0) throw new HttpError(409, `Não é possível excluir "${removed.name}": está em uso por ${inUse} registro(s).`);
+      }
+      for (const item of items) {
+        const previous = currentItems.find((existing) => existing.id === item.id);
+        if (previous && previous.name !== item.name) {
+          await renameCatalogReferences(client, type, previous.name, item.name);
+        }
+      }
+      const updated = { ...current, [type]: items } as CatalogRecord;
+      await client.query(`UPDATE system_catalogs SET catalogs = $1::jsonb, updated_at = CURRENT_TIMESTAMP WHERE id = $2`, [JSON.stringify(updated), 'global']);
+      await client.query('COMMIT');
+      return res.json({ success: true, data: updated });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  const current = memoryStore.catalogs;
+  if (!current) throw new HttpError(503, 'Cadastros ainda não foram inicializados.');
+  const currentItems = current[type] || [];
+  const nextIds = new Set(items.map((item) => item.id));
+  for (const removed of currentItems.filter((item) => !nextIds.has(item.id))) {
+    const refs = type === 'departments'
+      ? memoryStore.collaborators.filter((item: any) => item.department === removed.name).length + memoryStore.devices.filter((item: any) => item.currentDepartment === removed.name).length + memoryStore.lines.filter((item: any) => item.department === removed.name).length
+      : type === 'sectors'
+      ? memoryStore.collaborators.filter((item: any) => item.sector === removed.name).length + memoryStore.devices.filter((item: any) => item.sector === removed.name).length
+      : type === 'models'
+      ? memoryStore.devices.filter((item: any) => item.model === removed.name).length + memoryStore.lines.filter((item: any) => item.associatedDeviceModel === removed.name).length
+      : type === 'brands'
+      ? memoryStore.devices.filter((item: any) => item.brand === removed.name).length
+      : memoryStore.collaborators.filter((item: any) => item.unit === removed.name).length + memoryStore.devices.filter((item: any) => item.unit === removed.name).length + memoryStore.lines.filter((item: any) => item.unit === removed.name).length;
+    if (refs > 0) throw new HttpError(409, `Não é possível excluir "${removed.name}": está em uso por ${refs} registro(s).`);
+  }
+  const renames = currentItems.flatMap((old) => {
+    const next = items.find((item) => item.id === old.id);
+    return next && next.name !== old.name ? [{ oldName: old.name, newName: next.name }] : [];
+  });
+  for (const { oldName, newName } of renames) {
+    const replace = (records: any[], field: string) => records.forEach((record) => { if (record[field] === oldName) record[field] = newName; });
+    if (type === 'departments') { replace(memoryStore.collaborators, 'department'); replace(memoryStore.devices, 'currentDepartment'); replace(memoryStore.lines, 'department'); }
+    else if (type === 'sectors') { replace(memoryStore.collaborators, 'sector'); replace(memoryStore.devices, 'sector'); }
+    else if (type === 'models') { replace(memoryStore.devices, 'model'); replace(memoryStore.lines, 'associatedDeviceModel'); }
+    else if (type === 'brands') replace(memoryStore.devices, 'brand');
+    else { replace(memoryStore.collaborators, 'unit'); replace(memoryStore.devices, 'unit'); replace(memoryStore.lines, 'unit'); }
+  }
+  memoryStore.catalogs = { ...current, [type]: items };
+  return res.json({ success: true, data: memoryStore.catalogs });
+}));
 
 app.get('/api/devices', requireReadAccess, route(async (_req, res) => {
   if (pool && isDbConnected) {

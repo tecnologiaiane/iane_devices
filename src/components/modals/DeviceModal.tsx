@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Modal } from '../Modal';
-import { Device, DeviceCondition, DeviceStatus } from '../../types';
+import { Catalogs, Device, DeviceCondition, DeviceStatus } from '../../types';
 import { dataService } from '../../services/dataStorage';
 import { todayISO } from '../../utils/dates';
-import { SECTORS } from '../../utils/collaborators';
+import { SearchableOption, SearchableSelect } from '../SearchableSelect';
 import { AlertTriangle } from 'lucide-react';
 
 interface DeviceModalProps {
@@ -13,9 +13,6 @@ interface DeviceModalProps {
   deviceToEdit?: Device | null;
 }
 
-const BRANDS = ['Samsung', 'Apple', 'Motorola', 'Xiaomi', 'Asus', 'Outra'];
-const DEPARTMENTS = ['Comercial', 'Operações', 'Logística', 'TI', 'Diretoria', 'Financeiro', 'RH', 'Engenharia', 'Geral'];
-
 export const DeviceModal: React.FC<DeviceModalProps> = ({
   isOpen,
   onClose,
@@ -23,7 +20,7 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
   deviceToEdit,
 }) => {
   const [assetTag, setAssetTag] = useState('');
-  const [brand, setBrand] = useState('Samsung');
+  const [brand, setBrand] = useState('');
   const [model, setModel] = useState('');
   const [imei1, setImei1] = useState('');
   const [imei2, setImei2] = useState('');
@@ -33,9 +30,18 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
   const [condition, setCondition] = useState<DeviceCondition>('Excelente');
   const [status, setStatus] = useState<DeviceStatus>('Disponível');
   const [sector, setSector] = useState('');
+  const [unit, setUnit] = useState('');
   const [currentDepartment, setCurrentDepartment] = useState('');
   const [notes, setNotes] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [catalogs, setCatalogs] = useState<Catalogs>(() => dataService.getCatalogs());
+
+  useEffect(() => {
+    if (isOpen) void dataService.fetchCatalogs().then((loaded) => {
+      setCatalogs(loaded);
+      if (!deviceToEdit && !brand) setBrand(loaded.brands[0]?.name || '');
+    });
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -52,13 +58,14 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
         setCondition(deviceToEdit.condition);
         setStatus(deviceToEdit.status);
         setSector(deviceToEdit.sector || '');
+        setUnit(deviceToEdit.unit || '');
         setCurrentDepartment(deviceToEdit.currentDepartment || '');
         setNotes(deviceToEdit.notes || '');
       } else {
         // Auto-generate tag suggestion
         const currentCount = dataService.getDevices().length;
         setAssetTag(`CEL-${String(currentCount + 1).padStart(3, '0')}`);
-        setBrand('Samsung');
+        setBrand('');
         setModel('');
         setImei1('');
         setImei2('');
@@ -68,6 +75,7 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
         setCondition('Novo');
         setStatus('Disponível');
         setSector('');
+        setUnit('');
         setCurrentDepartment('');
         setNotes('');
       }
@@ -84,6 +92,10 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
     }
     if (!model.trim()) {
       setErrorMessage('Informe o modelo do aparelho (ex: Galaxy S23 128GB).');
+      return;
+    }
+    if (!brand.trim()) {
+      setErrorMessage('Selecione o fabricante do aparelho.');
       return;
     }
     // IMEI e Número de Série não são obrigatórios
@@ -106,6 +118,7 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
       condition,
       status: deviceToEdit ? status : (status || 'Disponível'),
       sector: sector || undefined,
+      unit: unit || undefined,
       currentDepartment: currentDepartment || undefined,
       notes: notes.trim() || undefined,
     };
@@ -118,6 +131,12 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
 
     onSuccess();
     onClose();
+  };
+
+  const catalogOptions = (items: Catalogs['brands'], current: string): SearchableOption[] => {
+    const values = [...items];
+    if (current && !values.some((item) => item.name === current)) values.push({ id: `legacy-${current}`, name: current });
+    return values.map((item) => ({ value: item.name, label: item.name }));
   };
 
   return (
@@ -155,15 +174,7 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
             <label className="block text-xs font-semibold text-ink-700 mb-1">
               Fabricante *
             </label>
-            <select
-              value={brand}
-              onChange={(e) => setBrand(e.target.value)}
-              className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500"
-            >
-              {BRANDS.map((b) => (
-                <option key={b} value={b}>{b}</option>
-              ))}
-            </select>
+            <SearchableSelect value={brand} onChange={setBrand} options={catalogOptions(catalogs.brands, brand)} placeholder="Selecione a marca" />
           </div>
         </div>
 
@@ -171,14 +182,7 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
           <label className="block text-xs font-semibold text-ink-700 mb-1">
             Modelo *
           </label>
-          <input
-            type="text"
-            value={model}
-            onChange={(e) => setModel(e.target.value)}
-            placeholder="Ex: Galaxy A54 5G, iPhone 14"
-            className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500"
-            required
-          />
+          <SearchableSelect value={model} onChange={setModel} options={catalogOptions(catalogs.models, model)} placeholder="Selecione o modelo" />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -201,16 +205,12 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
           <label className="block text-xs font-medium text-ink-700 mb-1">
             Setor
           </label>
-          <select
-            value={sector}
-            onChange={(e) => setSector(e.target.value)}
-            className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500"
-          >
-            <option value="">-- Não especificado --</option>
-            {SECTORS.map((s) => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
+          <SearchableSelect value={sector} onChange={setSector} options={catalogOptions(catalogs.sectors, sector)} placeholder="Não especificado" />
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-ink-700 mb-1">Unidade</label>
+          <SearchableSelect value={unit} onChange={setUnit} options={catalogOptions(catalogs.units, unit)} placeholder="Selecione a unidade (opcional)" />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -293,16 +293,7 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
             <label className="block text-xs font-medium text-ink-700 mb-1">
               Departamento Destinado
             </label>
-            <select
-              value={currentDepartment}
-              onChange={(e) => setCurrentDepartment(e.target.value)}
-              className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500"
-            >
-              <option value="">-- Não especificado / Pool Geral --</option>
-              {DEPARTMENTS.map((d) => (
-                <option key={d} value={d}>{d}</option>
-              ))}
-            </select>
+            <SearchableSelect value={currentDepartment} onChange={setCurrentDepartment} options={catalogOptions(catalogs.departments, currentDepartment)} placeholder="Não especificado / Pool Geral" />
           </div>
         </div>
 
