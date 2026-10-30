@@ -50,10 +50,10 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
   const filteredCollabs = collaborators.filter((c) => {
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      const matchName = c.fullName.toLowerCase().includes(q);
-      const matchMat = c.registrationNumber.toLowerCase().includes(q);
-      const matchRole = c.position.toLowerCase().includes(q);
-      const matchEmail = c.corporateEmail.toLowerCase().includes(q);
+      const matchName = (c.fullName || '').toLowerCase().includes(q);
+      const matchMat = (c.registrationNumber || '').toLowerCase().includes(q);
+      const matchRole = (c.position || '').toLowerCase().includes(q);
+      const matchEmail = (c.corporateEmail || '').toLowerCase().includes(q);
       if (!matchName && !matchMat && !matchRole && !matchEmail) return false;
     }
 
@@ -280,8 +280,8 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
               {/* Grid 1: Contato e Identificação */}
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-3.5 bg-ink-50 rounded-lg text-xs">
                 <div>
-                  <span className="text-ink-400 text-[11px] block">E-mail Corporativo</span>
-                  <span className="font-medium text-ink-900">{detailCollab.corporateEmail}</span>
+                  <span className="text-ink-400 text-[11px] block">E-mail</span>
+                  <span className="font-medium text-ink-900">{detailCollab.corporateEmail || 'Não informado'}</span>
                 </div>
                 <div>
                   <span className="text-ink-400 text-[11px] block">Telefone de Contato</span>

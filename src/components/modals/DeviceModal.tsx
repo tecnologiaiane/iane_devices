@@ -3,7 +3,8 @@ import { Modal } from '../Modal';
 import { Device, DeviceCondition, DeviceStatus } from '../../types';
 import { dataService } from '../../services/dataStorage';
 import { todayISO } from '../../utils/dates';
-import { AlertTriangle, Smartphone } from 'lucide-react';
+import { SECTORS } from '../../utils/collaborators';
+import { AlertTriangle } from 'lucide-react';
 
 interface DeviceModalProps {
   isOpen: boolean;
@@ -31,6 +32,7 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
   const [purchaseValue, setPurchaseValue] = useState('');
   const [condition, setCondition] = useState<DeviceCondition>('Excelente');
   const [status, setStatus] = useState<DeviceStatus>('Disponível');
+  const [sector, setSector] = useState('');
   const [currentDepartment, setCurrentDepartment] = useState('');
   const [notes, setNotes] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -49,6 +51,7 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
         setPurchaseValue(deviceToEdit.purchaseValue ? String(deviceToEdit.purchaseValue) : '');
         setCondition(deviceToEdit.condition);
         setStatus(deviceToEdit.status);
+        setSector(deviceToEdit.sector || '');
         setCurrentDepartment(deviceToEdit.currentDepartment || '');
         setNotes(deviceToEdit.notes || '');
       } else {
@@ -64,6 +67,7 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
         setPurchaseValue('');
         setCondition('Novo');
         setStatus('Disponível');
+        setSector('');
         setCurrentDepartment('');
         setNotes('');
       }
@@ -82,13 +86,10 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
       setErrorMessage('Informe o modelo do aparelho (ex: Galaxy S23 128GB).');
       return;
     }
-    // IMEI e Número de Série não são obrigatórios conforme solicitado
-    if (imei1.trim() && imei1.trim().length > 0 && !/^\d{14,17}$/.test(imei1.trim())) {
-      setErrorMessage('Caso informado, o IMEI 1 deve conter apenas números com 14 a 17 dígitos.');
-      return;
-    }
-    if (imei2.trim() && imei2.trim().length > 0 && !/^\d{14,17}$/.test(imei2.trim())) {
-      setErrorMessage('Caso informado, o IMEI 2 deve conter apenas números com 14 a 17 dígitos.');
+    // IMEI e Número de Série não são obrigatórios
+    const imeiDigits = imei1.replace(/\D/g, '');
+    if (imeiDigits && !/^\d{14,17}$/.test(imeiDigits)) {
+      setErrorMessage('Caso informado, o IMEI deve conter apenas números com 14 a 17 dígitos.');
       return;
     }
 
@@ -104,6 +105,7 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
       purchaseValue: purchaseValue ? parseFloat(purchaseValue) : undefined,
       condition,
       status: deviceToEdit ? status : (status || 'Disponível'),
+      sector: sector || undefined,
       currentDepartment: currentDepartment || undefined,
       notes: notes.trim() || undefined,
     };
@@ -151,7 +153,7 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
 
           <div>
             <label className="block text-xs font-semibold text-ink-700 mb-1">
-              Marca do Fabricante *
+              Fabricante *
             </label>
             <select
               value={brand}
@@ -167,13 +169,13 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
 
         <div>
           <label className="block text-xs font-semibold text-ink-700 mb-1">
-            Modelo e Capacidade de Armazenamento *
+            Modelo *
           </label>
           <input
             type="text"
             value={model}
             onChange={(e) => setModel(e.target.value)}
-            placeholder="Ex: Galaxy A54 5G 128GB Grafite, iPhone 14 128GB"
+            placeholder="Ex: Galaxy A54 5G, iPhone 14"
             className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500"
             required
           />
@@ -182,7 +184,7 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-medium text-ink-700 mb-1">
-              IMEI 1 (Principal)
+              IMEI
             </label>
             <input
               type="text"
@@ -193,36 +195,25 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
               className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 font-mono focus:outline-none focus:ring-2 focus:ring-iane-500"
             />
           </div>
+        </div>
 
-          <div>
-            <label className="block text-xs font-medium text-ink-700 mb-1">
-              IMEI 2 (Secundário / eSIM)
-            </label>
-            <input
-              type="text"
-              value={imei2}
-              onChange={(e) => setImei2(e.target.value.replace(/\D/g, ''))}
-              placeholder="Opcional"
-              maxLength={17}
-              className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 font-mono focus:outline-none focus:ring-2 focus:ring-iane-500"
-            />
-          </div>
+        <div>
+          <label className="block text-xs font-medium text-ink-700 mb-1">
+            Setor
+          </label>
+          <select
+            value={sector}
+            onChange={(e) => setSector(e.target.value)}
+            className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500"
+          >
+            <option value="">-- Não especificado --</option>
+            {SECTORS.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-medium text-ink-700 mb-1">
-              Número de Série (S/N)
-            </label>
-            <input
-              type="text"
-              value={serialNumber}
-              onChange={(e) => setSerialNumber(e.target.value.toUpperCase())}
-              placeholder="Opcional"
-              className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 font-mono focus:outline-none focus:ring-2 focus:ring-iane-500 uppercase"
-            />
-          </div>
-
           <div>
             <label className="block text-xs font-medium text-ink-700 mb-1">
               Estado de Conservação
@@ -338,10 +329,9 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
           </button>
           <button
             type="submit"
-            className="px-5 py-2 text-xs font-semibold text-white bg-iane-600 hover:bg-iane-700 rounded-lg shadow-xs transition-colors flex items-center gap-1.5"
+            className="px-5 py-2 text-xs font-semibold text-white bg-iane-600 hover:bg-iane-700 rounded-lg shadow-xs transition-colors"
           >
-            <Smartphone className="w-3.5 h-3.5" />
-            <span>{deviceToEdit ? 'Salvar Alterações' : 'Cadastrar Aparelho'}</span>
+            <span>{deviceToEdit ? 'Salvar Alterações' : 'Cadastrar'}</span>
           </button>
         </div>
       </form>

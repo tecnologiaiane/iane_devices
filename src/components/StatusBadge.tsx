@@ -3,7 +3,7 @@ import { DeviceStatus, LineStatus, CollaboratorStatus, TermStatus, DeviceConditi
 
 interface StatusBadgeProps {
   status: DeviceStatus | LineStatus | CollaboratorStatus | TermStatus | DeviceCondition | string;
-  type?: 'device' | 'line' | 'collaborator' | 'term' | 'condition';
+  type?: 'device' | 'line' | 'collaborator' | 'term' | 'condition' | 'request';
   size?: 'sm' | 'md';
 }
 
@@ -69,6 +69,18 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, type = 'device
     case 'Pendente de Assinatura':
       badgeStyles = 'bg-sun-50 text-gold-700 border-sun-300 font-medium';
       indicatorColor = 'bg-sun-500';
+      break;
+    case 'Pendente de aprovação':
+      badgeStyles = 'bg-sun-50 text-gold-700 border-sun-300 font-medium';
+      indicatorColor = 'bg-sun-500';
+      break;
+    case 'Aprovada':
+      badgeStyles = 'bg-emerald-50 text-emerald-800 border-emerald-200';
+      indicatorColor = 'bg-emerald-600';
+      break;
+    case 'Recusada':
+      badgeStyles = 'bg-rose-50 text-rose-800 border-rose-200';
+      indicatorColor = 'bg-rose-600';
       break;
     case 'Arquivado':
       badgeStyles = 'bg-ink-100 text-ink-700 border-ink-300';

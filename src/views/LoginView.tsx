@@ -70,12 +70,12 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
 
       {/* 3. Card de Login Limpo nas cores da empresa */}
       <div className="relative z-10 w-full max-w-[390px] bg-white/95 backdrop-blur-md rounded-xl shadow-2xl p-7 sm:p-8 border border-iane-100/60 transition-all">
-        {/* Ícone Superior Central: icone.png */}
+        {/* Logo Superior Central: logo.png */}
         <div className="flex flex-col items-center mb-6">
           <img
-            src="/icone.png"
+            src="/logo.png"
             alt="IANE - Gestão de Dispositivos"
-            className="w-32 h-auto max-h-20 object-contain drop-shadow-sm mb-2"
+            className="w-40 h-auto max-h-20 object-contain drop-shadow-sm mb-2"
           />
           <h1 className="text-xs font-bold tracking-wider uppercase text-iane-700 text-center">
             Gestão de Dispositivos

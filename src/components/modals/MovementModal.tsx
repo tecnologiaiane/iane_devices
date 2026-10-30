@@ -1,14 +1,8 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Modal } from '../Modal';
-import { Device, PhoneLine, Collaborator, DeviceCondition, DocumentTerm, TermType, TermStatus } from '../../types';
-import { dataService, STOCK_LABEL } from '../../services/dataStorage';
+import { Device, PhoneLine, Collaborator, DeviceCondition, DocumentTerm, RequestRecord } from '../../types';
+import { dataService } from '../../services/dataStorage';
 import { todayISO } from '../../utils/dates';
-import {
-  formatFileSize,
-  readFileAsBase64,
-  suggestCodeFromFileName,
-  validatePdfFile,
-} from '../../utils/pdfUpload';
 import {
   ArrowLeftRight,
   CheckCircle2,
@@ -20,11 +14,6 @@ import {
   RotateCcw,
   Smartphone,
   Info,
-  Plus,
-  Upload,
-  FileText,
-  X,
-  Loader2
 } from 'lucide-react';
 
 export type OfficialFlowType = 
@@ -40,6 +29,7 @@ interface MovementModalProps {
   preselectedDeviceId?: string;
   preselectedCollaboratorId?: string;
   defaultFlow?: OfficialFlowType;
+  approvalRequest?: RequestRecord | null;
 }
 
 const COMMON_ACCESSORIES = [
@@ -52,6 +42,13 @@ const COMMON_ACCESSORIES = [
   'Fone de Ouvido Corporativo',
 ];
 
+const FLOW_LABELS: Record<OfficialFlowType, string> = {
+  entrega: 'Entrega',
+  devolucao: 'Devolução',
+  transferencia: 'Transferência',
+  troca: 'Troca de Aparelho',
+};
+
 export const MovementModal: React.FC<MovementModalProps> = ({
   isOpen,
   onClose,
@@ -59,11 +56,13 @@ export const MovementModal: React.FC<MovementModalProps> = ({
   preselectedDeviceId,
   preselectedCollaboratorId,
   defaultFlow = 'entrega',
+  approvalRequest,
 }) => {
   const [activeFlow, setActiveFlow] = useState<OfficialFlowType>(defaultFlow);
   const [date, setDate] = useState<string>(todayISO());
   const [showSummary, setShowSummary] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [isApprovalSubmitting, setIsApprovalSubmitting] = useState(false);
 
   // Lists
   const [devices, setDevices] = useState<Device[]>([]);
@@ -130,21 +129,9 @@ export const MovementModal: React.FC<MovementModalProps> = ({
 
   const [observations, setObservations] = useState('');
 
-  // Documento do termo: gerado pelo app ou vinculado a um termo já existente
-  const [termMode, setTermMode] = useState<'generate' | 'existing'>('generate');
+  // Documento do termo: apenas vincular a um termo já existente (PDF já anexado)
   const [existingTermId, setExistingTermId] = useState('');
   const [availableTerms, setAvailableTerms] = useState<DocumentTerm[]>([]);
-  const [showQuickTermForm, setShowQuickTermForm] = useState(false);
-  const [quickTerm, setQuickTerm] = useState({
-    code: '',
-    type: 'Termo de Entrega' as TermType,
-    date: todayISO(),
-    status: 'Assinado' as TermStatus,
-  });
-  const [quickTermFile, setQuickTermFile] = useState<File | null>(null);
-  const [isCreatingQuickTerm, setIsCreatingQuickTerm] = useState(false);
-  const quickTermFileInputRef = useRef<HTMLInputElement>(null);
-  const [quickTermError, setQuickTermError] = useState('');
 
   // Initial load
   useEffect(() => {
@@ -156,72 +143,95 @@ export const MovementModal: React.FC<MovementModalProps> = ({
       setLines(lineList);
       setCollaborators(collabList);
       setAvailableTerms(dataService.getTerms());
-      setTermMode('generate');
       setExistingTermId('');
-      setShowQuickTermForm(false);
-      setQuickTerm({
-        code: '',
-        type: 'Termo de Entrega',
-        date: todayISO(),
-        status: 'Assinado',
-      });
-      setQuickTermFile(null);
-      setIsCreatingQuickTerm(false);
-      if (quickTermFileInputRef.current) quickTermFileInputRef.current.value = '';
-      setQuickTermError('');
       setErrorMessage('');
       setShowSummary(false);
       setActiveFlow(defaultFlow);
-      setDate(todayISO());
+      setDate(
+        approvalRequest?.type === 'Entrega' && approvalRequest.data?.deliveryDate
+          ? String(approvalRequest.data.deliveryDate)
+          : todayISO()
+      );
 
-      // Preselection logic
-      if (preselectedDeviceId) {
-        const dev = devList.find(d => d.id === preselectedDeviceId);
+      // O modal carrega exclusivamente o fluxo escolhido no dropdown de movimentação.
+      const selectedDevice = preselectedDeviceId
+        ? devList.find(d => d.id === preselectedDeviceId)
+        : undefined;
+      const firstAvailable = devList.find(d => d.status === 'Disponível');
+      const firstInUse = devList.find(d => d.status === 'Em uso');
+
+      if (defaultFlow === 'entrega') {
+        const dev = selectedDevice?.status === 'Disponível' ? selectedDevice : firstAvailable;
+        if (dev) setEntregaDeviceId(dev.id);
+      } else if (defaultFlow === 'devolucao') {
+        const dev = selectedDevice?.status === 'Em uso' ? selectedDevice : firstInUse;
         if (dev) {
-          if (dev.status === 'Disponível') {
-            setActiveFlow('entrega');
-            setEntregaDeviceId(dev.id);
-          } else if (dev.status === 'Em uso') {
-            setActiveFlow('devolucao');
-            setDevolucaoDeviceId(dev.id);
-            if (dev.currentCollaboratorId) {
-              setDevolucaoCollabId(dev.currentCollaboratorId);
-              setTransfCollabAId(dev.currentCollaboratorId);
-              setTransfDeviceId(dev.id);
-              setTrocaCollabId(dev.currentCollaboratorId);
-              setTrocaOldDeviceId(dev.id);
-            }
-          }
+          setDevolucaoDeviceId(dev.id);
+          if (dev.currentCollaboratorId) setDevolucaoCollabId(dev.currentCollaboratorId);
         }
-      } else {
-        const firstAvail = devList.find(d => d.status === 'Disponível');
-        if (firstAvail) {
-          setEntregaDeviceId(firstAvail.id);
-          setTrocaNewDeviceId(firstAvail.id);
+      } else if (defaultFlow === 'transferencia') {
+        const dev = selectedDevice?.status === 'Em uso' ? selectedDevice : firstInUse;
+        if (dev) {
+          setTransfDeviceId(dev.id);
+          if (dev.currentCollaboratorId) setTransfCollabAId(dev.currentCollaboratorId);
         }
-        const firstInUse = devList.find(d => d.status === 'Em uso');
-        if (firstInUse) {
-          setDevolucaoDeviceId(firstInUse.id);
-          if (firstInUse.currentCollaboratorId) {
-            setDevolucaoCollabId(firstInUse.currentCollaboratorId);
-            setTransfCollabAId(firstInUse.currentCollaboratorId);
-            setTransfDeviceId(firstInUse.id);
-            setTrocaCollabId(firstInUse.currentCollaboratorId);
-            setTrocaOldDeviceId(firstInUse.id);
-          }
+      } else if (defaultFlow === 'troca') {
+        const dev = selectedDevice?.status === 'Em uso' ? selectedDevice : firstInUse;
+        if (dev) {
+          setTrocaOldDeviceId(dev.id);
+          if (dev.currentCollaboratorId) setTrocaCollabId(dev.currentCollaboratorId);
         }
+        if (firstAvailable) setTrocaNewDeviceId(firstAvailable.id);
       }
 
       if (preselectedCollaboratorId) {
         setEntregaCollabId(preselectedCollaboratorId);
         setTransfCollabBId(preselectedCollaboratorId);
       }
+
+      if (approvalRequest) {
+        const requestData = approvalRequest.data || {};
+        if (approvalRequest.type === 'Entrega') {
+          setEntregaLineId(requestData.isNewLine === 'Não' ? requestData.lineId || '' : '');
+        } else if (approvalRequest.type === 'Devolução') {
+          setDevolucaoCollabId(requestData.collaboratorId || '');
+          const requestedDeviceId = requestData.devices?.[0]?.id;
+          const requestedDevice = devList.find((device) => device.id === requestedDeviceId && device.status === 'Em uso');
+          setDevolucaoDeviceId(requestedDevice?.id || '');
+        } else if (approvalRequest.type === 'Transferência') {
+          setTransfCollabAId(requestData.originCollaboratorId || '');
+          setTransfDeviceId(requestData.deviceId || '');
+          setTransfCollabBId(requestData.destinationCollaboratorId || '');
+          setTransfCondition(requestData.condition || 'Excelente');
+          setTransfDestinoEstoque(requestData.destinationStatusAfterReturn || 'Disponível');
+          setTransfLineHandling(requestData.lineHandling || 'transferir_linha_junto');
+          setTransfAccessories(requestData.accessories || ['Carregador Original', 'Cabo USB-C / Lightning']);
+          setTransfReason(requestData.reason || 'Readequação de equipe e transferência patrimonial.');
+          setObservations(requestData.observations || '');
+        } else {
+          setTrocaCollabId(requestData.collaboratorId || '');
+          setTrocaOldDeviceId(requestData.oldDeviceId || '');
+          setTrocaOldCondition(requestData.oldCondition || 'Bom');
+          setTrocaOldDestinoEstoque(requestData.oldDestinationStatus || 'Aguardando avaliação');
+          setTrocaOldAccessories(requestData.oldAccessories || ['Carregador Original', 'Cabo USB-C / Lightning']);
+          setTrocaNewDeviceId(requestData.newDeviceId || '');
+          setTrocaNewCondition(requestData.newCondition || 'Novo');
+          setTrocaNewAccessories(requestData.newAccessories || ['Carregador Original', 'Cabo USB-C / Lightning', 'Capa Protetora Anti-Impacto']);
+          setTrocaLineOption(requestData.lineOption || 'manter_linha_atual_no_novo');
+          setTrocaCustomLineId(requestData.customLineId || '');
+          setTrocaReason(requestData.reason || 'Atualização de modelo e substituição periódica.');
+          setObservations(requestData.observations || '');
+        }
+      }
     }
-  }, [isOpen, preselectedDeviceId, preselectedCollaboratorId, defaultFlow]);
+  }, [isOpen, preselectedDeviceId, preselectedCollaboratorId, defaultFlow, approvalRequest]);
 
   // Helpers
   const availableStockDevices = devices.filter(d => d.status === 'Disponível');
   const inUseDevices = devices.filter(d => d.status === 'Em uso');
+  const returnFlowDevices = approvalRequest?.type === 'Devolução'
+    ? inUseDevices.filter((device) => device.currentCollaboratorId === approvalRequest.data.collaboratorId)
+    : inUseDevices;
 
   // Handle Devolução Device Change
   const handleDevolucaoDeviceChange = (devId: string) => {
@@ -262,105 +272,6 @@ export const MovementModal: React.FC<MovementModalProps> = ({
     }
   };
 
-  // Cadastro rápido de um termo que já existe (PDF do computador) sem sair da movimentação
-  const handleQuickTermFile = async (file?: File | null) => {
-    setQuickTermError('');
-    if (!file) return;
-    const validationError = await validatePdfFile(file);
-    if (validationError) {
-      setQuickTermError(validationError);
-      if (quickTermFileInputRef.current) quickTermFileInputRef.current.value = '';
-      return;
-    }
-    setQuickTermFile(file);
-    setQuickTerm((prev) => ({
-      ...prev,
-      code: prev.code.trim() ? prev.code : suggestCodeFromFileName(file.name),
-    }));
-  };
-
-  const handleCreateQuickTerm = async () => {
-    setQuickTermError('');
-    if (!quickTermFile) {
-      setQuickTermError('Anexe o arquivo PDF do termo já existente.');
-      return;
-    }
-    const code = quickTerm.code.trim();
-    if (!code) {
-      setQuickTermError('Informe o código/número do termo já existente.');
-      return;
-    }
-    if (isCreatingQuickTerm) return;
-
-    setIsCreatingQuickTerm(true);
-    try {
-      const validationError = await validatePdfFile(quickTermFile);
-      if (validationError) {
-        setQuickTermError(validationError);
-        return;
-      }
-      const fileData = await readFileAsBase64(quickTermFile);
-
-      const flowDevice =
-        activeFlow === 'entrega' ? devices.find(d => d.id === entregaDeviceId)
-        : activeFlow === 'devolucao' ? devices.find(d => d.id === devolucaoDeviceId)
-        : activeFlow === 'transferencia' ? devices.find(d => d.id === transfDeviceId)
-        : devices.find(d => d.id === trocaNewDeviceId) || devices.find(d => d.id === trocaOldDeviceId);
-
-      const flowCollaboratorId =
-        activeFlow === 'entrega' ? entregaCollabId
-        : activeFlow === 'devolucao' ? devolucaoCollabId
-        : activeFlow === 'transferencia' ? transfCollabBId
-        : trocaCollabId;
-      const flowCollaborator = collaborators.find(c => c.id === flowCollaboratorId);
-
-      const flowLine = lines.find(l =>
-        l.id === (activeFlow === 'entrega' ? entregaLineId : '') ||
-        l.associatedDeviceId === flowDevice?.id
-      );
-
-      const newTerm: DocumentTerm = {
-        id: `term-manual-${Date.now()}`,
-        code,
-        type: quickTerm.type,
-        title: `${quickTerm.type} - Documento já existente`,
-        date: quickTerm.date,
-        status: quickTerm.status,
-        deviceId: flowDevice?.id,
-        deviceTag: flowDevice?.assetTag,
-        deviceModel: flowDevice ? `${flowDevice.brand} ${flowDevice.model}`.trim() : undefined,
-        deviceImei: flowDevice?.imei1 || undefined,
-        phoneLineId: flowLine?.id,
-        phoneNumber: flowLine?.phoneNumber,
-        collaboratorId: flowCollaborator?.id,
-        collaboratorName: flowCollaborator?.fullName,
-        collaboratorRegistration: flowCollaborator?.registrationNumber,
-        collaboratorCpf: flowCollaborator?.cpf,
-        collaboratorDepartment: flowCollaborator?.department,
-        accessoriesList: [],
-        clauses: ['Documento inserido no sistema para fins de arquivo e controle patrimonial.'],
-        signedAt: quickTerm.status === 'Assinado' ? quickTerm.date : undefined,
-        fileName: quickTermFile.name,
-      };
-
-      const result = await dataService.createTermWithPdf(newTerm, fileData);
-      if (!result.success) {
-        setQuickTermError(result.message);
-        return;
-      }
-      setAvailableTerms(dataService.getTerms());
-      setExistingTermId(newTerm.id);
-      setTermMode('existing');
-      setShowQuickTermForm(false);
-      setQuickTermFile(null);
-      if (quickTermFileInputRef.current) quickTermFileInputRef.current.value = '';
-    } catch {
-      setQuickTermError('Não foi possível ler o arquivo PDF. Tente novamente.');
-    } finally {
-      setIsCreatingQuickTerm(false);
-    }
-  };
-
   // Validation before opening summary
   const handleReview = (e: React.FormEvent) => {
     e.preventDefault();
@@ -388,19 +299,16 @@ export const MovementModal: React.FC<MovementModalProps> = ({
       if (trocaOldDeviceId === trocaNewDeviceId) return setErrorMessage('O novo aparelho deve ser diferente do aparelho antigo.');
     }
 
-    if (termMode === 'existing' && !existingTermId) {
-      return setErrorMessage('Selecione o termo já existente que será vinculado a esta movimentação.');
-    }
-
     setShowSummary(true);
   };
 
   // Final Commit
-  const handleConfirmOperation = () => {
+  const handleConfirmOperation = async () => {
     setErrorMessage('');
-
+    if (approvalRequest && isApprovalSubmitting) return;
+    let params: Record<string, any>;
     if (activeFlow === 'entrega') {
-      const res = dataService.executeDelivery({
+      params = {
         deviceId: entregaDeviceId,
         collaboratorId: entregaCollabId,
         lineId: entregaLineId || undefined,
@@ -409,12 +317,10 @@ export const MovementModal: React.FC<MovementModalProps> = ({
         accessories: entregaAccessories,
         reason: entregaReason,
         observations,
-        registeredBy: 'Gestor de Telefonia',
-        existingTermId: termMode === 'existing' ? existingTermId : undefined,
-      });
-      if (!res.success) return setErrorMessage(res.message);
+        existingTermId: existingTermId || undefined,
+      };
     } else if (activeFlow === 'devolucao') {
-      const res = dataService.executeReturn({
+      params = {
         deviceId: devolucaoDeviceId,
         collaboratorId: devolucaoCollabId,
         date,
@@ -424,12 +330,10 @@ export const MovementModal: React.FC<MovementModalProps> = ({
         accessoriesReturned: devolucaoAccessories,
         reason: devolucaoReason,
         observations,
-        registeredBy: 'Gestor de Telefonia',
-        existingTermId: termMode === 'existing' ? existingTermId : undefined,
-      });
-      if (!res.success) return setErrorMessage(res.message);
+        existingTermId: existingTermId || undefined,
+      };
     } else if (activeFlow === 'transferencia') {
-      const res = dataService.executeTransfer({
+      params = {
         deviceId: transfDeviceId,
         originCollaboratorId: transfCollabAId,
         destinationCollaboratorId: transfCollabBId,
@@ -440,12 +344,10 @@ export const MovementModal: React.FC<MovementModalProps> = ({
         accessories: transfAccessories,
         reason: transfReason,
         observations,
-        registeredBy: 'Gestor de Telefonia',
-        existingTermId: termMode === 'existing' ? existingTermId : undefined,
-      });
-      if (!res.success) return setErrorMessage(res.message);
-    } else if (activeFlow === 'troca') {
-      const res = dataService.executeSwap({
+        existingTermId: existingTermId || undefined,
+      };
+    } else {
+      params = {
         collaboratorId: trocaCollabId,
         oldDeviceId: trocaOldDeviceId,
         oldDeviceCondition: trocaOldCondition,
@@ -459,10 +361,38 @@ export const MovementModal: React.FC<MovementModalProps> = ({
         date,
         reason: trocaReason,
         observations,
-        registeredBy: 'Gestor de Telefonia',
-        existingTermId: termMode === 'existing' ? existingTermId : undefined,
-      });
-      if (!res.success) return setErrorMessage(res.message);
+        existingTermId: existingTermId || undefined,
+      };
+    }
+
+    if (approvalRequest) {
+      if (approvalRequest.type === 'Entrega') {
+        const requestedCpf = String(approvalRequest.data?.cpf || '').replace(/\D/g, '');
+        const selectedCpf = String(collaborators.find((collaborator) => collaborator.id === entregaCollabId)?.cpf || '').replace(/\D/g, '');
+        if (!requestedCpf || requestedCpf !== selectedCpf) {
+          return setErrorMessage('Selecione o colaborador cadastrado com o mesmo CPF informado na solicitação.');
+        }
+      }
+      setIsApprovalSubmitting(true);
+      let result;
+      try {
+        result = await dataService.approveRequestWithMovement(approvalRequest.id, approvalRequest.type, params);
+      } finally {
+        setIsApprovalSubmitting(false);
+      }
+      if (!result.success) return setErrorMessage(result.message);
+    } else if (activeFlow === 'entrega') {
+      const result = dataService.executeDelivery({ ...(params as any), registeredBy: 'Gestor de Telefonia' });
+      if (!result.success) return setErrorMessage(result.message);
+    } else if (activeFlow === 'devolucao') {
+      const result = dataService.executeReturn({ ...(params as any), registeredBy: 'Gestor de Telefonia' });
+      if (!result.success) return setErrorMessage(result.message);
+    } else if (activeFlow === 'transferencia') {
+      const result = dataService.executeTransfer({ ...(params as any), registeredBy: 'Gestor de Telefonia' });
+      if (!result.success) return setErrorMessage(result.message);
+    } else {
+      const result = dataService.executeSwap({ ...(params as any), registeredBy: 'Gestor de Telefonia' });
+      if (!result.success) return setErrorMessage(result.message);
     }
 
     onSuccess();
@@ -488,11 +418,23 @@ export const MovementModal: React.FC<MovementModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Fluxo Oficial de Movimentação de Aparelhos"
-      subtitle="Controle patrimonial com passagem obrigatória pelo Estoque do Gestor de Telefonia"
+      title="Movimentação de Aparelhos"
+      subtitle={FLOW_LABELS[activeFlow]}
       maxWidth="4xl"
     >
       <div className="space-y-4">
+        {approvalRequest && (
+          <div className="rounded-lg border border-sun-300 bg-sun-50/70 p-3 text-xs text-gold-700">
+            <strong className="block text-ink-900">Aprovação da solicitação · {approvalRequest.requesterName}</strong>
+            {approvalRequest.type === 'Entrega' ? (
+              <span>Funcionário informado: {approvalRequest.data.employeeName} · CPF {approvalRequest.data.cpf} · Cargo {approvalRequest.data.position}. Associe um colaborador cadastrado para executar a entrega.</span>
+            ) : approvalRequest.type === 'Devolução' ? (
+              <span>Colaborador: {approvalRequest.data.collaboratorName}. Selecione um aparelho vinculado, se houver; a ausência de linha não impede a devolução.</span>
+            ) : (
+              <span>Confira os dados informados e complete os campos operacionais antes de confirmar.</span>
+            )}
+          </div>
+        )}
         {errorMessage && (
           <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-800 flex items-start gap-2">
             <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
@@ -500,78 +442,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
           </div>
         )}
 
-        {/* 1. SELETOR DOS 4 FLUXOS OFICIAIS */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-1.5 bg-ink-100 rounded-xl border border-ink-200">
-          <button
-            type="button"
-            onClick={() => {
-              setActiveFlow('entrega');
-              setShowSummary(false);
-              setErrorMessage('');
-            }}
-            className={`py-2 px-2.5 rounded-lg text-xs font-semibold transition-all text-center flex flex-col items-center gap-1 ${
-              activeFlow === 'entrega'
-                ? 'bg-white text-iane-700 shadow-xs border border-ink-200'
-                : 'text-ink-600 hover:text-ink-900'
-            }`}
-          >
-            <span className="font-bold">Entrega</span>
-            <span className="text-[10px] text-ink-400 font-normal">Estoque → Colaborador</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setActiveFlow('devolucao');
-              setShowSummary(false);
-              setErrorMessage('');
-            }}
-            className={`py-2 px-2.5 rounded-lg text-xs font-semibold transition-all text-center flex flex-col items-center gap-1 ${
-              activeFlow === 'devolucao'
-                ? 'bg-white text-iane-700 shadow-xs border border-ink-200'
-                : 'text-ink-600 hover:text-ink-900'
-            }`}
-          >
-            <span className="font-bold">Devolução</span>
-            <span className="text-[10px] text-ink-400 font-normal">Colaborador → Estoque</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setActiveFlow('transferencia');
-              setShowSummary(false);
-              setErrorMessage('');
-            }}
-            className={`py-2 px-2.5 rounded-lg text-xs font-semibold transition-all text-center flex flex-col items-center gap-1 ${
-              activeFlow === 'transferencia'
-                ? 'bg-white text-iane-700 shadow-xs border border-ink-200'
-                : 'text-ink-600 hover:text-ink-900'
-            }`}
-          >
-            <span className="font-bold">Transferência</span>
-            <span className="text-[10px] text-ink-400 font-normal">A → Estoque → B</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setActiveFlow('troca');
-              setShowSummary(false);
-              setErrorMessage('');
-            }}
-            className={`py-2 px-2.5 rounded-lg text-xs font-semibold transition-all text-center flex flex-col items-center gap-1 ${
-              activeFlow === 'troca'
-                ? 'bg-white text-iane-700 shadow-xs border border-ink-200'
-                : 'text-ink-600 hover:text-ink-900'
-            }`}
-          >
-            <span className="font-bold">Troca de Aparelho</span>
-            <span className="text-[10px] text-ink-400 font-normal">Antigo → Estoque | Novo ← Estoque</span>
-          </button>
-        </div>
-
-        {/* 2. DIAGRAMA VISUAL DO FLUXO OPERACIONAL */}
+        {/* 1. DIAGRAMA VISUAL DO FLUXO OPERACIONAL */}
         <div className="p-3 bg-iane-50/60 border border-iane-200 rounded-xl flex items-center justify-center gap-3 text-xs text-iane-800">
           {activeFlow === 'entrega' && (
             <div className="flex items-center gap-2 font-medium">
@@ -621,140 +492,128 @@ export const MovementModal: React.FC<MovementModalProps> = ({
           {activeFlow === 'troca' && (
             <div className="flex items-center gap-2 font-medium flex-wrap justify-center">
               <span className="px-2 py-1 bg-white border border-iane-200 rounded-md shadow-2xs font-semibold">
-                Aparelho Antigo → Estoque
+                Aparelho Antigo
               </span>
-              <span className="text-iane-400 font-bold">|</span>
-              <span className="px-2 py-1 bg-emerald-600 text-white rounded-md shadow-xs font-bold flex items-center gap-1">
-                Novo Aparelho ← Estoque
+              <ArrowRight className="w-3.5 h-3.5 text-iane-500" />
+              <span className="px-2 py-1 bg-iane-600 text-white rounded-md shadow-xs font-bold flex items-center gap-1">
+                <Package className="w-3.5 h-3.5 text-white" />
+                Estoque
+              </span>
+              <ArrowRight className="w-3.5 h-3.5 text-iane-500" />
+              <span className="px-2 py-1 bg-white border border-iane-200 rounded-md shadow-2xs font-semibold">
+                Aparelho Novo
               </span>
             </div>
           )}
         </div>
 
-        {/* 3. FORMULÁRIOS ESPECÍFICOS */}
-        {!showSummary ? (
+        {/* 2. FORMULÁRIOS POR FLUXO */}
+        {!showSummary && (
           <form onSubmit={handleReview} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-ink-700 mb-1">
-                  Data da Operação *
-                </label>
-                <input
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 font-mono"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-ink-700 mb-1">
-                  Responsável pelo Estoque & Controle
-                </label>
-                <input
-                  type="text"
-                  value="Gestor de Telefonia / TI"
-                  disabled
-                  className="w-full text-xs rounded-lg border border-ink-200 bg-ink-100 px-3 py-2 text-ink-600 font-medium"
-                />
-              </div>
-            </div>
-
-            {/* FLUXO 1: ENTREGA */}
+            {/* --- ENTREGA --- */}
             {activeFlow === 'entrega' && (
-              <div className="space-y-3 pt-2 border-t border-ink-200">
-                <div>
-                  <label className="block text-xs font-semibold text-ink-700 mb-1">
-                    Aparelho Disponível no Estoque *
-                  </label>
-                  <select
-                    value={entregaDeviceId}
-                    onChange={(e) => setEntregaDeviceId(e.target.value)}
-                    className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
-                    required
-                  >
-                    <option value="">-- Selecione o aparelho disponível em estoque --</option>
-                    {availableStockDevices.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.assetTag} - {d.brand} {d.model} (S/N: {d.serialNumber} | IMEI: {d.imei1}) [{d.condition}]
-                      </option>
-                    ))}
-                  </select>
-                  {availableStockDevices.length === 0 && (
-                    <p className="text-[11px] text-gold-700 mt-1">
-                      Atenção: Não há nenhum aparelho com status "Disponível" no estoque no momento.
-                    </p>
-                  )}
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-ink-800 flex items-center gap-1.5">
+                  <Package className="w-4 h-4 text-iane-600" />
+                  Seleção do Aparelho (Estoque)
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-ink-600 mb-1">Aparelho *</label>
+                    <select
+                      value={entregaDeviceId}
+                      onChange={(e) => setEntregaDeviceId(e.target.value)}
+                      className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
+                      required
+                    >
+                      <option value="">-- Selecione um aparelho disponível --</option>
+                      {availableStockDevices.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.assetTag} · {d.brand} {d.model} · {d.imei1 ? `IMEI: ${d.imei1}` : 'Sem IMEI'}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-ink-600 mb-1">Linha Telefônica (opcional)</label>
+                    <select
+                      value={entregaLineId}
+                      onChange={(e) => setEntregaLineId(e.target.value)}
+                      className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
+                    >
+                      <option value="">-- Sem linha / Selecione --</option>
+                      {lines
+                        .filter(l => l.status === 'Disponível')
+                        .map((l) => (
+                          <option key={l.id} value={l.id}>
+                            {l.phoneNumber} · {l.carrier || 'Sem operadora'}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-ink-600 mb-1">Condição na entrega</label>
+                    <select
+                      value={entregaCondition}
+                      onChange={(e) => setEntregaCondition(e.target.value as DeviceCondition)}
+                      className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
+                    >
+                      <option value="Novo">Novo</option>
+                      <option value="Excelente">Excelente</option>
+                      <option value="Bom">Bom</option>
+                      <option value="Regular">Regular</option>
+                      <option value="Danificado">Danificado</option>
+                    </select>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-ink-700 mb-1">
-                    Colaborador Destinatário *
-                  </label>
-                  <select
-                    value={entregaCollabId}
-                    onChange={(e) => setEntregaCollabId(e.target.value)}
-                    className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
-                    required
-                  >
-                    <option value="">-- Selecione o colaborador --</option>
-                    {collaborators.filter(c => c.status !== 'Desligado').map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.fullName} ({c.registrationNumber}) · {c.department} - {c.position}
-                      </option>
-                    ))}
-                  </select>
+                <h3 className="text-sm font-semibold text-ink-800 flex items-center gap-1.5">
+                  <User className="w-4 h-4 text-iane-600" />
+                  Colaborador Destinatário
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-ink-600 mb-1">Colaborador *</label>
+                    <select
+                      value={entregaCollabId}
+                      onChange={(e) => setEntregaCollabId(e.target.value)}
+                      className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
+                      required
+                    >
+                      <option value="">-- Selecione o colaborador --</option>
+                      {collaborators
+                        .filter(c => c.status === 'Ativo')
+                        .map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.fullName} · {c.registrationNumber || 'Sem matrícula'} · {c.department || 'Sem depto'}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-ink-600 mb-1">Motivo da entrega</label>
+                    <input
+                      type="text"
+                      value={entregaReason}
+                      onChange={(e) => setEntregaReason(e.target.value)}
+                      className="w-full text-xs rounded-lg border border-ink-300 px-3 py-2 text-ink-800"
+                    />
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-medium text-ink-700 mb-1">
-                    Linha Telefônica a Associar (Opcional)
-                  </label>
-                  <select
-                    value={entregaLineId}
-                    onChange={(e) => setEntregaLineId(e.target.value)}
-                    className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 font-mono"
-                  >
-                    <option value="">Sem linha telefônica (apenas aparelho físico)</option>
-                    {lines.filter(l => l.status === 'Disponível' || l.id === entregaLineId).map((l) => (
-                      <option key={l.id} value={l.id}>
-                        {l.phoneNumber} - {l.carrier} ({l.planName})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-ink-700 mb-1">
-                    Estado de Conservação Conferido na Entrega
-                  </label>
-                  <select
-                    value={entregaCondition}
-                    onChange={(e) => setEntregaCondition(e.target.value as DeviceCondition)}
-                    className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
-                  >
-                    <option value="Novo">Novo (Na embalagem lacrada)</option>
-                    <option value="Excelente">Excelente (Sem marcas de uso)</option>
-                    <option value="Bom">Bom (Sinais leves)</option>
-                    <option value="Regular">Regular (Desgaste aceitável)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-ink-700 mb-1">
-                    Acessórios Inclusos no Kit
-                  </label>
-                  <div className="grid grid-cols-2 gap-2 p-2.5 bg-ink-50 border border-ink-200 rounded-lg text-xs">
+                {/* Acessórios */}
+                <div className="p-3 bg-ink-50 border border-ink-200 rounded-lg space-y-2">
+                  <span className="block text-xs font-semibold text-ink-700">Acessórios incluídos na entrega</span>
+                  <div className="flex flex-wrap gap-2">
                     {COMMON_ACCESSORIES.map((acc) => (
-                      <label key={acc} className="flex items-center gap-2 cursor-pointer select-none">
+                      <label key={acc} className="flex items-center gap-1.5 cursor-pointer text-xs">
                         <input
                           type="checkbox"
                           checked={entregaAccessories.includes(acc)}
                           onChange={() => toggleAccessoryList(entregaAccessories, setEntregaAccessories, acc)}
-                          className="rounded border-ink-300 text-iane-600 focus:ring-iane-500"
+                          className="mt-0.5 text-iane-600 focus:ring-iane-500 rounded border-ink-300"
                         />
-                        <span>{acc}</span>
+                        <span className="text-ink-700">{acc}</span>
                       </label>
                     ))}
                   </div>
@@ -762,318 +621,327 @@ export const MovementModal: React.FC<MovementModalProps> = ({
               </div>
             )}
 
-            {/* FLUXO 2: DEVOLUÇÃO */}
+            {/* --- DEVOLUÇÃO --- */}
             {activeFlow === 'devolucao' && (
-              <div className="space-y-3 pt-2 border-t border-ink-200">
-                <div>
-                  <label className="block text-xs font-semibold text-ink-700 mb-1">
-                    Aparelho em Uso a ser Devolvido *
-                  </label>
-                  <select
-                    value={devolucaoDeviceId}
-                    onChange={(e) => handleDevolucaoDeviceChange(e.target.value)}
-                    className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
-                    required
-                  >
-                    <option value="">-- Selecione o aparelho atualmente em uso --</option>
-                    {inUseDevices.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.assetTag} - {d.brand} {d.model} (Responsável: {d.currentCollaboratorName})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-ink-700 mb-1">
-                    Colaborador Responsável Identificado *
-                  </label>
-                  <select
-                    value={devolucaoCollabId}
-                    onChange={(e) => setDevolucaoCollabId(e.target.value)}
-                    className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
-                    required
-                  >
-                    <option value="">-- Selecione o colaborador --</option>
-                    {collaborators.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.fullName} ({c.registrationNumber}) · {c.department}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-ink-800 flex items-center gap-1.5">
+                  <Smartphone className="w-4 h-4 text-iane-600" />
+                  Aparelho em Uso (será devolvido)
+                </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-ink-700 mb-1">
-                      Estado de Conservação na Devolução *
-                    </label>
+                    <label className="block text-xs font-medium text-ink-600 mb-1">Aparelho *</label>
+                    <select
+                      value={devolucaoDeviceId}
+                      onChange={(e) => handleDevolucaoDeviceChange(e.target.value)}
+                      className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
+                      required
+                    >
+                      <option value="">-- Selecione um aparelho em uso --</option>
+                      {returnFlowDevices.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.assetTag} · {d.brand} {d.model} · {d.currentCollaboratorName || 'Sem colaborador'}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-ink-600 mb-1">Colaborador Responsável</label>
+                    <select
+                      value={devolucaoCollabId}
+                      onChange={(e) => setDevolucaoCollabId(e.target.value)}
+                      className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
+                    >
+                      <option value="">-- Selecione --</option>
+                      {collaborators
+                        .filter(c => c.status === 'Ativo')
+                        .map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.fullName} · {c.registrationNumber || 'Sem matrícula'}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-ink-600 mb-1">Condição na devolução</label>
                     <select
                       value={devolucaoCondition}
                       onChange={(e) => setDevolucaoCondition(e.target.value as DeviceCondition)}
                       className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
                     >
-                      <option value="Excelente">Excelente (Sem avarias)</option>
-                      <option value="Bom">Bom (Sinais de uso normal)</option>
-                      <option value="Regular">Regular (Desgaste acentuado)</option>
-                      <option value="Danificado">Danificado (Necessita assistência técnica)</option>
+                      <option value="Excelente">Excelente</option>
+                      <option value="Bom">Bom</option>
+                      <option value="Regular">Regular</option>
+                      <option value="Danificado">Danificado</option>
                     </select>
                   </div>
+                </div>
 
+                <h3 className="text-sm font-semibold text-ink-800 flex items-center gap-1.5">
+                  <Package className="w-4 h-4 text-iane-600" />
+                  Destino no Estoque do Gestor
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-ink-700 mb-1">
-                      Destino Operacional no Estoque *
-                    </label>
+                    <label className="block text-xs font-medium text-ink-600 mb-1">Status após devolução</label>
                     <select
                       value={devolucaoDestinoEstoque}
                       onChange={(e) => setDevolucaoDestinoEstoque(e.target.value as any)}
-                      className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 font-medium"
+                      className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
                     >
-                      <option value="Disponível">Disponível em estoque (Apto p/ nova entrega)</option>
-                      <option value="Aguardando avaliação">Aguardando avaliação (Higienização/Vistoria)</option>
-                      <option value="Em manutenção">Em manutenção (Encaminhar para assistência)</option>
-                      <option value="Reservado">Reservado no estoque</option>
-                      <option value="Aguardando baixa patrimonial">Aguardando baixa patrimonial (Inutilizado)</option>
+                      <option value="Disponível">Disponível em estoque</option>
+                      <option value="Aguardando avaliação">Aguardando avaliação / Vistoria</option>
+                      <option value="Em manutenção">Em manutenção (Assistência técnica)</option>
+                      <option value="Reservado">Reservado para entrega futura</option>
+                      <option value="Aguardando baixa patrimonial">Aguardando baixa patrimonial</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-ink-600 mb-1">Destino da Linha Telefônica</label>
+                    <select
+                      value={devolucaoLineHandling}
+                      onChange={(e) => setDevolucaoLineHandling(e.target.value as any)}
+                      className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
+                    >
+                      <option value="retornar_ao_estoque">Retornar ao estoque de linhas (Disponível)</option>
+                      <option value="manter_com_colaborador">Manter com o colaborador (BYOD / aguardando novo aparelho)</option>
+                      <option value="desassociar_e_suspender">Desassociar e suspender a linha</option>
                     </select>
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-ink-700 mb-1">
-                    Tratamento da Linha Telefônica Vinculada
-                  </label>
-                  <select
-                    value={devolucaoLineHandling}
-                    onChange={(e) => setDevolucaoLineHandling(e.target.value as any)}
-                    className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
-                  >
-                    <option value="retornar_ao_estoque">Desvincular e retornar linha ao estoque (Disponível)</option>
-                    <option value="manter_com_colaborador">Manter a linha com o colaborador (BYOD / Linha ativa)</option>
-                    <option value="desassociar_e_suspender">Desvincular e suspender a linha na operadora</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-ink-700 mb-1">
-                    Acessórios Devolvidos ao Estoque
-                  </label>
-                  <div className="grid grid-cols-2 gap-2 p-2.5 bg-ink-50 border border-ink-200 rounded-lg text-xs">
+                {/* Acessórios */}
+                <div className="p-3 bg-ink-50 border border-ink-200 rounded-lg space-y-2">
+                  <span className="block text-xs font-semibold text-ink-700">Acessórios devolvidos</span>
+                  <div className="flex flex-wrap gap-2">
                     {COMMON_ACCESSORIES.map((acc) => (
-                      <label key={acc} className="flex items-center gap-2 cursor-pointer select-none">
+                      <label key={acc} className="flex items-center gap-1.5 cursor-pointer text-xs">
                         <input
                           type="checkbox"
                           checked={devolucaoAccessories.includes(acc)}
                           onChange={() => toggleAccessoryList(devolucaoAccessories, setDevolucaoAccessories, acc)}
-                          className="rounded border-ink-300 text-iane-600 focus:ring-iane-500"
+                          className="mt-0.5 text-iane-600 focus:ring-iane-500 rounded border-ink-300"
                         />
-                        <span>{acc}</span>
+                        <span className="text-ink-700">{acc}</span>
                       </label>
                     ))}
                   </div>
                 </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-ink-600 mb-1">Motivo / Observações da devolução</label>
+                  <textarea
+                    value={devolucaoReason}
+                    onChange={(e) => setDevolucaoReason(e.target.value)}
+                    rows={2}
+                    className="w-full text-xs rounded-lg border border-ink-300 px-3 py-2 text-ink-800"
+                  />
+                </div>
               </div>
             )}
 
-            {/* FLUXO 3: TRANSFERÊNCIA ENTRE COLABORADORES */}
+            {/* --- TRANSFERÊNCIA --- */}
             {activeFlow === 'transferencia' && (
-              <div className="space-y-3 pt-2 border-t border-ink-200">
-                <div className="p-3 bg-sun-50 border border-sun-300 rounded-lg text-xs text-gold-700 flex items-start gap-2">
-                  <Info className="w-4 h-4 text-gold-700 shrink-0 mt-0.5" />
-                  <p>
-                    <strong>Regra Operacional Obrigatória:</strong> O aparelho será devolvido pelo Colaborador A ao Estoque do Gestor de Telefonia, passará por conferência e, caso esteja apto ("Disponível"), será entregue ao Colaborador B gerando ambos os termos formalmente relacionados.
-                  </p>
-                </div>
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-ink-800 flex items-center gap-1.5">
+                  <RotateCcw className="w-4 h-4 text-iane-600" />
+                  Transferência entre Colaboradores (via Estoque do Gestor)
+                </h3>
 
-                <div>
-                  <label className="block text-xs font-semibold text-ink-700 mb-1">
-                    1. Colaborador de Origem (Cedente) *
-                  </label>
-                  <select
-                    value={transfCollabAId}
-                    onChange={(e) => handleTransfCollabAChange(e.target.value)}
-                    className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
-                    required
-                  >
-                    <option value="">-- Selecione o colaborador cedente --</option>
-                    {collaborators.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.fullName} ({c.registrationNumber}) · {c.department}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-ink-700 mb-1">
-                    Aparelho Identificado para Passagem por Estoque *
-                  </label>
-                  <select
-                    value={transfDeviceId}
-                    onChange={(e) => setTransfDeviceId(e.target.value)}
-                    className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
-                    required
-                  >
-                    <option value="">-- Selecione o aparelho --</option>
-                    {inUseDevices.filter(d => !transfCollabAId || d.currentCollaboratorId === transfCollabAId).map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.assetTag} - {d.brand} {d.model} (Responsável: {d.currentCollaboratorName})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-ink-700 mb-1">
-                      Estado de Conservação Conferido
-                    </label>
-                    <select
-                      value={transfCondition}
-                      onChange={(e) => setTransfCondition(e.target.value as DeviceCondition)}
-                      className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
-                    >
-                      <option value="Excelente">Excelente</option>
-                      <option value="Bom">Bom</option>
-                      <option value="Regular">Regular</option>
-                      <option value="Danificado">Danificado (Requer Manutenção)</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-ink-700 mb-1">
-                      Avaliação no Estoque do Gestor *
-                    </label>
-                    <select
-                      value={transfDestinoEstoque}
-                      onChange={(e) => setTransfDestinoEstoque(e.target.value as any)}
-                      className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 font-medium"
-                    >
-                      <option value="Disponível">Apto para entrega imediata ao Colaborador B</option>
-                      <option value="Aguardando avaliação">Requer avaliação prévia (Interromper entrega ao Colab B)</option>
-                      <option value="Em manutenção">Encaminhar para manutenção (Interromper entrega ao Colab B)</option>
-                    </select>
+                <div className="p-3 bg-iane-50/40 border border-iane-200 rounded-lg space-y-3">
+                  <span className="block text-xs font-semibold text-iane-700">Origem: Colaborador A (Atual)</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-ink-600 mb-1">Colaborador de Origem *</label>
+                      <select
+                        value={transfCollabAId}
+                        onChange={(e) => handleTransfCollabAChange(e.target.value)}
+                        className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
+                        required
+                      >
+                        <option value="">-- Selecione --</option>
+                        {collaborators
+                          .filter(c => c.status === 'Ativo')
+                          .map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.fullName} · {c.registrationNumber || 'Sem matrícula'}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-ink-600 mb-1">Aparelho em uso pelo Colaborador A *</label>
+                      <select
+                        value={transfDeviceId}
+                        onChange={(e) => setTransfDeviceId(e.target.value)}
+                        className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
+                        required
+                      >
+                        <option value="">-- Selecione o colaborador primeiro --</option>
+                        {inUseDevices
+                          .filter(d => d.currentCollaboratorId === transfCollabAId)
+                          .map((d) => (
+                            <option key={d.id} value={d.id}>
+                              {d.assetTag} · {d.brand} {d.model}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
                   </div>
                 </div>
 
-                {transfDestinoEstoque === 'Disponível' ? (
+                <div className="p-3 bg-emerald-50/40 border border-emerald-200 rounded-lg space-y-3">
+                  <span className="block text-xs font-semibold text-emerald-700">Destino: Colaborador B (Novo Responsável)</span>
                   <div>
-                    <label className="block text-xs font-semibold text-ink-700 mb-1">
-                      2. Colaborador de Destino (Novo Responsável) *
-                    </label>
+                    <label className="block text-xs font-medium text-ink-600 mb-1">Colaborador de Destino *</label>
                     <select
                       value={transfCollabBId}
                       onChange={(e) => setTransfCollabBId(e.target.value)}
                       className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
                       required
                     >
-                      <option value="">-- Selecione o novo colaborador receptor --</option>
-                      {collaborators.filter(c => c.id !== transfCollabAId && c.status !== 'Desligado').map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.fullName} ({c.registrationNumber}) · {c.department} - {c.position}
-                        </option>
-                      ))}
+                      <option value="">-- Selecione o novo responsável --</option>
+                      {collaborators
+                        .filter(c => c.status === 'Ativo' && c.id !== transfCollabAId)
+                        .map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.fullName} · {c.registrationNumber || 'Sem matrícula'} · {c.department || 'Sem depto'}
+                          </option>
+                        ))}
                     </select>
                   </div>
-                ) : (
-                  <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-800">
-                    <strong>Atenção:</strong> Como o aparelho não foi considerado "Disponível", a segunda etapa (entrega ao colaborador B) será interrompida. O ativo retornará ao Estoque do Gestor de Telefonia com status <strong>{transfDestinoEstoque}</strong> para providências de TI.
+                </div>
+
+                <div className="p-3 bg-ink-50 border border-ink-200 rounded-lg space-y-3">
+                  <span className="block text-xs font-semibold text-ink-700">Etapa Intermediária: Estoque do Gestor</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-ink-600 mb-1">Status do aparelho ao entrar no Estoque</label>
+                      <select
+                        value={transfDestinoEstoque}
+                        onChange={(e) => setTransfDestinoEstoque(e.target.value as any)}
+                        className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
+                      >
+                        <option value="Disponível">Disponível para nova entrega</option>
+                        <option value="Aguardando avaliação">Aguardando avaliação / Vistoria</option>
+                        <option value="Em manutenção">Em manutenção (Assistência técnica)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-ink-600 mb-1">Tratamento da Linha Telefônica</label>
+                      <select
+                        value={transfLineHandling}
+                        onChange={(e) => setTransfLineHandling(e.target.value as any)}
+                        className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
+                      >
+                        <option value="transferir_linha_junto">Transferir a linha junto com o aparelho</option>
+                        <option value="manter_linha_com_origem">Manter a linha com o Colaborador A</option>
+                        <option value="retornar_linha_ao_estoque">Retornar a linha ao estoque (Disponível)</option>
+                      </select>
+                    </div>
                   </div>
-                )}
+                </div>
+
+                <div className="p-3 bg-ink-50 border border-ink-200 rounded-lg space-y-2">
+                  <span className="block text-xs font-semibold text-ink-700">Acessórios inclusos</span>
+                  <div className="flex flex-wrap gap-2">
+                    {COMMON_ACCESSORIES.map((acc) => (
+                      <label key={acc} className="flex items-center gap-1.5 cursor-pointer text-xs">
+                        <input
+                          type="checkbox"
+                          checked={transfAccessories.includes(acc)}
+                          onChange={() => toggleAccessoryList(transfAccessories, setTransfAccessories, acc)}
+                          className="mt-0.5 text-iane-600 focus:ring-iane-500 rounded border-ink-300"
+                        />
+                        <span className="text-ink-700">{acc}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-ink-700 mb-1">
-                    Destinação da Linha Telefônica
-                  </label>
-                  <select
-                    value={transfLineHandling}
-                    onChange={(e) => setTransfLineHandling(e.target.value as any)}
-                    className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
-                  >
-                    <option value="transferir_linha_junto">Transferir linha telefônica junto para o Colaborador B</option>
-                    <option value="manter_linha_com_origem">Manter linha telefônica com o Colaborador A (origem)</option>
-                    <option value="retornar_linha_ao_estoque">Desassociar linha e disponibilizá-la no estoque</option>
-                  </select>
+                  <label className="block text-xs font-medium text-ink-600 mb-1">Motivo da transferência</label>
+                  <textarea
+                    value={transfReason}
+                    onChange={(e) => setTransfReason(e.target.value)}
+                    rows={2}
+                    className="w-full text-xs rounded-lg border border-ink-300 px-3 py-2 text-ink-800"
+                  />
                 </div>
               </div>
             )}
 
-            {/* FLUXO 4: TROCA DE APARELHO */}
+            {/* --- TROCA --- */}
             {activeFlow === 'troca' && (
-              <div className="space-y-3 pt-2 border-t border-ink-200">
-                <div className="p-3 bg-iane-50 border border-iane-200 rounded-lg text-xs text-iane-800">
-                  <p>
-                    <strong>Processo de Troca Patrimonial:</strong> O colaborador devolverá o aparelho antigo ao Estoque do Gestor de Telefonia e retirará um novo aparelho disponível em estoque.
-                  </p>
-                </div>
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-ink-800 flex items-center gap-1.5">
+                  <RotateCcw className="w-4 h-4 text-iane-600" />
+                  Troca de Aparelho do Mesmo Colaborador
+                </h3>
 
-                <div>
-                  <label className="block text-xs font-semibold text-ink-700 mb-1">
-                    Colaborador que Realizará a Troca *
-                  </label>
-                  <select
-                    value={trocaCollabId}
-                    onChange={(e) => handleTrocaCollabChange(e.target.value)}
-                    className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
-                    required
-                  >
-                    <option value="">-- Selecione o colaborador --</option>
-                    {collaborators.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.fullName} ({c.registrationNumber}) · {c.department}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Sub-bloco Aparelho Antigo */}
-                <div className="p-3 bg-ink-50 border border-ink-200 rounded-lg space-y-2">
-                  <span className="text-xs font-bold text-ink-800 uppercase tracking-wider block">
-                    Etapa 1: Aparelho Antigo (Devolução ao Estoque)
-                  </span>
+                <div className="p-3 bg-iane-50/40 border border-iane-200 rounded-lg space-y-3">
+                  <span className="block text-xs font-semibold text-iane-700">Colaborador que fará a troca</span>
                   <div>
-                    <label className="block text-xs font-medium text-ink-700 mb-1">
-                      Aparelho Antigo Atual *
-                    </label>
+                    <label className="block text-xs font-medium text-ink-600 mb-1">Colaborador *</label>
                     <select
-                      value={trocaOldDeviceId}
-                      onChange={(e) => setTrocaOldDeviceId(e.target.value)}
+                      value={trocaCollabId}
+                      onChange={(e) => handleTrocaCollabChange(e.target.value)}
                       className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
                       required
                     >
-                      <option value="">-- Selecione o aparelho em uso --</option>
-                      {inUseDevices.filter(d => !trocaCollabId || d.currentCollaboratorId === trocaCollabId).map((d) => (
-                        <option key={d.id} value={d.id}>
-                          {d.assetTag} - {d.brand} {d.model} (Responsável: {d.currentCollaboratorName})
-                        </option>
-                      ))}
+                      <option value="">-- Selecione o colaborador --</option>
+                      {collaborators
+                        .filter(c => c.status === 'Ativo')
+                        .map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.fullName} · {c.registrationNumber || 'Sem matrícula'}
+                          </option>
+                        ))}
                     </select>
                   </div>
+                </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {/* Sub-bloco Aparelho Antigo */}
+                <div className="p-3 bg-sun-50/40 border border-sun-300 rounded-lg space-y-3">
+                  <span className="block text-xs font-semibold text-gold-700">Aparelho Antigo (será devolvido ao Estoque)</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-medium text-ink-700 mb-1">
-                        Estado do Aparelho Antigo
-                      </label>
+                      <label className="block text-xs font-medium text-ink-600 mb-1">Aparelho Antigo *</label>
+                      <select
+                        value={trocaOldDeviceId}
+                        onChange={(e) => setTrocaOldDeviceId(e.target.value)}
+                        className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
+                        required
+                      >
+                        <option value="">-- Selecione --</option>
+                        {inUseDevices
+                          .filter(d => d.currentCollaboratorId === trocaCollabId)
+                          .map((d) => (
+                            <option key={d.id} value={d.id}>
+                              {d.assetTag} · {d.brand} {d.model}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-ink-600 mb-1">Condição do antigo</label>
                       <select
                         value={trocaOldCondition}
                         onChange={(e) => setTrocaOldCondition(e.target.value as DeviceCondition)}
-                        className="w-full text-xs rounded-lg border border-ink-300 bg-white px-2.5 py-1.5 text-ink-800"
+                        className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
                       >
+                        <option value="Excelente">Excelente</option>
                         <option value="Bom">Bom</option>
                         <option value="Regular">Regular</option>
                         <option value="Danificado">Danificado</option>
-                        <option value="Excelente">Excelente</option>
                       </select>
                     </div>
-
                     <div>
-                      <label className="block text-xs font-semibold text-ink-700 mb-1">
-                        Destino do Aparelho Antigo no Estoque
-                      </label>
+                      <label className="block text-xs font-medium text-ink-600 mb-1">Destino do Aparelho Antigo no Estoque</label>
                       <select
                         value={trocaOldDestinoEstoque}
                         onChange={(e) => setTrocaOldDestinoEstoque(e.target.value as any)}
-                        className="w-full text-xs rounded-lg border border-ink-300 bg-white px-2.5 py-1.5 text-ink-800"
+                        className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
                       >
                         <option value="Aguardando avaliação">Aguardando avaliação / Vistoria</option>
                         <option value="Em manutenção">Em manutenção (Assistência técnica)</option>
@@ -1082,407 +950,408 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                       </select>
                     </div>
                   </div>
+
+                  <div className="p-2 bg-white border border-ink-200 rounded-lg space-y-1">
+                    <span className="block text-xs font-semibold text-ink-700">Acessórios do aparelho antigo</span>
+                    <div className="flex flex-wrap gap-2">
+                      {COMMON_ACCESSORIES.map((acc) => (
+                        <label key={acc} className="flex items-center gap-1.5 cursor-pointer text-xs">
+                          <input
+                            type="checkbox"
+                            checked={trocaOldAccessories.includes(acc)}
+                            onChange={() => toggleAccessoryList(trocaOldAccessories, setTrocaOldAccessories, acc)}
+                            className="mt-0.5 text-iane-600 focus:ring-iane-500 rounded border-ink-300"
+                          />
+                          <span className="text-ink-700">{acc}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Sub-bloco Novo Aparelho */}
-                <div className="p-3 bg-iane-50/40 border border-iane-200 rounded-lg space-y-2">
-                  <span className="text-xs font-bold text-iane-800 uppercase tracking-wider block">
-                    Etapa 2: Novo Aparelho (Entrega do Estoque Disponível)
-                  </span>
-                  <div>
-                    <label className="block text-xs font-semibold text-ink-700 mb-1">
-                      Novo Aparelho a ser Entregue *
-                    </label>
-                    <select
-                      value={trocaNewDeviceId}
-                      onChange={(e) => setTrocaNewDeviceId(e.target.value)}
-                      className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
-                      required
-                    >
-                      <option value="">-- Selecione um aparelho disponível em estoque --</option>
-                      {availableStockDevices.filter(d => d.id !== trocaOldDeviceId).map((d) => (
-                        <option key={d.id} value={d.id}>
-                          {d.assetTag} - {d.brand} {d.model} (S/N: {d.serialNumber} | IMEI: {d.imei1}) [{d.condition}]
-                        </option>
-                      ))}
-                    </select>
+                <div className="p-3 bg-emerald-50/40 border border-emerald-200 rounded-lg space-y-3">
+                  <span className="block text-xs font-semibold text-emerald-700">Novo Aparelho (será entregue do Estoque)</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-ink-600 mb-1">Novo Aparelho *</label>
+                      <select
+                        value={trocaNewDeviceId}
+                        onChange={(e) => setTrocaNewDeviceId(e.target.value)}
+                        className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
+                        required
+                      >
+                        <option value="">-- Selecione um aparelho disponível --</option>
+                        {availableStockDevices.map((d) => (
+                          <option key={d.id} value={d.id}>
+                            {d.assetTag} · {d.brand} {d.model} · {d.imei1 ? `IMEI: ${d.imei1}` : 'Sem IMEI'}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-ink-600 mb-1">Condição do novo</label>
+                      <select
+                        value={trocaNewCondition}
+                        onChange={(e) => setTrocaNewCondition(e.target.value as DeviceCondition)}
+                        className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
+                      >
+                        <option value="Novo">Novo</option>
+                        <option value="Excelente">Excelente</option>
+                        <option value="Bom">Bom</option>
+                        <option value="Regular">Regular</option>
+                      </select>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-medium text-ink-600 mb-1">Linha Telefônica no Novo Aparelho</label>
+                      <select
+                        value={trocaLineOption}
+                        onChange={(e) => setTrocaLineOption(e.target.value as any)}
+                        className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
+                      >
+                        <option value="manter_linha_atual_no_novo">Manter linha telefônica atual do colaborador no novo aparelho</option>
+                        <option value="selecionar_outra_linha">Selecionar outra linha do estoque</option>
+                        <option value="sem_linha">Novo aparelho sem linha associada</option>
+                      </select>
+                    </div>
+                    {trocaLineOption === 'selecionar_outra_linha' && (
+                      <div className="sm:col-span-2">
+                        <label className="block text-xs font-medium text-ink-600 mb-1">Outra Linha do Estoque</label>
+                        <select
+                          value={trocaCustomLineId}
+                          onChange={(e) => setTrocaCustomLineId(e.target.value)}
+                          className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
+                        >
+                          <option value="">-- Selecione --</option>
+                          {lines
+                            .filter(l => l.status === 'Disponível')
+                            .map((l) => (
+                              <option key={l.id} value={l.id}>
+                                {l.phoneNumber} · {l.carrier || 'Sem operadora'}
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+                    )}
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-medium text-ink-700 mb-1">
-                      Destinação da Linha Telefônica
-                    </label>
-                    <select
-                      value={trocaLineOption}
-                      onChange={(e) => setTrocaLineOption(e.target.value as any)}
-                      className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
-                    >
-                      <option value="manter_linha_atual_no_novo">Manter linha telefônica atual do colaborador no novo aparelho</option>
-                      <option value="selecionar_outra_linha">Selecionar outra linha do estoque</option>
-                      <option value="sem_linha">Novo aparelho sem linha associada</option>
-                    </select>
+                  <div className="p-2 bg-white border border-ink-200 rounded-lg space-y-1">
+                    <span className="block text-xs font-semibold text-ink-700">Acessórios do novo aparelho</span>
+                    <div className="flex flex-wrap gap-2">
+                      {COMMON_ACCESSORIES.map((acc) => (
+                        <label key={acc} className="flex items-center gap-1.5 cursor-pointer text-xs">
+                          <input
+                            type="checkbox"
+                            checked={trocaNewAccessories.includes(acc)}
+                            onChange={() => toggleAccessoryList(trocaNewAccessories, setTrocaNewAccessories, acc)}
+                            className="mt-0.5 text-iane-600 focus:ring-iane-500 rounded border-ink-300"
+                          />
+                          <span className="text-ink-700">{acc}</span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-ink-600 mb-1">Motivo da troca</label>
+                  <textarea
+                    value={trocaReason}
+                    onChange={(e) => setTrocaReason(e.target.value)}
+                    rows={2}
+                    className="w-full text-xs rounded-lg border border-ink-300 px-3 py-2 text-ink-800"
+                  />
                 </div>
               </div>
             )}
 
-            {/* Documento do Termo: gerar no app ou vincular termo já existente */}
+            {/* Documento do Termo: vincular termo já existente (opcional) */}
             <div className="p-3 bg-ink-50 border border-ink-200 rounded-lg space-y-2">
               <span className="block text-xs font-semibold text-ink-700">
-                Documento / Termo desta movimentação
+                Documento / Termo desta movimentação (opcional)
               </span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                <label className={`flex items-start gap-2 p-2.5 rounded-lg border cursor-pointer transition-colors ${termMode === 'generate' ? 'bg-white border-iane-400 ring-1 ring-iane-200' : 'bg-white border-ink-200 hover:border-ink-300'}`}>
-                  <input
-                    type="radio"
-                    name="termMode"
-                    checked={termMode === 'generate'}
-                    onChange={() => setTermMode('generate')}
-                    className="mt-0.5 text-iane-600 focus:ring-iane-500"
-                  />
-                  <span>
-                    <strong className="block text-ink-900">Gerar termo pelo aplicativo</strong>
-                    <span className="text-[11px] text-ink-500">O sistema cria automaticamente o termo oficial.</span>
-                  </span>
-                </label>
-
-                <label className={`flex items-start gap-2 p-2.5 rounded-lg border cursor-pointer transition-colors ${termMode === 'existing' ? 'bg-white border-iane-400 ring-1 ring-iane-200' : 'bg-white border-ink-200 hover:border-ink-300'}`}>
-                  <input
-                    type="radio"
-                    name="termMode"
-                    checked={termMode === 'existing'}
-                    onChange={() => setTermMode('existing')}
-                    className="mt-0.5 text-iane-600 focus:ring-iane-500"
-                  />
-                  <span>
-                    <strong className="block text-ink-900">Vincular termo já existente</strong>
-                    <span className="text-[11px] text-ink-500">Use um documento já cadastrado/assinado.</span>
-                  </span>
-                </label>
-              </div>
-
-              {termMode === 'existing' && (
-                <div className="pt-1">
-                  <select
-                    value={existingTermId}
-                    onChange={(e) => setExistingTermId(e.target.value)}
-                    className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
-                  >
-                    <option value="">-- Selecione o termo já existente --</option>
-                    {availableTerms.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.code} · {t.type} · {t.collaboratorName || 'Sem colaborador'} · {t.deviceTag || 'Sem TAG'} ({t.status})
-                      </option>
-                    ))}
-                  </select>
-                  {availableTerms.length === 0 && (
-                    <p className="text-[11px] text-gold-700 mt-1">
-                      Nenhum termo cadastrado. Use o botão abaixo para cadastrar o termo já existente sem sair desta tela.
-                    </p>
-                  )}
-
-                  {!showQuickTermForm ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setQuickTermError('');
-                        const defaultTypeByFlow: Record<typeof activeFlow, TermType> = {
-                          entrega: 'Termo de Entrega',
-                          devolucao: 'Termo de Devolução',
-                          transferencia: 'Termo de Transferência',
-                          troca: 'Termo de Entrega',
-                        };
-                        setQuickTerm((prev) => ({
-                          ...prev,
-                          type: defaultTypeByFlow[activeFlow] || prev.type,
-                        }));
-                        setShowQuickTermForm(true);
-                      }}
-                      className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-semibold text-iane-700 hover:text-iane-800"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      Cadastrar termo existente agora
-                    </button>
-                  ) : (
-                    <div className="mt-2 p-3 bg-white border border-ink-200 rounded-lg space-y-2.5">
-                      <p className="text-[11px] font-semibold text-ink-700">
-                        Anexar termo já existente (PDF)
-                      </p>
-                      {quickTermError && (
-                        <p className="text-[11px] text-rose-700 bg-rose-50 border border-rose-200 rounded px-2 py-1">
-                          {quickTermError}
-                        </p>
-                      )}
-                      <input
-                        ref={quickTermFileInputRef}
-                        type="file"
-                        accept=".pdf,application/pdf"
-                        className="hidden"
-                        onChange={(e) => void handleQuickTermFile(e.target.files?.[0])}
-                      />
-                      {!quickTermFile ? (
-                        <button
-                          type="button"
-                          onClick={() => quickTermFileInputRef.current?.click()}
-                          className="w-full flex items-center justify-center gap-2 px-3 py-3 rounded-lg border-2 border-dashed border-ink-300 bg-ink-50/60 hover:border-iane-400 hover:bg-iane-50/50 text-[11px] font-medium text-ink-700 transition-colors"
-                        >
-                          <Upload className="w-4 h-4 text-iane-600" />
-                          Selecionar o PDF do termo (até 10 MB)
-                        </button>
-                      ) : (
-                        <div className="flex items-center gap-2 p-2 bg-iane-50/60 border border-iane-200 rounded-lg">
-                          <FileText className="w-4 h-4 text-iane-600 shrink-0" />
-                          <div className="min-w-0 flex-1">
-                            <p className="text-[11px] font-semibold text-ink-900 truncate">{quickTermFile.name}</p>
-                            <p className="text-[10px] text-ink-500">{formatFileSize(quickTermFile.size)} · PDF</p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setQuickTermFile(null);
-                              if (quickTermFileInputRef.current) quickTermFileInputRef.current.value = '';
-                            }}
-                            className="p-1 text-ink-500 hover:text-rose-700 rounded"
-                            title="Remover arquivo"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      )}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        <div>
-                          <label className="block text-[11px] font-medium text-ink-600 mb-0.5">
-                            Código / Nº do termo *
-                          </label>
-                          <input
-                            type="text"
-                            value={quickTerm.code}
-                            onChange={(e) => setQuickTerm({ ...quickTerm, code: e.target.value })}
-                            placeholder="Ex.: TERMO-ENT-2024-001"
-                            className="w-full text-xs rounded-lg border border-ink-300 px-2 py-1.5"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-medium text-ink-600 mb-0.5">
-                            Tipo
-                          </label>
-                          <select
-                            value={quickTerm.type}
-                            onChange={(e) => setQuickTerm({ ...quickTerm, type: e.target.value as TermType })}
-                            className="w-full text-xs rounded-lg border border-ink-300 px-2 py-1.5 bg-white"
-                          >
-                            <option value="Termo de Entrega">Termo de Entrega</option>
-                            <option value="Termo de Devolução">Termo de Devolução</option>
-                            <option value="Termo de Transferência">Termo de Transferência</option>
-                            <option value="Termo de Manutenção">Termo de Manutenção</option>
-                            <option value="Laudo de Baixa">Laudo de Baixa</option>
-                            <option value="Outro">Outro</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-medium text-ink-600 mb-0.5">
-                            Data do documento
-                          </label>
-                          <input
-                            type="date"
-                            value={quickTerm.date}
-                            onChange={(e) => setQuickTerm({ ...quickTerm, date: e.target.value })}
-                            className="w-full text-xs rounded-lg border border-ink-300 px-2 py-1.5"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-medium text-ink-600 mb-0.5">
-                            Situação
-                          </label>
-                          <select
-                            value={quickTerm.status}
-                            onChange={(e) => setQuickTerm({ ...quickTerm, status: e.target.value as TermStatus })}
-                            className="w-full text-xs rounded-lg border border-ink-300 px-2 py-1.5 bg-white"
-                          >
-                            <option value="Assinado">Assinado</option>
-                            <option value="Pendente de Assinatura">Pendente de Assinatura</option>
-                            <option value="Arquivado">Arquivado</option>
-                          </select>
-                        </div>
-                      </div>
-                      <div className="flex justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowQuickTermForm(false);
-                            setQuickTermError('');
-                            setQuickTermFile(null);
-                            if (quickTermFileInputRef.current) quickTermFileInputRef.current.value = '';
-                          }}
-                          disabled={isCreatingQuickTerm}
-                          className="px-2.5 py-1 text-[11px] bg-ink-100 hover:bg-ink-200 rounded-lg disabled:opacity-60"
-                        >
-                          Cancelar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void handleCreateQuickTerm()}
-                          disabled={isCreatingQuickTerm}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold bg-iane-600 hover:bg-iane-700 text-white rounded-lg disabled:opacity-60 disabled:cursor-not-allowed"
-                        >
-                          {isCreatingQuickTerm ? (
-                            <>
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                              Enviando PDF...
-                            </>
-                          ) : (
-                            'Cadastrar e vincular'
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  <p className="text-[10px] text-ink-500 mt-1">
-                    O termo escolhido será atualizado com o aparelho, colaborador, data e vínculo desta movimentação.
+              <div className="pt-1">
+                <select
+                  value={existingTermId}
+                  onChange={(e) => setExistingTermId(e.target.value)}
+                  className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
+                >
+                  <option value="">-- Nenhum / Selecione um termo já existente --</option>
+                  {availableTerms.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.code} · {t.type} · {t.collaboratorName || 'Sem colaborador'} · {t.deviceTag || 'Sem TAG'} ({t.status})
+                    </option>
+                  ))}
+                </select>
+                {availableTerms.length === 0 && (
+                  <p className="text-[11px] text-ink-500 mt-1">
+                    Nenhum termo cadastrado. Cadastre termos na tela "Termos e documentos" anexando o PDF.
                   </p>
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
-            {/* Observações */}
             <div>
-              <label className="block text-xs font-medium text-ink-700 mb-1">
-                Observações Técnicas / Motivação Adicional
-              </label>
-              <textarea
-                rows={2}
-                value={observations}
-                onChange={(e) => setObservations(e.target.value)}
-                placeholder="Detalhes adicionais para registro no histórico patrimonial..."
-                className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 resize-none"
+              <label className="block text-xs font-medium text-ink-600 mb-1">Data da movimentação *</label>
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                required
+                className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
               />
             </div>
 
-            <div className="flex justify-end gap-2 pt-3 border-t border-ink-200">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 text-xs font-medium text-ink-700 bg-ink-100 hover:bg-ink-200 rounded-lg"
-              >
-                Cancelar
-              </button>
+            {/* Observações Gerais */}
+            <div>
+              <label className="block text-xs font-medium text-ink-600 mb-1">Observações Gerais (opcional)</label>
+              <textarea
+                value={observations}
+                onChange={(e) => setObservations(e.target.value)}
+                rows={2}
+                className="w-full text-xs rounded-lg border border-ink-300 px-3 py-2 text-ink-800"
+              />
+            </div>
+
+            {/* Botão Revisar */}
+            <div className="flex justify-end pt-2">
               <button
                 type="submit"
-                className="px-5 py-2 text-xs font-semibold text-white bg-iane-600 hover:bg-iane-700 rounded-lg shadow-xs flex items-center gap-1.5"
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold bg-iane-600 hover:bg-iane-700 text-white rounded-lg shadow-xs transition-colors"
               >
-                <span>Revisar Operação</span>
-                <ArrowRight className="w-3.5 h-3.5" />
+                <ShieldCheck className="w-4 h-4" />
+                Revisar e Confirmar Operação
               </button>
             </div>
           </form>
-        ) : (
-          /* 4. TELA DE RESUMO PARA CONFERÊNCIA OBRIGATÓRIA ANTES DE CONFIRMAR */
+        )}
+
+        {/* 3. RESUMO DA OPERAÇÃO */}
+        {showSummary && (
           <div className="space-y-4">
-            <div className="p-4 bg-ink-50 border border-ink-200 rounded-xl space-y-3">
-              <div className="flex items-center gap-2 border-b border-ink-200 pb-2">
-                <ShieldCheck className="w-5 h-5 text-iane-600" />
-                <h4 className="text-sm font-bold text-ink-900">
-                  Conferência do Fluxo Patrimonial
-                </h4>
-              </div>
+            <div className="p-4 bg-white border border-ink-200 rounded-xl">
+              <h3 className="text-sm font-bold text-ink-900 mb-3 flex items-center gap-2">
+                <Info className="w-4 h-4 text-iane-600" />
+                Resumo da Operação Oficial
+              </h3>
 
-              {activeFlow === 'entrega' && selEntregaDev && selEntregaCollab && (
-                <div className="space-y-2 text-xs">
-                  <p><span className="text-ink-500">Operação:</span> <strong className="text-ink-900">Entrega de Dispositivo</strong></p>
-                  <p><span className="text-ink-500">Origem:</span> <strong>{STOCK_LABEL} (Disponível)</strong></p>
-                  <p><span className="text-ink-500">Destino:</span> <strong className="text-iane-700">{selEntregaCollab.fullName}</strong> ({selEntregaCollab.department} - Mat: {selEntregaCollab.registrationNumber})</p>
-                  <p><span className="text-ink-500">Aparelho:</span> <strong className="font-mono">{selEntregaDev.assetTag}</strong> - {selEntregaDev.brand} {selEntregaDev.model} (IMEI: {selEntregaDev.imei1})</p>
-                  <p><span className="text-ink-500">Estado de Conservação:</span> <strong>{entregaCondition}</strong></p>
-                  <p><span className="text-ink-500">Tipo de Documento:</span> <strong className="text-teal-700 font-mono">Termo de Entrega Oficial</strong></p>
-                </div>
-              )}
-
-              {activeFlow === 'devolucao' && selDevolucaoDev && selDevolucaoCollab && (
-                <div className="space-y-2 text-xs">
-                  <p><span className="text-ink-500">Operação:</span> <strong className="text-ink-900">Devolução de Dispositivo</strong></p>
-                  <p><span className="text-ink-500">Origem:</span> <strong className="text-iane-700">{selDevolucaoCollab.fullName}</strong> ({selDevolucaoCollab.department})</p>
-                  <p><span className="text-ink-500">Destino:</span> <strong className="text-ink-900">{STOCK_LABEL}</strong> (Status no estoque: <strong>{devolucaoDestinoEstoque}</strong>)</p>
-                  <p><span className="text-ink-500">Aparelho:</span> <strong className="font-mono">{selDevolucaoDev.assetTag}</strong> - {selDevolucaoDev.brand} {selDevolucaoDev.model}</p>
-                  <p><span className="text-ink-500">Estado na Devolução:</span> <strong>{devolucaoCondition}</strong></p>
-                  <p><span className="text-ink-500">Tipo de Documento:</span> <strong className="text-teal-700 font-mono">Termo de Devolução e Quitação de Guarda</strong></p>
-                </div>
-              )}
-
-              {activeFlow === 'transferencia' && selTransfCollabA && selTransfDev && (
-                <div className="space-y-2 text-xs">
-                  <p><span className="text-ink-500">Operação:</span> <strong className="text-ink-900">Transferência entre Colaboradores</strong></p>
-                  <div className="p-2.5 bg-white border border-ink-200 rounded-lg space-y-1">
-                    <p className="font-semibold text-ink-800">Etapa 1 (Devolução ao Estoque):</p>
-                    <p className="text-[11px] text-ink-600">Devolução de <strong>{selTransfCollabA.fullName}</strong> para <strong>{STOCK_LABEL}</strong> com status <strong>{transfDestinoEstoque}</strong>.</p>
+              {/* Flow-specific summary */}
+              {activeFlow === 'entrega' && (
+                <div className="space-y-3 text-xs">
+                  <div>
+                    <span className="text-ink-500">Tipo: </span>
+                    <strong className="text-emerald-700">Entrega de Aparelho (Estoque → Colaborador)</strong>
                   </div>
-                  {transfDestinoEstoque === 'Disponível' && selTransfCollabB ? (
-                    <div className="p-2.5 bg-white border border-ink-200 rounded-lg space-y-1">
-                      <p className="font-semibold text-ink-800">Etapa 2 (Entrega do Estoque):</p>
-                      <p className="text-[11px] text-ink-600">Entrega liberada do <strong>{STOCK_LABEL}</strong> para <strong>{selTransfCollabB.fullName}</strong>.</p>
-                    </div>
-                  ) : (
-                    <div className="p-2.5 bg-sun-50 border border-sun-300 rounded-lg text-[11px] text-gold-700">
-                      O aparelho requer avaliação/reparo e ficará no Estoque do Gestor. A entrega subsequente não será executada de imediato.
-                    </div>
-                  )}
-                  <p><span className="text-ink-500">Aparelho:</span> <strong className="font-mono">{selTransfDev.assetTag}</strong> ({selTransfDev.brand} {selTransfDev.model})</p>
-                </div>
-              )}
-
-              {activeFlow === 'troca' && selTrocaCollab && selTrocaOldDev && selTrocaNewDev && (
-                <div className="space-y-2 text-xs">
-                  <p><span className="text-ink-500">Operação:</span> <strong className="text-ink-900">Troca de Dispositivo</strong></p>
-                  <p><span className="text-ink-500">Colaborador:</span> <strong>{selTrocaCollab.fullName}</strong> ({selTrocaCollab.department})</p>
-                  <div className="grid grid-cols-2 gap-2 mt-2">
-                    <div className="p-2 bg-white border border-ink-200 rounded text-[11px]">
-                      <span className="font-bold text-rose-800 block">Devolve ao Estoque:</span>
-                      <span className="font-mono">{selTrocaOldDev.assetTag}</span> ({selTrocaOldDev.model})
-                      <span className="block text-ink-500">Destino: {trocaOldDestinoEstoque}</span>
-                    </div>
-                    <div className="p-2 bg-white border border-ink-200 rounded text-[11px]">
-                      <span className="font-bold text-emerald-800 block">Recebe do Estoque:</span>
-                      <span className="font-mono">{selTrocaNewDev.assetTag}</span> ({selTrocaNewDev.model})
-                      <span className="block text-ink-500">Condição: {trocaNewCondition}</span>
-                    </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-ink-500">Aparelho:</span>
+                    <strong className="text-ink-900 font-mono">{selEntregaDev?.assetTag || '—'}</strong>
+                    <span className="text-ink-500">{selEntregaDev ? `${selEntregaDev.brand} ${selEntregaDev.model}` : ''}</span>
+                    {selEntregaDev?.imei1 && <span className="text-ink-500">IMEI: {selEntregaDev.imei1}</span>}
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-ink-500">Colaborador Destinatário:</span>
+                    <strong className="text-ink-900">{selEntregaCollab?.fullName || '—'}</strong>
+                    {selEntregaCollab?.registrationNumber && <span className="text-ink-500">({selEntregaCollab.registrationNumber})</span>}
+                  </div>
+                  <div>
+                    <span className="text-ink-500">Linha Telefônica: </span>
+                    <strong>{selEntregaDev?.associatedPhoneNumber ? `${selEntregaDev.associatedPhoneNumber} (selecionada)` : 'Sem linha / Não selecionada'}</strong>
+                  </div>
+                  <div>
+                    <span className="text-ink-500">Condição: </span>
+                    <strong>{entregaCondition}</strong>
+                  </div>
+                  <div>
+                    <span className="text-ink-500">Acessórios: </span>
+                    <strong>{entregaAccessories.join(', ') || 'Nenhum'}</strong>
+                  </div>
+                  <div>
+                    <span className="text-ink-500">Data: </span>
+                    <strong>{date}</strong>
+                  </div>
+                  <div>
+                    <span className="text-ink-500">Documento / Termo: </span>
+                    {existingTermId ? (() => {
+                      const t = availableTerms.find((x) => x.id === existingTermId);
+                      return <strong className="text-emerald-700">Vincular termo já existente — {t ? `${t.code} (${t.type})` : ''}</strong>;
+                    })() : (
+                      <span className="text-ink-500">Nenhum (opcional)</span>
+                    )}
                   </div>
                 </div>
               )}
 
-              <div className="p-2.5 bg-white border border-ink-200 rounded-lg text-xs">
-                <p>
-                  <span className="text-ink-500">Documento / Termo:</span>{' '}
-                  {termMode === 'existing' ? (
-                    <strong className="text-emerald-700">
-                      Vincular termo já existente
-                      {(() => {
-                        const t = availableTerms.find((x) => x.id === existingTermId);
-                        return t ? ` — ${t.code} (${t.type})` : '';
-                      })()}
-                    </strong>
-                  ) : (
-                    <strong className="text-teal-700">Gerado automaticamente pelo aplicativo</strong>
-                  )}
-                </p>
-              </div>
-            </div>
+              {activeFlow === 'devolucao' && (
+                <div className="space-y-3 text-xs">
+                  <div>
+                    <span className="text-ink-500">Tipo: </span>
+                    <strong className="text-gold-700">Devolução de Aparelho (Colaborador → Estoque do Gestor)</strong>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-ink-500">Aparelho:</span>
+                    <strong className="text-ink-900 font-mono">{selDevolucaoDev?.assetTag || '—'}</strong>
+                    <span className="text-ink-500">{selDevolucaoDev ? `${selDevolucaoDev.brand} ${selDevolucaoDev.model}` : ''}</span>
+                    {selDevolucaoDev?.imei1 && <span className="text-ink-500">IMEI: {selDevolucaoDev.imei1}</span>}
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-ink-500">Colaborador Atual:</span>
+                    <strong className="text-ink-900">{selDevolucaoCollab?.fullName || '—'}</strong>
+                    {selDevolucaoCollab?.registrationNumber && <span className="text-ink-500">({selDevolucaoCollab.registrationNumber})</span>}
+                  </div>
+                  <div>
+                    <span className="text-ink-500">Destino no Estoque: </span>
+                    <strong>{devolucaoDestinoEstoque}</strong>
+                  </div>
+                  <div>
+                    <span className="text-ink-500">Linha Telefônica: </span>
+                    <strong>{devolucaoLineHandling === 'retornar_ao_estoque' ? 'Retorna ao estoque (Disponível)' : devolucaoLineHandling === 'manter_com_colaborador' ? 'Mantém com o colaborador' : 'Desassociada e suspensa'}</strong>
+                  </div>
+                  <div>
+                    <span className="text-ink-500">Condição: </span>
+                    <strong>{devolucaoCondition}</strong>
+                  </div>
+                  <div>
+                    <span className="text-ink-500">Acessórios: </span>
+                    <strong>{devolucaoAccessories.join(', ') || 'Nenhum'}</strong>
+                  </div>
+                  <div>
+                    <span className="text-ink-500">Data: </span>
+                    <strong>{date}</strong>
+                  </div>
+                  <div>
+                    <span className="text-ink-500">Documento / Termo: </span>
+                    {existingTermId ? (() => {
+                      const t = availableTerms.find((x) => x.id === existingTermId);
+                      return <strong className="text-emerald-700">Vincular termo já existente — {t ? `${t.code} (${t.type})` : ''}</strong>;
+                    })() : (
+                      <span className="text-ink-500">Nenhum (opcional)</span>
+                    )}
+                  </div>
+                </div>
+              )}
 
-            <div className="flex justify-between items-center pt-2">
-              <button
-                type="button"
-                onClick={() => setShowSummary(false)}
-                className="px-4 py-2 text-xs font-medium text-ink-700 bg-ink-100 hover:bg-ink-200 rounded-lg"
-              >
-                Voltar e Ajustar
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmOperation}
-                className="px-6 py-2 text-xs font-semibold text-white bg-iane-600 hover:bg-iane-700 rounded-lg shadow-xs flex items-center gap-1.5"
-              >
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Confirmar e Registrar Operação Oficial</span>
-              </button>
+              {activeFlow === 'transferencia' && (
+                <div className="space-y-3 text-xs">
+                  <div>
+                    <span className="text-ink-500">Tipo: </span>
+                    <strong className="text-iane-700">Transferência Patrimonial (Colaborador A → Estoque → Colaborador B)</strong>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-ink-500">Aparelho:</span>
+                    <strong className="text-ink-900 font-mono">{selTransfDev?.assetTag || '—'}</strong>
+                    <span className="text-ink-500">{selTransfDev ? `${selTransfDev.brand} ${selTransfDev.model}` : ''}</span>
+                    {selTransfDev?.imei1 && <span className="text-ink-500">IMEI: {selTransfDev.imei1}</span>}
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-ink-500">Colaborador A (Origem):</span>
+                    <strong className="text-ink-900">{selTransfCollabA?.fullName || '—'}</strong>
+                    {selTransfCollabA?.registrationNumber && <span className="text-ink-500">({selTransfCollabA.registrationNumber})</span>}
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-ink-500">Colaborador B (Destino):</span>
+                    <strong className="text-ink-900">{selTransfCollabB?.fullName || '—'}</strong>
+                    {selTransfCollabB?.registrationNumber && <span className="text-ink-500">({selTransfCollabB.registrationNumber})</span>}
+                  </div>
+                  <div>
+                    <span className="text-ink-500">Status no Estoque intermediário: </span>
+                    <strong>{transfDestinoEstoque}</strong>
+                  </div>
+                  <div>
+                    <span className="text-ink-500">Tratamento da Linha: </span>
+                    <strong>{transfLineHandling === 'transferir_linha_junto' ? 'Transferida junto' : transfLineHandling === 'manter_linha_com_origem' ? 'Mantida com A' : 'Retorna ao estoque'}</strong>
+                  </div>
+                  <div>
+                    <span className="text-ink-500">Acessórios: </span>
+                    <strong>{transfAccessories.join(', ') || 'Nenhum'}</strong>
+                  </div>
+                  <div>
+                    <span className="text-ink-500">Data: </span>
+                    <strong>{date}</strong>
+                  </div>
+                  <div>
+                    <span className="text-ink-500">Documento / Termo: </span>
+                    {existingTermId ? (() => {
+                      const t = availableTerms.find((x) => x.id === existingTermId);
+                      return <strong className="text-emerald-700">Vincular termo já existente — {t ? `${t.code} (${t.type})` : ''}</strong>;
+                    })() : (
+                      <span className="text-ink-500">Nenhum (opcional)</span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {activeFlow === 'troca' && (
+                <div className="space-y-3 text-xs">
+                  <div>
+                    <span className="text-ink-500">Tipo: </span>
+                    <strong className="text-iane-700">Troca de Aparelho do Mesmo Colaborador</strong>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-ink-500">Colaborador:</span>
+                    <strong className="text-ink-900">{selTrocaCollab?.fullName || '—'}</strong>
+                    {selTrocaCollab?.registrationNumber && <span className="text-ink-500">({selTrocaCollab.registrationNumber})</span>}
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-ink-500">Aparelho Antigo:</span>
+                    <strong className="text-ink-900 font-mono">{selTrocaOldDev?.assetTag || '—'}</strong>
+                    <span className="text-ink-500">{selTrocaOldDev ? `${selTrocaOldDev.brand} ${selTrocaOldDev.model}` : ''}</span>
+                  </div>
+                  <div>
+                    <span className="text-ink-500">Destino do Antigo no Estoque: </span>
+                    <strong>{trocaOldDestinoEstoque}</strong>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-ink-500">Novo Aparelho:</span>
+                    <strong className="text-ink-900 font-mono">{selTrocaNewDev?.assetTag || '—'}</strong>
+                    <span className="text-ink-500">{selTrocaNewDev ? `${selTrocaNewDev.brand} ${selTrocaNewDev.model}` : ''}</span>
+                  </div>
+                  <div>
+                    <span className="text-ink-500">Linha no Novo: </span>
+                    <strong>{trocaLineOption === 'manter_linha_atual_no_novo' ? 'Mantém a linha atual' : trocaLineOption === 'selecionar_outra_linha' ? 'Outra linha selecionada' : 'Sem linha'}</strong>
+                  </div>
+                  <div>
+                    <span className="text-ink-500">Acessórios do Antigo: </span>
+                    <strong>{trocaOldAccessories.join(', ') || 'Nenhum'}</strong>
+                  </div>
+                  <div>
+                    <span className="text-ink-500">Acessórios do Novo: </span>
+                    <strong>{trocaNewAccessories.join(', ') || 'Nenhum'}</strong>
+                  </div>
+                  <div>
+                    <span className="text-ink-500">Data: </span>
+                    <strong>{date}</strong>
+                  </div>
+                  <div>
+                    <span className="text-ink-500">Documento / Termo: </span>
+                    {existingTermId ? (() => {
+                      const t = availableTerms.find((x) => x.id === existingTermId);
+                      return <strong className="text-emerald-700">Vincular termo já existente — {t ? `${t.code} (${t.type})` : ''}</strong>;
+                    })() : (
+                      <span className="text-ink-500">Nenhum (opcional)</span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Botões de ação */}
+              <div className="flex justify-between items-center pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowSummary(false)}
+                  className="px-3 py-1.5 text-xs font-medium bg-white border border-ink-300 hover:bg-ink-50 text-ink-700 rounded-lg"
+                >
+                  Voltar e Corrigir
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmOperation}
+                  disabled={isApprovalSubmitting}
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-xs transition-colors disabled:opacity-60"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  {isApprovalSubmitting ? 'Aprovando...' : approvalRequest ? 'Aprovar e Registrar Operação' : 'Confirmar e Registrar Operação Oficial'}
+                </button>
+              </div>
             </div>
           </div>
         )}

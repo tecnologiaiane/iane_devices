@@ -68,16 +68,12 @@ export const CollaboratorModal: React.FC<CollaboratorModalProps> = ({
       setErrorMessage('Informe o nome completo do colaborador.');
       return;
     }
-    if (!registrationNumber.trim()) {
-      setErrorMessage('Informe o número de matrícula ou identificador interno.');
-      return;
-    }
     if (!position.trim()) {
       setErrorMessage('Informe o cargo ou função do colaborador.');
       return;
     }
-    if (!corporateEmail.trim() || !corporateEmail.includes('@')) {
-      setErrorMessage('Informe um e-mail corporativo válido.');
+    if (corporateEmail.trim() && !corporateEmail.includes('@')) {
+      setErrorMessage('Informe um e-mail válido.');
       return;
     }
 
@@ -138,7 +134,7 @@ export const CollaboratorModal: React.FC<CollaboratorModalProps> = ({
 
           <div>
             <label className="block text-xs font-semibold text-ink-700 mb-1">
-              Matrícula / ID Interno *
+              Matrícula
             </label>
             <input
               type="text"
@@ -146,7 +142,6 @@ export const CollaboratorModal: React.FC<CollaboratorModalProps> = ({
               onChange={(e) => setRegistrationNumber(e.target.value.toUpperCase())}
               placeholder="Ex: MAT-1024"
               className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 font-mono focus:outline-none focus:ring-2 focus:ring-iane-500 uppercase"
-              required
             />
           </div>
         </div>
@@ -200,7 +195,7 @@ export const CollaboratorModal: React.FC<CollaboratorModalProps> = ({
 
           <div>
             <label className="block text-xs font-semibold text-ink-700 mb-1">
-              E-mail Corporativo *
+              E-mail
             </label>
             <input
               type="email"
@@ -208,7 +203,6 @@ export const CollaboratorModal: React.FC<CollaboratorModalProps> = ({
               onChange={(e) => setCorporateEmail(e.target.value)}
               placeholder="nome.sobrenome@empresa.com.br"
               className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500"
-              required
             />
           </div>
         </div>
@@ -229,7 +223,7 @@ export const CollaboratorModal: React.FC<CollaboratorModalProps> = ({
 
           <div>
             <label className="block text-xs font-medium text-ink-700 mb-1">
-              CPF (Para qualificação no Termo)
+              CPF
             </label>
             <input
               type="text"

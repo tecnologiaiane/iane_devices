@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { Sidebar, NavTab } from './components/Sidebar';
-import { Device, PhoneLine, Collaborator, DocumentTerm, MovementType, User } from './types';
+import { Device, PhoneLine, Collaborator, DocumentTerm, MovementType, RequestRecord, User } from './types';
 import { dataService } from './services/dataStorage';
 import { authService } from './services/authService';
 import { apiClient, ApiNotification } from './services/apiClient';
 import { LoginView } from './views/LoginView';
+import { canAccessRequests } from './config/requestAccess';
 
 // Views e modais são carregados sob demanda (React.lazy): o bundle inicial fica
 // pequeno e cada tela baixa seu próprio chunk somente quando é aberta.
@@ -33,6 +34,9 @@ const ReportsView = React.lazy(() =>
 );
 const SettingsView = React.lazy(() =>
   import('./views/SettingsView').then((m) => ({ default: m.SettingsView }))
+);
+const RequestsView = React.lazy(() =>
+  import('./views/RequestsView').then((m) => ({ default: m.RequestsView }))
 );
 
 const MovementModal = React.lazy(() =>
@@ -64,6 +68,7 @@ const tabToPath: Record<NavTab, string> = {
   linhas: '/linhas',
   colaboradores: '/colaboradores',
   movimentacoes: '/movimentacoes',
+  solicitacoes: '/solicitacoes',
   termos: '/termos',
   relatorios: '/relatorios',
   configuracoes: '/configuracoes',
@@ -71,11 +76,12 @@ const tabToPath: Record<NavTab, string> = {
 
 // Título exibido no topo de cada tela (sem barra fixa, apenas o nome da área)
 const PAGE_TITLES: Record<NavTab, string> = {
-  dashboard: 'GELIN - Dashboard',
+  dashboard: 'Dashboard',
   dispositivos: 'Dispositivos',
   linhas: 'Linhas telefônicas',
   colaboradores: 'Colaboradores',
   movimentacoes: 'Movimentações',
+  solicitacoes: 'Solicitações',
   termos: 'Termos e documentos',
   relatorios: 'Relatórios',
   configuracoes: 'Configurações',
@@ -88,6 +94,7 @@ const pathToTab: Record<string, NavTab> = {
   '/linhas': 'linhas',
   '/colaboradores': 'colaboradores',
   '/movimentacoes': 'movimentacoes',
+  '/solicitacoes': 'solicitacoes',
   '/termos': 'termos',
   '/relatorios': 'relatorios',
   '/configuracoes': 'configuracoes',
@@ -201,7 +208,9 @@ export default function App() {
   React.useEffect(() => {
     if (currentUser && activeTab !== 'dashboard') {
       const perms = currentUser.permissions || ['all'];
-      const hasPerm = currentUser.role === 'admin' || perms.includes('all') || perms.includes(activeTab);
+      const hasPerm = activeTab === 'solicitacoes'
+        ? canAccessRequests(currentUser.role)
+        : currentUser.role === 'admin' || perms.includes('all') || perms.includes(activeTab);
       if (!hasPerm) {
         navigate(tabToPath.dashboard, { replace: true });
       }
@@ -213,6 +222,7 @@ export default function App() {
   const [movementPreselectDeviceId, setMovementPreselectDeviceId] = useState<string | undefined>();
   const [movementPreselectCollaboratorId, setMovementPreselectCollaboratorId] = useState<string | undefined>();
   const [movementDefaultFlow, setMovementDefaultFlow] = useState<'entrega' | 'devolucao' | 'transferencia' | 'troca'>('entrega');
+  const [movementApprovalRequest, setMovementApprovalRequest] = useState<RequestRecord | null>(null);
 
   const [isDeviceModalOpen, setIsDeviceModalOpen] = useState(false);
   const [deviceToEdit, setDeviceToEdit] = useState<Device | null>(null);
@@ -236,9 +246,42 @@ export default function App() {
     flow: 'entrega' | 'devolucao' | 'transferencia' | 'troca' = 'entrega',
     collaboratorId?: string
   ) => {
+    setMovementApprovalRequest(null);
     setMovementPreselectDeviceId(deviceId);
     setMovementDefaultFlow(flow);
     setMovementPreselectCollaboratorId(collaboratorId);
+    setIsMovementModalOpen(true);
+  };
+
+  const handleApproveRequest = (request: RequestRecord) => {
+    const flowByType = {
+      Entrega: 'entrega',
+      Devolução: 'devolucao',
+      Transferência: 'transferencia',
+      'Troca de Aparelho': 'troca',
+    } as const;
+    const data = request.data || {};
+    let deviceId: string | undefined;
+    let collaboratorId: string | undefined;
+    if (request.type === 'Devolução') {
+      deviceId = data.devices?.[0]?.id;
+      collaboratorId = data.collaboratorId;
+    } else if (request.type === 'Transferência') {
+      deviceId = data.deviceId;
+      collaboratorId = data.destinationCollaboratorId;
+    } else if (request.type === 'Troca de Aparelho') {
+      deviceId = data.oldDeviceId;
+      collaboratorId = data.collaboratorId;
+    } else {
+      const cpf = String(data.cpf || '').replace(/\D/g, '');
+      collaboratorId = dataService.getCollaborators().find((collaborator) =>
+        cpf && String(collaborator.cpf || '').replace(/\D/g, '') === cpf
+      )?.id;
+    }
+    setMovementApprovalRequest(request);
+    setMovementPreselectDeviceId(deviceId);
+    setMovementPreselectCollaboratorId(collaboratorId);
+    setMovementDefaultFlow(flowByType[request.type]);
     setIsMovementModalOpen(true);
   };
 
@@ -322,8 +365,8 @@ export default function App() {
             <DevicesView
               key={refreshKey}
               onOpenDeviceModal={handleOpenDeviceModal}
-              onOpenMovementWithDevice={(deviceId, flow) => handleOpenMovementModal(deviceId, flow)}
               onViewTerm={handleViewTerm}
+              currentUser={currentUser}
             />
           )}
 
@@ -346,9 +389,15 @@ export default function App() {
           {activeTab === 'movimentacoes' && (
             <MovementsView
               key={refreshKey}
-              onOpenMovementModal={() => handleOpenMovementModal()}
+              onOpenMovementModal={(flow) => handleOpenMovementModal(undefined, flow || 'entrega')}
               onViewTerm={handleViewTerm}
+              currentUser={currentUser}
+              onApproveRequest={handleApproveRequest}
             />
+          )}
+
+          {activeTab === 'solicitacoes' && canAccessRequests(currentUser.role) && (
+            <RequestsView currentUser={currentUser} />
           )}
 
           {activeTab === 'termos' && (
@@ -380,11 +429,12 @@ export default function App() {
         {isMovementModalOpen && (
           <MovementModal
             isOpen={isMovementModalOpen}
-            onClose={() => setIsMovementModalOpen(false)}
+            onClose={() => { setIsMovementModalOpen(false); setMovementApprovalRequest(null); }}
             onSuccess={triggerRefresh}
             preselectedDeviceId={movementPreselectDeviceId}
             preselectedCollaboratorId={movementPreselectCollaboratorId}
             defaultFlow={movementDefaultFlow}
+            approvalRequest={movementApprovalRequest}
           />
         )}
 

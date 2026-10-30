@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Movement, MovementType, DocumentTerm } from '../types';
+import React, { useEffect, useState } from 'react';
+import { Movement, MovementType, DocumentTerm, RequestRecord, User as UserRecord } from '../types';
 import { dataService, STOCK_LABEL } from '../services/dataStorage';
 import { formatDate } from '../utils/formatters';
 import { StatusBadge } from '../components/StatusBadge';
@@ -7,7 +7,7 @@ import {
   ArrowLeftRight,
   Search,
   Filter,
-  Plus,
+  ChevronDown,
   FileText,
   Eye,
   CheckCircle2,
@@ -20,15 +20,30 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { OfficialFlowType } from '../components/modals/MovementModal';
+import { canAccessRequests, canApproveRequests } from '../config/requestAccess';
+import { Modal } from '../components/Modal';
+import { formatDateTime } from '../utils/formatters';
+import { RequestDetailsModal } from './RequestsView';
+
+const MOVEMENT_FLOWS: { flow: OfficialFlowType; label: string }[] = [
+  { flow: 'entrega', label: 'Entrega' },
+  { flow: 'devolucao', label: 'Devolução' },
+  { flow: 'transferencia', label: 'Transferência' },
+  { flow: 'troca', label: 'Troca de Aparelho' },
+];
 
 interface MovementsViewProps {
   onOpenMovementModal: (flow?: OfficialFlowType) => void;
   onViewTerm: (term: DocumentTerm) => void;
+  currentUser: UserRecord;
+  onApproveRequest: (request: RequestRecord) => void;
 }
 
 export const MovementsView: React.FC<MovementsViewProps> = ({
   onOpenMovementModal,
   onViewTerm,
+  currentUser,
+  onApproveRequest,
 }) => {
   const [movements, setMovements] = useState<Movement[]>(dataService.getMovements());
   const [searchQuery, setSearchQuery] = useState('');
@@ -38,8 +53,69 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
 
   // Selected movement for detail
   const [detailMovement, setDetailMovement] = useState<Movement | null>(null);
+  const [isMovementMenuOpen, setIsMovementMenuOpen] = useState(false);
+  const [allRequests, setAllRequests] = useState<RequestRecord[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<RequestRecord[]>([]);
+  const [requestToView, setRequestToView] = useState<RequestRecord | null>(null);
+  const [requestToReject, setRequestToReject] = useState<RequestRecord | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [requestError, setRequestError] = useState('');
+  const [isRejecting, setIsRejecting] = useState(false);
+  const canApprove = canApproveRequests(currentUser.role);
 
-  const filteredMovements = movements.filter((m) => {
+  useEffect(() => {
+    if (!canAccessRequests(currentUser.role)) return;
+    dataService.fetchRequests().then((requests) => {
+      setAllRequests(requests);
+      if (canApprove) {
+        setPendingRequests(requests.filter((request) => (request.status || 'Pendente de aprovação') === 'Pendente de aprovação'));
+      }
+    });
+  }, [canApprove, currentUser.role]);
+
+  const confirmRejection = async () => {
+    if (!requestToReject || isRejecting) return;
+    setIsRejecting(true);
+    setRequestError('');
+    const result = await dataService.rejectRequest(requestToReject.id, rejectionReason);
+    setIsRejecting(false);
+    if (!result.success) {
+      setRequestError(result.message);
+      return;
+    }
+    setPendingRequests((requests) => requests.filter((request) => request.id !== requestToReject.id));
+    setRequestToReject(null);
+    setRejectionReason('');
+  };
+
+  const requestCollaborator = (request: RequestRecord) => {
+    const data = request.data || {};
+    if (request.type === 'Entrega') return data.employeeName || '—';
+    if (request.type === 'Transferência') return `${data.originCollaboratorName || 'Origem'} → ${data.destinationCollaboratorName || 'Destino'}`;
+    return data.collaboratorName || '—';
+  };
+
+  const approvalByMovementId = new Map<string, NonNullable<Movement['requestApproval']>>();
+  for (const request of allRequests) {
+    if (request.status !== 'Aprovada' || !request.movementIds?.length) continue;
+    const approval = {
+      requestId: request.id,
+      requestType: request.type,
+      requesterName: request.requesterName,
+      requestedAt: request.createdAt,
+      approverName: request.decidedByName || '—',
+      approvedAt: request.decidedAt || '',
+      primaryMovementId: request.movementIds[0],
+    };
+    request.movementIds.forEach((movementId) => approvalByMovementId.set(movementId, approval));
+  }
+  const requestApprovalFor = (movement: Movement) => movement.requestApproval || approvalByMovementId.get(movement.id);
+  const historyMovements = movements.filter((movement) => {
+    const approval = requestApprovalFor(movement);
+    return !approval || movement.id === approval.primaryMovementId;
+  });
+
+  const filteredMovements = historyMovements.filter((m) => {
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       const matchCode = m.code.toLowerCase().includes(q);
@@ -74,52 +150,46 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
 
   return (
     <div className="space-y-5">
-      {/* 4 Official Movement Action Buttons */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <button
-          onClick={() => onOpenMovementModal('entrega')}
-          className="p-3 bg-white hover:bg-ink-50 border border-ink-200 hover:border-iane-400 rounded-xl transition-all shadow-xs text-left group"
-        >
-          <div className="flex items-center justify-between mb-1">
-            <span className="font-bold text-xs text-ink-900 group-hover:text-iane-600">1. Entrega</span>
-            <ArrowRight className="w-3.5 h-3.5 text-ink-400 group-hover:text-iane-600" />
+      {canApprove && (
+        <section className="bg-white rounded-xl border border-ink-200 shadow-xs overflow-hidden">
+          <div className="flex items-center justify-between gap-3 border-b border-ink-100 px-4 py-3">
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-bold text-ink-900">Solicitações pendentes</h2>
+              <span className="inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-sun-400 px-1.5 text-[10px] font-bold text-navy-900">{pendingRequests.length}</span>
+            </div>
           </div>
-          <p className="text-[11px] text-ink-500">Estoque → Colaborador</p>
-        </button>
-
-        <button
-          onClick={() => onOpenMovementModal('devolucao')}
-          className="p-3 bg-white hover:bg-ink-50 border border-ink-200 hover:border-sun-400 rounded-xl transition-all shadow-xs text-left group"
-        >
-          <div className="flex items-center justify-between mb-1">
-            <span className="font-bold text-xs text-ink-900 group-hover:text-gold-700">2. Devolução</span>
-            <ArrowRight className="w-3.5 h-3.5 text-ink-400 group-hover:text-gold-700" />
-          </div>
-          <p className="text-[11px] text-ink-500">Colaborador → Estoque</p>
-        </button>
-
-        <button
-          onClick={() => onOpenMovementModal('transferencia')}
-          className="p-3 bg-white hover:bg-ink-50 border border-ink-200 hover:border-indigo-400 rounded-xl transition-all shadow-xs text-left group"
-        >
-          <div className="flex items-center justify-between mb-1">
-            <span className="font-bold text-xs text-ink-900 group-hover:text-indigo-600">3. Transferência</span>
-            <ArrowRight className="w-3.5 h-3.5 text-ink-400 group-hover:text-indigo-600" />
-          </div>
-          <p className="text-[11px] text-ink-500">A → Estoque → B</p>
-        </button>
-
-        <button
-          onClick={() => onOpenMovementModal('troca')}
-          className="p-3 bg-white hover:bg-ink-50 border border-ink-200 hover:border-emerald-400 rounded-xl transition-all shadow-xs text-left group"
-        >
-          <div className="flex items-center justify-between mb-1">
-            <span className="font-bold text-xs text-ink-900 group-hover:text-emerald-600">4. Troca de Aparelho</span>
-            <ArrowRight className="w-3.5 h-3.5 text-ink-400 group-hover:text-emerald-600" />
-          </div>
-          <p className="text-[11px] text-ink-500">Antigo → Estoque | Novo ← Estoque</p>
-        </button>
-      </div>
+          {pendingRequests.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-ink-50 border-b border-ink-200 text-ink-600 uppercase font-semibold tracking-wider text-[11px]">
+                  <tr>
+                    <th className="py-3 px-4">Data da solicitação</th>
+                    <th className="py-3 px-4">Tipo</th>
+                    <th className="py-3 px-4">Solicitante</th>
+                    <th className="py-3 px-4">Colaborador/funcionário</th>
+                    <th className="py-3 px-4 text-right">Ação</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-ink-100">
+                  {pendingRequests.map((request) => (
+                    <tr key={request.id} className="hover:bg-ink-50/80 transition-colors">
+                      <td className="py-3 px-4 whitespace-nowrap">{formatDateTime(request.createdAt)}</td>
+                      <td className="py-3 px-4 font-semibold">{request.type}</td>
+                      <td className="py-3 px-4">{request.requesterName}</td>
+                      <td className="py-3 px-4">{requestCollaborator(request)}</td>
+                      <td className="py-3 px-4 text-right whitespace-nowrap">
+                        <button type="button" onClick={() => setRequestToView(request)} className="inline-flex items-center gap-1 px-2 py-1 text-ink-600 hover:text-iane-700 rounded-md hover:bg-iane-50"><Eye className="h-3.5 w-3.5" />Visualizar</button>
+                        <button type="button" onClick={() => onApproveRequest(request)} className="ml-1 inline-flex items-center gap-1 px-2 py-1 text-emerald-700 hover:bg-emerald-50 rounded-md"><CheckCircle2 className="h-3.5 w-3.5" />Aprovar</button>
+                        <button type="button" onClick={() => { setRequestError(''); setRejectionReason(''); setRequestToReject(request); }} className="ml-1 inline-flex items-center gap-1 px-2 py-1 text-rose-700 hover:bg-rose-50 rounded-md">Recusar</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : <p className="px-4 py-5 text-center text-xs text-ink-500">Não há solicitações pendentes.</p>}
+        </section>
+      )}
 
       {/* Search and Filters */}
       <div className="bg-white p-4 rounded-xl border border-ink-200 shadow-xs space-y-3">
@@ -135,13 +205,36 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
             />
           </div>
 
-          <button
-            onClick={() => onOpenMovementModal('entrega')}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold text-white bg-iane-600 hover:bg-iane-700 shadow-xs transition-colors shrink-0"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Nova Operação</span>
-          </button>
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsMovementMenuOpen((open) => !open)}
+              aria-haspopup="menu"
+              aria-expanded={isMovementMenuOpen}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-iane-700 bg-iane-50 hover:bg-iane-100 border border-iane-200 transition-colors"
+            >
+              <ArrowLeftRight className="w-3.5 h-3.5" />
+              <span>Movimentação</span>
+              <ChevronDown className="w-3 h-3" />
+            </button>
+            {isMovementMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setIsMovementMenuOpen(false)} />
+                <div className="absolute right-0 mt-1 w-44 bg-white border border-ink-200 rounded-lg shadow-lg z-20 py-1 text-left">
+                  {MOVEMENT_FLOWS.map((option) => (
+                    <button
+                      key={option.flow}
+                      type="button"
+                      onClick={() => { setIsMovementMenuOpen(false); onOpenMovementModal(option.flow); }}
+                      className="w-full px-3 py-2 text-xs font-medium text-ink-700 hover:bg-ink-50 hover:text-iane-700 transition-colors text-left"
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Filters */}
@@ -199,7 +292,7 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
           )}
 
           <div className="ml-auto text-[11px] text-ink-500 tabular-nums">
-            Exibindo <strong>{filteredMovements.length}</strong> de <strong>{movements.length}</strong> movimentações
+            Exibindo <strong>{filteredMovements.length}</strong> de <strong>{historyMovements.length}</strong> movimentações
           </div>
         </div>
       </div>
@@ -244,6 +337,9 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
                       <span className="text-[10px] text-iane-700 font-medium">
                         {mov.stockTransit.stage}
                       </span>
+                    )}
+                    {requestApprovalFor(mov) && (
+                      <span className="mt-1 inline-block"><StatusBadge status="Via solicitação" type="request" /></span>
                     )}
                   </td>
 
@@ -356,6 +452,16 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
                 </button>
               </div>
 
+              {requestApprovalFor(detailMovement) && (
+                <div className="grid grid-cols-2 gap-3 rounded-lg border border-iane-200 bg-iane-50/60 p-3 text-xs">
+                  <div><span className="block text-[11px] text-ink-500">Solicitação de</span><strong>{requestApprovalFor(detailMovement)?.requestType}</strong></div>
+                  <div><span className="block text-[11px] text-ink-500">Solicitante</span><strong>{requestApprovalFor(detailMovement)?.requesterName}</strong></div>
+                  <div><span className="block text-[11px] text-ink-500">Data da solicitação</span><strong>{formatDateTime(requestApprovalFor(detailMovement)?.requestedAt || '')}</strong></div>
+                  <div><span className="block text-[11px] text-ink-500">Aprovador</span><strong>{requestApprovalFor(detailMovement)?.approverName}</strong></div>
+                  <div><span className="block text-[11px] text-ink-500">Data da aprovação</span><strong>{formatDateTime(requestApprovalFor(detailMovement)?.approvedAt || '')}</strong></div>
+                </div>
+              )}
+
               {/* Rota Oficial com Estoque */}
               <div className="p-3 bg-iane-50/70 border border-iane-200 rounded-lg text-xs space-y-1">
                 <span className="font-semibold text-iane-800 block">Fluxo de Custódia Patrimonial:</span>
@@ -446,6 +552,23 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {requestToView && <RequestDetailsModal request={requestToView} onClose={() => setRequestToView(null)} />}
+      {requestToReject && (
+        <Modal isOpen onClose={() => { if (!isRejecting) setRequestToReject(null); }} title="Recusar solicitação" subtitle={`${requestToReject.type} · ${requestToReject.requesterName}`} maxWidth="md">
+          <div className="space-y-4">
+            {requestError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">{requestError}</p>}
+            <label className="block text-xs font-medium text-ink-700">
+              Motivo da recusa (opcional)
+              <textarea value={rejectionReason} onChange={(event) => setRejectionReason(event.target.value)} rows={3} className="mt-1 w-full rounded-lg border border-ink-300 bg-white px-3 py-2 text-xs text-ink-800" />
+            </label>
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setRequestToReject(null)} disabled={isRejecting} className="rounded-lg bg-ink-100 px-4 py-2 text-xs font-medium text-ink-700 hover:bg-ink-200">Cancelar</button>
+              <button type="button" onClick={() => void confirmRejection()} disabled={isRejecting} className="rounded-lg bg-rose-600 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-60">{isRejecting ? 'Recusando...' : 'Confirmar recusa'}</button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );

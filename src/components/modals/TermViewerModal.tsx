@@ -261,9 +261,10 @@ export const TermViewerModal: React.FC<TermViewerModalProps> = ({
                   <p><span className="font-semibold text-ink-900">Nome:</span> {term.collaboratorName || 'Não identificado'}</p>
                   <p><span className="font-semibold text-ink-900">Matrícula:</span> <span className="font-mono">{term.collaboratorRegistration || '-'}</span></p>
                   <p><span className="font-semibold text-ink-900">Departamento:</span> {term.collaboratorDepartment || '-'}</p>
-                  {term.collaboratorCpf && (
-                    <p><span className="font-semibold text-ink-900">CPF:</span> <span className="font-mono">{term.collaboratorCpf}</span></p>
-                  )}
+                  <p>
+                    <span className="font-semibold text-ink-900">CPF:</span>{' '}
+                    <span className="font-mono">{term.collaboratorCpf || 'Não informado'}</span>
+                  </p>
                 </div>
               </div>
 

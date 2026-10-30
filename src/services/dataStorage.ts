@@ -12,18 +12,22 @@ import {
   MovementType,
   TermType,
   User,
-  SystemUserFormData
+  SystemUserFormData,
+  RequestRecord,
+  RequestType,
 } from '../types';
 import { apiClient, ApiResponse } from './apiClient';
 import { authService } from './authService';
 import { todayISO, nowLocalDateTime } from '../utils/dates';
 import { DEPARTMENTS, SECTORS } from '../utils/collaborators';
+import { canAccessRequests, canApproveRequests, canViewAllRequests } from '../config/requestAccess';
 
 const STORAGE_KEYS = {
   DEVICES: 'iane_devices_v3',
   LINES: 'iane_lines_v3',
   COLLABORATORS: 'iane_collaborators_v3',
   MOVEMENTS: 'iane_movements_v3',
+  REQUESTS: 'iane_movement_requests_v1',
   TERMS: 'iane_terms_v3',
   AUDIT: 'iane_audit_v3',
   INITIALIZED: 'iane_initialized_v3',
@@ -82,6 +86,9 @@ class DataStorageService {
     if (cleanMethod === 'GET') {
       return apiClient.get<T>(path);
     }
+    if (this.suppressApiWrites) {
+      return { success: true, message: 'Gravação mantida em simulação local.' };
+    }
     // Escritas (POST/PUT/DELETE) vão para a fila persistente e são reenviadas até o PostgreSQL confirmar
     this.enqueueWrite(cleanMethod as 'POST' | 'PUT' | 'DELETE', path, body);
     return { success: true, message: 'Gravação enfileirada para o PostgreSQL.' };
@@ -107,6 +114,7 @@ class DataStorageService {
   private reseedAttempted = false;
   private migrationErrorNotified = false;
   private syncPromise: Promise<boolean> | null = null;
+  private suppressApiWrites = false;
 
   private getOutbox(): OutboxItem[] {
     return this.get<OutboxItem[]>(OUTBOX_KEY, []);
@@ -302,6 +310,185 @@ class DataStorageService {
       return res.data;
     }
     return this.getMovements();
+  }
+
+  public getRequests(): RequestRecord[] {
+    const user = authService.getCurrentUser();
+    if (!user || !canAccessRequests(user.role)) return [];
+    const cached = this.get<RequestRecord[]>(STORAGE_KEYS.REQUESTS, []);
+    const requests = cached.map((request) => ({
+      ...request,
+      status: request.status || 'Pendente de aprovação',
+      movementIds: request.movementIds || [],
+    }));
+    if (requests.some((request, index) => request.status !== cached[index]?.status || !cached[index]?.movementIds)) {
+      this.set(STORAGE_KEYS.REQUESTS, requests);
+    }
+    return canViewAllRequests(user.role)
+      ? requests
+      : requests.filter((request) => request.requesterId === user.id);
+  }
+
+  public async fetchRequests(): Promise<RequestRecord[]> {
+    const res = await apiClient.get<RequestRecord[]>('/api/requests');
+    if (res.success && Array.isArray(res.data)) {
+      this.set(STORAGE_KEYS.REQUESTS, res.data);
+    }
+    return this.getRequests();
+  }
+
+  public async createRequest(
+    type: RequestType,
+    data: Record<string, any>
+  ): Promise<{ success: boolean; message: string; request?: RequestRecord }> {
+    const res = await apiClient.post<RequestRecord>('/api/requests', { type, data });
+    if (!res.success || !res.data) {
+      return { success: false, message: res.message || res.error || 'Não foi possível registrar a solicitação.' };
+    }
+    const requests = this.get<RequestRecord[]>(STORAGE_KEYS.REQUESTS, []);
+    this.set(STORAGE_KEYS.REQUESTS, [res.data, ...requests.filter((item) => item.id !== res.data?.id)]);
+    return { success: true, message: 'Solicitação registrada com sucesso.', request: res.data };
+  }
+
+  public async rejectRequest(
+    requestId: string,
+    reason?: string
+  ): Promise<{ success: boolean; message: string; request?: RequestRecord }> {
+    const user = authService.getCurrentUser();
+    if (!user || !canApproveRequests(user.role)) {
+      return { success: false, message: 'Somente Super Admin ou Administrador pode recusar solicitações.' };
+    }
+    const response = await apiClient.post<RequestRecord>(
+      `/api/requests/${encodeURIComponent(requestId)}/reject`,
+      { reason: reason || '' }
+    );
+    if (!response.success || !response.data) {
+      return { success: false, message: response.message || response.error || 'Não foi possível recusar a solicitação.' };
+    }
+    const requests = this.get<RequestRecord[]>(STORAGE_KEYS.REQUESTS, []);
+    this.set(STORAGE_KEYS.REQUESTS, requests.map((request) => request.id === requestId ? response.data! : request));
+    return { success: true, message: 'Solicitação recusada.', request: response.data };
+  }
+
+  /** Simula o fluxo oficial existente em cache e confirma as alterações e a decisão numa transação única do servidor. */
+  public async approveRequestWithMovement(
+    requestId: string,
+    type: RequestType,
+    params: Record<string, any>
+  ): Promise<{ success: boolean; message: string; request?: RequestRecord; movements?: Movement[] }> {
+    const user = authService.getCurrentUser();
+    if (!user || !canApproveRequests(user.role)) {
+      return { success: false, message: 'Somente Super Admin ou Administrador pode aprovar solicitações.' };
+    }
+    const cachedRequest = this.get<RequestRecord[]>(STORAGE_KEYS.REQUESTS, []).find((item) => item.id === requestId);
+    if (!cachedRequest) return { success: false, message: 'Solicitação não encontrada. Atualize a tela e tente novamente.' };
+    if ((cachedRequest.status || 'Pendente de aprovação') !== 'Pendente de aprovação') {
+      return { success: false, message: 'Esta solicitação já foi decidida e não pode ser aprovada novamente.' };
+    }
+    if (cachedRequest.type !== type) {
+      return { success: false, message: 'O tipo do fluxo não corresponde ao tipo da solicitação.' };
+    }
+
+    const keys = [STORAGE_KEYS.DEVICES, STORAGE_KEYS.LINES, STORAGE_KEYS.COLLABORATORS, STORAGE_KEYS.MOVEMENTS, STORAGE_KEYS.AUDIT, STORAGE_KEYS.TERMS];
+    const rawBefore = new Map(keys.map((key) => [key, localStorage.getItem(key)]));
+    const devicesBefore = this.getDevices();
+    const linesBefore = this.getLines();
+    const movementsBefore = this.getMovements();
+    const auditBefore = this.getAuditLogs();
+    const oldDeviceIds = new Set(devicesBefore.map((item) => item.id));
+    const oldLineIds = new Set(linesBefore.map((item) => item.id));
+    const oldMovementIds = new Set(movementsBefore.map((item) => item.id));
+    const oldAuditIds = new Set(auditBefore.map((item) => item.id));
+
+    let operationResult: { success: boolean; message: string } = { success: false, message: 'Não foi possível executar o fluxo.' };
+    let deviceUpdates: Device[] = [];
+    let lineUpdates: PhoneLine[] = [];
+    let newMovements: Movement[] = [];
+    let newAuditLogs: AuditLog[] = [];
+    this.suppressApiWrites = true;
+    try {
+      const date = String(params.date || todayISO());
+      const flowParams = { ...params, date, registeredBy: params.registeredBy || user.fullName };
+      if (type === 'Entrega') operationResult = this.executeDelivery(flowParams as any);
+      else if (type === 'Devolução') operationResult = this.executeReturn(flowParams as any);
+      else if (type === 'Transferência') operationResult = this.executeTransfer(flowParams as any);
+      else operationResult = this.executeSwap(flowParams as any);
+
+      if (operationResult.success) {
+        const devicesAfter = this.getDevices();
+        const linesAfter = this.getLines();
+        deviceUpdates = devicesAfter.filter((item) => {
+          const old = devicesBefore.find((candidate) => candidate.id === item.id);
+          return !old || JSON.stringify(old) !== JSON.stringify(item);
+        });
+        lineUpdates = linesAfter.filter((item) => {
+          const old = linesBefore.find((candidate) => candidate.id === item.id);
+          return !old || JSON.stringify(old) !== JSON.stringify(item);
+        });
+        newMovements = this.getMovements().filter((item) => !oldMovementIds.has(item.id));
+        newAuditLogs = this.getAuditLogs().filter((item) => !oldAuditIds.has(item.id));
+        if (!newMovements.length) {
+          operationResult = { success: false, message: 'O fluxo terminou sem registrar uma movimentação.' };
+        }
+      }
+    } catch (error: any) {
+      operationResult = { success: false, message: error?.message || 'Falha ao executar o fluxo de movimentação.' };
+    } finally {
+      this.suppressApiWrites = false;
+      for (const [key, value] of rawBefore) {
+        if (value === null) localStorage.removeItem(key);
+        else localStorage.setItem(key, value);
+      }
+    }
+
+    if (!operationResult.success) return operationResult;
+
+    const expectedDevices = deviceUpdates.filter((item) => oldDeviceIds.has(item.id)).map((item) => {
+      const before = devicesBefore.find((candidate) => candidate.id === item.id)!;
+      return { id: before.id, status: before.status, currentCollaboratorId: before.currentCollaboratorId, associatedLineId: before.associatedLineId };
+    });
+    const expectedLines = lineUpdates.filter((item) => oldLineIds.has(item.id)).map((item) => {
+      const before = linesBefore.find((candidate) => candidate.id === item.id)!;
+      return { id: before.id, status: before.status, currentCollaboratorId: before.currentCollaboratorId, associatedDeviceId: before.associatedDeviceId };
+    });
+    const response = await apiClient.post<{
+      request: RequestRecord;
+      devices: Device[];
+      lines: PhoneLine[];
+      movements: Movement[];
+    }>(`/api/requests/${encodeURIComponent(requestId)}/approve`, {
+      type,
+      devices: deviceUpdates,
+      lines: lineUpdates,
+      movements: newMovements,
+      auditLogs: newAuditLogs,
+      expected: { devices: expectedDevices, lines: expectedLines },
+    });
+    if (!response.success || !response.data) {
+      return { success: false, message: response.message || response.error || 'Não foi possível aprovar a solicitação.' };
+    }
+
+    const mergeById = <T extends { id: string }>(current: T[], updates: T[]): T[] => {
+      const merged = [...current];
+      for (const item of updates) {
+        const index = merged.findIndex((candidate) => candidate.id === item.id);
+        if (index < 0) merged.unshift(item);
+        else merged[index] = { ...merged[index], ...item };
+      }
+      return merged;
+    };
+    this.set(STORAGE_KEYS.DEVICES, mergeById(devicesBefore, response.data.devices || []));
+    this.set(STORAGE_KEYS.LINES, mergeById(linesBefore, response.data.lines || []));
+    this.set(STORAGE_KEYS.MOVEMENTS, [...(response.data.movements || []), ...movementsBefore]);
+    this.set(STORAGE_KEYS.AUDIT, [...newAuditLogs, ...auditBefore].slice(0, 200));
+    const requests = this.get<RequestRecord[]>(STORAGE_KEYS.REQUESTS, []);
+    this.set(STORAGE_KEYS.REQUESTS, requests.map((item) => item.id === requestId ? response.data!.request : item));
+    return {
+      success: true,
+      message: 'Solicitação aprovada e movimentação registrada.',
+      request: response.data.request,
+      movements: response.data.movements,
+    };
   }
 
   public async fetchTerms(): Promise<DocumentTerm[]> {
@@ -638,6 +825,7 @@ class DataStorageService {
         purchaseValue: device.purchaseValue ? Number(device.purchaseValue) : undefined,
         condition: device.condition || 'Novo',
         status: device.status || 'Disponível', // Em estoque
+        sector: device.sector,
         currentDepartment: device.currentDepartment,
         currentCollaboratorId: device.currentCollaboratorId,
         currentCollaboratorName: device.currentCollaboratorName,
@@ -1010,10 +1198,8 @@ class DataStorageService {
 
     const now = new Date();
     const movCode = `MOV-${now.getFullYear()}-${String(this.getMovements().length + 1).padStart(3, '0')}`;
-    const generatedTermCode = `TERMO-ENT-${now.getFullYear()}-${String(this.getTerms().length + 1).padStart(3, '0')}`;
     const existingTerms = this.getTerms();
     const existingTerm = params.existingTermId ? existingTerms.find(t => t.id === params.existingTermId) : undefined;
-    const termCode = existingTerm?.code || generatedTermCode;
 
     // 1. Atualizar Dispositivo: Sai do Estoque -> Em uso
     device.status = 'Em uso';
@@ -1039,43 +1225,46 @@ class DataStorageService {
       selectedLine.updatedAt = params.date;
     }
 
-    // 3. Gerar Termo de Entrega (ou vincular termo já existente escolhido pelo usuário)
-    const termId = existingTerm?.id || `term-${Date.now()}`;
-    const newTerm: DocumentTerm = {
-      ...(existingTerm || {}),
-      id: termId,
-      code: termCode,
-      batchOperationId: params.batchOperationId,
-      type: existingTerm?.type || 'Termo de Entrega',
-      title: existingTerm?.title || 'Termo de Responsabilidade e Guarda de Ativo Telefônico',
-      date: params.date,
-      deviceId: device.id,
-      deviceTag: device.assetTag,
-      deviceModel: `${device.brand} ${device.model}`,
-      deviceImei: device.imei1,
-      phoneLineId: selectedLine?.id,
-      phoneNumber: selectedLine?.phoneNumber,
-      collaboratorId: collaborator.id,
-      collaboratorName: collaborator.fullName,
-      collaboratorRegistration: collaborator.registrationNumber,
-      collaboratorCpf: collaborator.cpf,
-      collaboratorDepartment: collaborator.department,
-      status: existingTerm?.status || 'Pendente de Assinatura',
-      accessoriesList: existingTerm?.accessoriesList?.length ? existingTerm.accessoriesList : params.accessories,
-      clauses: existingTerm?.clauses?.length ? existingTerm.clauses : [
-        'O colaborador declara ter recebido o equipamento liberado do Estoque do Gestor de Telefonia em perfeitas condições.',
-        'O equipamento e a linha destinam-se exclusivamente ao desempenho das atividades profissionais corporativas.',
-        'O colaborador compromete-se a zelar pelo bem, respondendo por dolo ou negligência comprovada.',
-        'Em caso de rescisão, férias prolongadas ou solicitação da empresa, o equipamento deverá ser prontamente restituído ao Estoque do Gestor de Telefonia.',
-        'Em caso de furto, roubo ou extravio, é obrigatória a formalização de Boletim de Ocorrência Policial e comunicação ao Gestor de Telefonia em até 24 horas.'
-      ],
-      notes: params.observations ?? existingTerm?.notes,
-      fileName: existingTerm?.fileName || `Termo_Entrega_${device.assetTag}_${collaborator.registrationNumber}.pdf`
-    };
+    let newTerm: DocumentTerm | null = null;
+    let termCode: string | undefined;
+    let termId: string | undefined;
+
+    // 3. Termo: apenas se existingTermId for fornecido (vincular termo já existente)
+    if (existingTerm) {
+      termCode = existingTerm.code;
+      termId = existingTerm.id;
+      newTerm = {
+        ...existingTerm,
+        id: termId,
+        batchOperationId: params.batchOperationId,
+        date: params.date,
+        deviceId: device.id,
+        deviceTag: device.assetTag,
+        deviceModel: `${device.brand} ${device.model}`,
+        deviceImei: device.imei1,
+        phoneLineId: selectedLine?.id,
+        phoneNumber: selectedLine?.phoneNumber,
+        collaboratorId: collaborator.id,
+        collaboratorName: collaborator.fullName,
+        collaboratorRegistration: collaborator.registrationNumber,
+        collaboratorCpf: collaborator.cpf,
+        collaboratorDepartment: collaborator.department,
+        status: existingTerm.status || 'Pendente de Assinatura',
+        accessoriesList: existingTerm.accessoriesList?.length ? existingTerm.accessoriesList : params.accessories,
+        clauses: existingTerm.clauses?.length ? existingTerm.clauses : [
+          'O colaborador declara ter recebido o equipamento liberado do Estoque do Gestor de Telefonia em perfeitas condições.',
+          'O equipamento e a linha destinam-se exclusivamente ao desempenho das atividades profissionais corporativas.',
+          'O colaborador compromete-se a zelar pelo bem, respondendo por dolo ou negligência comprovada.',
+          'Em caso de rescisão, férias prolongadas ou solicitação da empresa, o equipamento deverá ser prontamente restituído ao Estoque do Gestor de Telefonia.',
+          'Em caso de furto, roubo ou extravio, é obrigatória a formalização de Boletim de Ocorrência Policial e comunicação ao Gestor de Telefonia em até 24 horas.'
+        ],
+        notes: params.observations ?? existingTerm.notes,
+      };
+    }
 
     // 4. Registrar Movimentação: Origem = Estoque do Gestor -> Destino = Colaborador
     const movementId = `mov-${Date.now()}`;
-    newTerm.movementId = movementId;
+    if (newTerm) newTerm.movementId = movementId;
 
     const newMovement: Movement = {
       id: movementId,
@@ -1090,7 +1279,7 @@ class DataStorageService {
       phoneLineId: selectedLine?.id,
       phoneNumber: selectedLine?.phoneNumber,
       carrier: selectedLine?.carrier,
-      originCollaboratorName: STOCK_LABEL, // Fiel ao conceito operacional: Sai do estoque
+      originCollaboratorName: STOCK_LABEL,
       destinationCollaboratorId: collaborator.id,
       destinationCollaboratorName: collaborator.fullName,
       stockTransit: {
@@ -1107,7 +1296,7 @@ class DataStorageService {
       observations: params.observations,
       documentId: termId,
       documentCode: termCode,
-      documentType: 'Termo de Entrega'
+      documentType: existingTerm ? 'Termo de Entrega' : undefined
     };
 
     // Persistência Atômica
@@ -1118,26 +1307,28 @@ class DataStorageService {
     movements.unshift(newMovement);
     this.set(STORAGE_KEYS.MOVEMENTS, movements);
 
-    const terms = this.getTerms();
-    const existingTermIndex = terms.findIndex(t => t.id === termId);
-    if (existingTermIndex >= 0) {
-      terms[existingTermIndex] = newTerm;
-    } else {
-      terms.unshift(newTerm);
+    if (newTerm) {
+      const terms = this.getTerms();
+      const existingTermIndex = terms.findIndex(t => t.id === termId);
+      if (existingTermIndex >= 0) {
+        terms[existingTermIndex] = newTerm;
+      } else {
+        terms.unshift(newTerm);
+      }
+      this.set(STORAGE_KEYS.TERMS, terms);
+      this.apiSync('/api/terms', 'POST', newTerm);
     }
-    this.set(STORAGE_KEYS.TERMS, terms);
 
     // Persistência direta no PostgreSQL
     this.apiSync('/api/devices', 'POST', device);
     if (selectedLine) this.apiSync('/api/lines', 'POST', selectedLine);
     this.apiSync('/api/movements', 'POST', newMovement);
-    this.apiSync('/api/terms', 'POST', newTerm);
 
     this.logAudit('Movimentação', movementId, movCode, `Entrega do aparelho ${device.assetTag} liberado do Estoque para ${collaborator.fullName}.`);
 
     return { 
       success: true, 
-      message: `Aparelho ${device.assetTag} entregue com sucesso do Estoque para ${collaborator.fullName}. ${existingTerm ? `Termo existente ${termCode} vinculado.` : `Termo ${termCode} gerado.`}`, 
+      message: `Aparelho ${device.assetTag} entregue com sucesso do Estoque para ${collaborator.fullName}. ${existingTerm ? `Termo existente ${termCode} vinculado.` : 'Sem termo vinculado.'}`,
       movement: newMovement 
     };
   }
@@ -1179,10 +1370,8 @@ class DataStorageService {
 
     const now = new Date();
     const movCode = `MOV-${now.getFullYear()}-${String(this.getMovements().length + 1).padStart(3, '0')}`;
-    const generatedTermCode = `TERMO-DEV-${now.getFullYear()}-${String(this.getTerms().length + 1).padStart(3, '0')}`;
     const existingTerms = this.getTerms();
     const existingTerm = params.existingTermId ? existingTerms.find(t => t.id === params.existingTermId) : undefined;
-    const termCode = existingTerm?.code || generatedTermCode;
 
     const prevDeviceStatus = device.status;
     const previousLineId = device.associatedLineId;
@@ -1202,7 +1391,6 @@ class DataStorageService {
     // 2. Tratamento da Linha Telefônica conforme decisão operacional
     if (lineObj) {
       if (params.lineHandling === 'retornar_ao_estoque') {
-        // Desvincula do aparelho e do colaborador, volta a ficar disponível no estoque de linhas
         device.associatedLineId = undefined;
         device.associatedPhoneNumber = undefined;
         lineObj.associatedDeviceId = undefined;
@@ -1214,13 +1402,11 @@ class DataStorageService {
         lineObj.status = 'Disponível';
         lineObj.updatedAt = params.date;
       } else if (params.lineHandling === 'manter_com_colaborador') {
-        // Colaborador mantém o chip (BYOD ou aguardando novo aparelho)
         device.associatedLineId = undefined;
         device.associatedPhoneNumber = undefined;
         lineObj.associatedDeviceId = undefined;
         lineObj.associatedDeviceTag = undefined;
         lineObj.associatedDeviceModel = undefined;
-        // Permanece com currentCollaboratorId
         lineObj.status = 'Ativa';
         lineObj.updatedAt = params.date;
       } else if (params.lineHandling === 'desassociar_e_suspender') {
@@ -1236,39 +1422,42 @@ class DataStorageService {
       }
     }
 
-    // 3. Criar Termo de Devolução (ou vincular termo já existente escolhido pelo usuário)
-    const termId = existingTerm?.id || `term-${Date.now()}`;
-    const newTerm: DocumentTerm = {
-      ...(existingTerm || {}),
-      id: termId,
-      code: termCode,
-      batchOperationId: params.batchOperationId,
-      type: existingTerm?.type || 'Termo de Devolução',
-      title: existingTerm?.title || 'Termo de Devolução ao Estoque do Gestor de Telefonia',
-      date: params.date,
-      deviceId: device.id,
-      deviceTag: device.assetTag,
-      deviceModel: `${device.brand} ${device.model}`,
-      deviceImei: device.imei1,
-      collaboratorId: collaborator.id,
-      collaboratorName: collaborator.fullName,
-      collaboratorRegistration: collaborator.registrationNumber,
-      collaboratorDepartment: collaborator.department,
-      status: existingTerm?.status || 'Assinado', // Quitado na entrega no balcão de estoque do gestor
-      accessoriesList: existingTerm?.accessoriesList?.length ? existingTerm.accessoriesList : params.accessoriesReturned,
-      clauses: existingTerm?.clauses?.length ? existingTerm.clauses : [
-        'A empresa, por intermédio do Gestor de Telefonia, atesta o recebimento e recolhimento do ativo ao estoque central.',
-        'O colaborador fica integralmente quitado e desonerado da responsabilidade patrimonial sobre este equipamento.',
-        'Os dados corporativos foram formatados e o ativo direcionado ao status operacional: ' + params.nextDeviceStatus + '.'
-      ],
-      signedAt: existingTerm?.signedAt || `${params.date} ${now.toLocaleTimeString('pt-BR').substring(0, 5)}`,
-      notes: params.observations ?? existingTerm?.notes,
-      fileName: existingTerm?.fileName || `Termo_Devolucao_${device.assetTag}_${collaborator.registrationNumber}.pdf`
-    };
+    let newTerm: DocumentTerm | null = null;
+    let termCode: string | undefined;
+    let termId: string | undefined;
 
-    // 4. Registrar Movimentação: Origem = Colaborador -> Destino = Estoque do Gestor
+    // 3. Termo: apenas se existingTermId for fornecido
+    if (existingTerm) {
+      termCode = existingTerm.code;
+      termId = existingTerm.id;
+      newTerm = {
+        ...existingTerm,
+        id: termId,
+        batchOperationId: params.batchOperationId,
+        date: params.date,
+        deviceId: device.id,
+        deviceTag: device.assetTag,
+        deviceModel: `${device.brand} ${device.model}`,
+        deviceImei: device.imei1,
+        collaboratorId: collaborator.id,
+        collaboratorName: collaborator.fullName,
+        collaboratorRegistration: collaborator.registrationNumber,
+        collaboratorDepartment: collaborator.department,
+        status: existingTerm.status || 'Assinado',
+        accessoriesList: existingTerm.accessoriesList?.length ? existingTerm.accessoriesList : params.accessoriesReturned,
+        clauses: existingTerm.clauses?.length ? existingTerm.clauses : [
+          'A empresa, por intermédio do Gestor de Telefonia, atesta o recebimento e recolhimento do ativo ao estoque central.',
+          'O colaborador fica integralmente quitado e desonerado da responsabilidade patrimonial sobre este equipamento.',
+          'Os dados corporativos foram formatados e o ativo direcionado ao status operacional: ' + params.nextDeviceStatus + '.'
+        ],
+        signedAt: existingTerm.signedAt || `${params.date} ${now.toLocaleTimeString('pt-BR').substring(0, 5)}`,
+        notes: params.observations ?? existingTerm.notes,
+      };
+    }
+
+    // 4. Registrar Movimentação
     const movementId = `mov-${Date.now()}`;
-    newTerm.movementId = movementId;
+    if (newTerm) newTerm.movementId = movementId;
 
     const newMovement: Movement = {
       id: movementId,
@@ -1285,7 +1474,7 @@ class DataStorageService {
       carrier: lineObj?.carrier,
       originCollaboratorId: collaborator.id,
       originCollaboratorName: collaborator.fullName,
-      destinationCollaboratorName: STOCK_LABEL, // Fiel ao conceito: retorna ao estoque
+      destinationCollaboratorName: STOCK_LABEL,
       stockTransit: {
         involved: true,
         stage: 'Entrada no Estoque',
@@ -1300,7 +1489,7 @@ class DataStorageService {
       observations: params.observations,
       documentId: termId,
       documentCode: termCode,
-      documentType: 'Termo de Devolução',
+      documentType: existingTerm ? 'Termo de Devolução' : undefined,
       maintenanceProvider: params.nextDeviceStatus === 'Em manutenção' ? params.maintenanceProvider : undefined
     };
 
@@ -1311,26 +1500,28 @@ class DataStorageService {
     movements.unshift(newMovement);
     this.set(STORAGE_KEYS.MOVEMENTS, movements);
 
-    const terms = this.getTerms();
-    const existingTermIndex = terms.findIndex(t => t.id === termId);
-    if (existingTermIndex >= 0) {
-      terms[existingTermIndex] = newTerm;
-    } else {
-      terms.unshift(newTerm);
+    if (newTerm) {
+      const terms = this.getTerms();
+      const existingTermIndex = terms.findIndex(t => t.id === termId);
+      if (existingTermIndex >= 0) {
+        terms[existingTermIndex] = newTerm;
+      } else {
+        terms.unshift(newTerm);
+      }
+      this.set(STORAGE_KEYS.TERMS, terms);
+      this.apiSync('/api/terms', 'POST', newTerm);
     }
-    this.set(STORAGE_KEYS.TERMS, terms);
 
     // Persistência direta no PostgreSQL
     this.apiSync('/api/devices', 'POST', device);
     if (lineObj) this.apiSync('/api/lines', 'POST', lineObj);
     this.apiSync('/api/movements', 'POST', newMovement);
-    this.apiSync('/api/terms', 'POST', newTerm);
 
     this.logAudit('Movimentação', movementId, movCode, `Devolução do aparelho ${device.assetTag} de ${collaborator.fullName} ao Estoque. Destino no estoque: ${params.nextDeviceStatus}.`);
 
     return { 
       success: true, 
-      message: `Aparelho ${device.assetTag} devolvido com sucesso ao Estoque do Gestor (${params.nextDeviceStatus}). ${existingTerm ? `Termo existente ${termCode} vinculado.` : `Termo de quitação ${termCode} gerado.`}`, 
+      message: `Aparelho ${device.assetTag} devolvido com sucesso ao Estoque do Gestor (${params.nextDeviceStatus}). ${existingTerm ? `Termo existente ${termCode} vinculado.` : 'Sem termo vinculado.'}`,
       movement: newMovement 
     };
   }

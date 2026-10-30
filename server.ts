@@ -12,6 +12,7 @@ import dotenv from 'dotenv';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { promises as fs } from 'fs';
+import { canAccessRequests, canApproveRequests, canViewAllRequests } from './src/config/requestAccess';
 
 dotenv.config();
 
@@ -68,6 +69,7 @@ const BACKUP_TABLES = [
   'phone_lines',
   'devices',
   'movements',
+  'movement_requests',
   'terms_documents',
   'system_users',
   'audit_logs',
@@ -99,7 +101,7 @@ const memoryStore = {
       fullName: 'TI IANE - Super Usuário',
       email: 'tecnologia@iane.ind.br',
       role: 'admin',
-      permissions: ['all', 'dashboard', 'dispositivos', 'dispositivos_edit', 'linhas', 'linhas_edit', 'colaboradores', 'colaboradores_edit', 'movimentacoes', 'termos', 'relatorios', 'configuracoes', 'manage_users'],
+      permissions: ['all', 'dashboard', 'dispositivos', 'dispositivos_edit', 'linhas', 'linhas_edit', 'colaboradores', 'colaboradores_edit', 'movimentacoes', 'solicitacoes', 'termos', 'relatorios', 'configuracoes', 'manage_users'],
       active: true,
       tokenVersion: 0,
       createdAt: new Date().toISOString(),
@@ -111,7 +113,7 @@ const memoryStore = {
       fullName: 'TI IANE - Super Usuário',
       email: 'tecnologia@iane.ind.br',
       role: 'admin',
-      permissions: ['all', 'dashboard', 'dispositivos', 'dispositivos_edit', 'linhas', 'linhas_edit', 'colaboradores', 'colaboradores_edit', 'movimentacoes', 'termos', 'relatorios', 'configuracoes', 'manage_users'],
+      permissions: ['all', 'dashboard', 'dispositivos', 'dispositivos_edit', 'linhas', 'linhas_edit', 'colaboradores', 'colaboradores_edit', 'movimentacoes', 'solicitacoes', 'termos', 'relatorios', 'configuracoes', 'manage_users'],
       active: true,
       tokenVersion: 0,
       createdAt: new Date().toISOString(),
@@ -123,6 +125,7 @@ const memoryStore = {
   movements: [] as any[],
   terms: [] as any[],
   auditLogs: [] as any[],
+  requests: [] as any[],
 };
 
 async function autoMigrateDatabase(client: pg.PoolClient) {
@@ -262,6 +265,50 @@ async function autoMigrateDatabase(client: pg.PoolClient) {
         user_name VARCHAR(150),
         timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
+    `);
+
+    // 8. Solicitações: dados separados de movimentações para não executar fluxos patrimoniais.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS movement_requests (
+        id VARCHAR(80) PRIMARY KEY,
+        request_type VARCHAR(50) NOT NULL,
+        created_by_id VARCHAR(50) NOT NULL,
+        requester_name VARCHAR(150) NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        data JSONB NOT NULL DEFAULT '{}'::jsonb,
+        status VARCHAR(50),
+        decided_by_id VARCHAR(50),
+        decided_by_name VARCHAR(150),
+        decided_at TIMESTAMP WITH TIME ZONE,
+        rejection_reason TEXT,
+        movement_ids TEXT[]
+      );
+    `);
+    const requestDecisionColumns = [
+      `ALTER TABLE movement_requests ADD COLUMN IF NOT EXISTS status VARCHAR(50)`,
+      `ALTER TABLE movement_requests ADD COLUMN IF NOT EXISTS decided_by_id VARCHAR(50)`,
+      `ALTER TABLE movement_requests ADD COLUMN IF NOT EXISTS decided_by_name VARCHAR(150)`,
+      `ALTER TABLE movement_requests ADD COLUMN IF NOT EXISTS decided_at TIMESTAMP WITH TIME ZONE`,
+      `ALTER TABLE movement_requests ADD COLUMN IF NOT EXISTS rejection_reason TEXT`,
+      `ALTER TABLE movement_requests ADD COLUMN IF NOT EXISTS movement_ids TEXT[]`,
+    ];
+    for (const stmt of requestDecisionColumns) await client.query(stmt);
+    const legacyRequests = await client.query(
+      `UPDATE movement_requests SET status = 'Pendente de aprovação'
+       WHERE status IS NULL OR status = '' RETURNING id`
+    );
+    if (legacyRequests.rowCount) {
+      console.log(`📋 [Solicitações] ${legacyRequests.rowCount} solicitação(ões) antiga(s) marcada(s) como pendente(s).`);
+    }
+    await client.query(`
+      ALTER TABLE movement_requests ALTER COLUMN status SET DEFAULT 'Pendente de aprovação';
+      ALTER TABLE movement_requests ALTER COLUMN status SET NOT NULL;
+      CREATE INDEX IF NOT EXISTS movement_requests_owner_created_idx
+        ON movement_requests (created_by_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS movement_requests_created_idx
+        ON movement_requests (created_at DESC);
+      CREATE INDEX IF NOT EXISTS movement_requests_status_created_idx
+        ON movement_requests (status, created_at DESC);
     `);
 
     // 8. Compatibilidade: bancos criados pelo init-db.sql antigo tinham restrições que rejeitavam as gravações do app
@@ -634,6 +681,28 @@ const READ_PERMISSIONS = [
 ];
 const requireReadAccess = requireAnyPermission(READ_PERMISSIONS);
 
+function requireRequestsAccess(req: Request, res: Response, next: NextFunction) {
+  const user = (req as any).user;
+  if (!user) {
+    return res.status(401).json({ success: false, message: 'Não autorizado. Faça login para continuar.' });
+  }
+  if (!canAccessRequests(user.role)) {
+    return res.status(403).json({ success: false, message: 'Acesso negado ao módulo de solicitações.' });
+  }
+  next();
+}
+
+function requireRequestApprover(req: Request, res: Response, next: NextFunction) {
+  const user = (req as any).user;
+  if (!user) {
+    return res.status(401).json({ success: false, message: 'Não autorizado. Faça login para continuar.' });
+  }
+  if (!canApproveRequests(user.role)) {
+    return res.status(403).json({ success: false, message: 'Somente Super Admin ou Administrador pode decidir solicitações.' });
+  }
+  next();
+}
+
 // Operações que expõem a base inteira (backup/restauração) são exclusivas do super administrador.
 function requireAdmin(req: Request, res: Response, next: NextFunction) {
   const user = (req as any).user;
@@ -659,7 +728,7 @@ app.use((req, res, next) => {
 
 // Rotas de dados exigem o PostgreSQL. Sem banco, respondem 503 para que o front-end mantenha a gravação
 // na fila e tente de novo (antes o servidor respondia "sucesso" gravando só em memória).
-const DB_REQUIRED_PREFIXES = ['/api/devices', '/api/lines', '/api/collaborators', '/api/movements', '/api/terms', '/api/audit-logs', '/api/sync', '/api/database', '/api/backup'];
+const DB_REQUIRED_PREFIXES = ['/api/devices', '/api/lines', '/api/collaborators', '/api/movements', '/api/requests', '/api/terms', '/api/audit-logs', '/api/sync', '/api/database', '/api/backup'];
 app.use((req, res, next) => {
   if (!ALLOW_MEMORY_FALLBACK && !isDbConnected && DB_REQUIRED_PREFIXES.some(p => req.path.startsWith(p))) {
     return res.status(503).json({
@@ -844,7 +913,7 @@ app.post('/api/users', requirePermission('manage_users'), async (req, res) => {
   const passwordHash = await bcrypt.hash(password.trim(), 10);
   const id = `user-${Date.now()}`;
   const userRole = role || 'operador';
-  const userPerms = Array.isArray(permissions) ? permissions : ['dashboard', 'dispositivos', 'linhas', 'colaboradores'];
+  const userPerms = Array.isArray(permissions) ? permissions : ['dashboard', 'dispositivos', 'linhas', 'colaboradores', 'solicitacoes'];
   const userActive = active !== undefined ? !!active : true;
 
   if (pool && isDbConnected) {
@@ -913,13 +982,25 @@ app.put('/api/users/:id', requirePermission('manage_users'), async (req, res) =>
   if (pool && isDbConnected) {
     try {
       const currentRes = await pool.query(
-        'SELECT role, permissions, active FROM system_users WHERE id = $1',
+        'SELECT username, role, permissions, active FROM system_users WHERE id = $1',
         [id]
       );
       if (currentRes.rows.length === 0) {
         return res.status(404).json({ success: false, message: 'Usuário não encontrado.' });
       }
       const currentUser = currentRes.rows[0];
+
+      // Somente o Super Admin pode alterar o nome de login de um usuário.
+      if (
+        newUsername !== undefined &&
+        newUsername !== String(currentUser.username || '').toLowerCase() &&
+        (req as any).user?.role !== 'admin'
+      ) {
+        return res.status(403).json({
+          success: false,
+          message: 'Apenas o Super Admin pode alterar o nome de login.',
+        });
+      }
 
       if (newUsername !== undefined) {
         const duplicate = await pool.query(
@@ -990,6 +1071,18 @@ app.put('/api/users/:id', requirePermission('manage_users'), async (req, res) =>
   // Fallback
   const user = memoryStore.users.find(u => u.id === id);
   if (!user) return res.status(404).json({ success: false, message: 'Usuário não encontrado.' });
+
+  // Somente o Super Admin pode alterar o nome de login de um usuário.
+  if (
+    newUsername !== undefined &&
+    newUsername !== user.username.toLowerCase() &&
+    (req as any).user?.role !== 'admin'
+  ) {
+    return res.status(403).json({
+      success: false,
+      message: 'Apenas o Super Admin pode alterar o nome de login.',
+    });
+  }
 
   if (newUsername !== undefined) {
     if (memoryStore.users.some(u => u.id !== id && u.username.toLowerCase() === newUsername)) {
@@ -1084,6 +1177,25 @@ function mergeRow(row: any): any {
     if (data && data[k]) out[k] = data[k];
   }
   return out;
+}
+
+function mapRequestRow(row: any) {
+  const createdAt = row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt || '');
+  const decidedAt = row.decidedAt instanceof Date ? row.decidedAt.toISOString() : row.decidedAt || undefined;
+  return {
+    id: String(row.id),
+    type: row.type,
+    requesterId: String(row.requesterId),
+    requesterName: String(row.requesterName || ''),
+    createdAt,
+    status: row.status || 'Pendente de aprovação',
+    decidedById: row.decidedById || undefined,
+    decidedByName: row.decidedByName || undefined,
+    decidedAt,
+    rejectionReason: row.rejectionReason || undefined,
+    movementIds: Array.isArray(row.movementIds) ? row.movementIds : [],
+    data: row.data && typeof row.data === 'object' ? row.data : {},
+  };
 }
 
 function toHttpError(err: any): { status: number; message: string } {
@@ -1350,6 +1462,10 @@ app.post('/api/devices', requirePermission('dispositivos_edit'), route(async (re
 }));
 
 app.delete('/api/devices/:id', requirePermission('dispositivos_edit'), async (req, res) => {
+  // Exclusão de aparelho é exclusiva do Super Admin (validado também na interface).
+  if ((req as any).user?.role !== 'admin') {
+    return res.status(403).json({ success: false, message: 'Apenas o Super Admin pode remover aparelhos.' });
+  }
   const { id } = req.params;
   if (pool && isDbConnected) {
     try {
@@ -1470,6 +1586,407 @@ app.delete('/api/collaborators/:id', requirePermission('colaboradores_edit'), as
   memoryStore.collaborators = memoryStore.collaborators.filter(c => c.id !== id);
   res.json({ success: true, message: 'Colaborador excluído.' });
 });
+
+// Solicitações de movimentação são registros independentes; nenhuma rota executa alterações patrimoniais.
+const REQUEST_TYPES = ['Entrega', 'Devolução', 'Transferência', 'Troca de Aparelho'] as const;
+
+app.get('/api/requests', requireRequestsAccess, route(async (req, res) => {
+  const user = (req as any).user;
+  const seeAll = canViewAllRequests(user.role);
+  if (pool && isDbConnected) {
+    const result = seeAll
+        ? await pool.query(`
+          SELECT id, request_type as type, created_by_id as "requesterId",
+                 requester_name as "requesterName", created_at as "createdAt", status,
+                 decided_by_id as "decidedById", decided_by_name as "decidedByName",
+                 decided_at as "decidedAt", rejection_reason as "rejectionReason",
+                 movement_ids as "movementIds", data
+          FROM movement_requests ORDER BY created_at DESC
+        `)
+      : await pool.query(`
+          SELECT id, request_type as type, created_by_id as "requesterId",
+                 requester_name as "requesterName", created_at as "createdAt", status,
+                 decided_by_id as "decidedById", decided_by_name as "decidedByName",
+                 decided_at as "decidedAt", rejection_reason as "rejectionReason",
+                 movement_ids as "movementIds", data
+          FROM movement_requests WHERE created_by_id = $1 ORDER BY created_at DESC
+        `, [user.id]);
+    return res.json({ success: true, data: result.rows.map(mapRequestRow) });
+  }
+
+  const rows = seeAll
+    ? memoryStore.requests
+    : memoryStore.requests.filter((request) => request.requesterId === user.id);
+  return res.json({
+    success: true,
+    data: [...rows]
+      .map((request) => ({ ...request, status: request.status || 'Pendente de aprovação', movementIds: request.movementIds || [] }))
+      .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)),
+  });
+}));
+
+app.post('/api/requests', requireRequestsAccess, route(async (req, res) => {
+  const user = (req as any).user;
+  const requestType = req.body?.type;
+  const submittedData = req.body?.data;
+  if (!REQUEST_TYPES.includes(requestType)) throw new HttpError(400, 'Tipo de solicitação inválido.');
+  if (!submittedData || typeof submittedData !== 'object' || Array.isArray(submittedData)) {
+    throw new HttpError(400, 'Informe os dados da solicitação.');
+  }
+
+  const data: Record<string, any> = { ...submittedData };
+  if (requestType === 'Entrega') {
+    data.deliveryDate = str(data.deliveryDate);
+    const cpfDigits = String(data.cpf || '').replace(/\D/g, '');
+    if (!str(data.employeeName) || !str(data.position) || cpfDigits.length !== 11) {
+      throw new HttpError(400, 'Informe nome, CPF com 11 dígitos e cargo do funcionário.');
+    }
+    if (!['Sim', 'Não'].includes(data.isNewLine)) throw new HttpError(400, 'Informe se a linha é nova.');
+    data.cpf = cpfDigits;
+    if (data.isNewLine === 'Não') {
+      if (!str(data.lineId)) throw new HttpError(400, 'Selecione a linha cadastrada.');
+      let line: any;
+      if (pool && isDbConnected) {
+        const lineResult = await pool.query(
+          'SELECT id, phone_number as "phoneNumber", operator as carrier, data FROM phone_lines WHERE id = $1',
+          [data.lineId]
+        );
+        line = lineResult.rows[0] ? mergeRow(lineResult.rows[0]) : undefined;
+      } else {
+        line = memoryStore.lines.find((item: any) => item.id === data.lineId);
+      }
+      if (!line) throw new HttpError(400, 'A linha selecionada não foi encontrada.');
+      let digits = String(line.phoneNumber || '').replace(/\D/g, '');
+      if (digits.startsWith('0055')) digits = digits.slice(4);
+      else if (digits.startsWith('55') && digits.length > 11) digits = digits.slice(2);
+      digits = digits.replace(/^0+/, '');
+      data.lineNumber = line.phoneNumber;
+      data.lineCarrier = line.carrier;
+      data.lineDdd = digits.length >= 10 ? digits.slice(0, 2) : '';
+    } else {
+      delete data.lineId;
+      delete data.lineNumber;
+      delete data.lineCarrier;
+      delete data.lineDdd;
+    }
+  } else if (requestType === 'Devolução') {
+    if (!str(data.collaboratorId)) throw new HttpError(400, 'Selecione o colaborador cadastrado.');
+    const collaboratorId = str(data.collaboratorId);
+    let collaborator: any;
+    let lines: any[];
+    let devices: any[];
+    if (pool && isDbConnected) {
+      const [collabResult, linesResult, devicesResult] = await Promise.all([
+        pool.query(
+          'SELECT id, name as "fullName", department, role as position, data FROM collaborators WHERE id = $1',
+          [collaboratorId]
+        ),
+        pool.query(
+          'SELECT id, phone_number as "phoneNumber", operator as carrier, data FROM phone_lines WHERE current_collaborator_id = $1 ORDER BY phone_number',
+          [collaboratorId]
+        ),
+        pool.query(
+          'SELECT id, tag as "assetTag", brand, model, imei_1 as imei1, data FROM devices WHERE current_collaborator_id = $1 ORDER BY tag',
+          [collaboratorId]
+        ),
+      ]);
+      collaborator = collabResult.rows[0] ? mergeRow(collabResult.rows[0]) : undefined;
+      lines = linesResult.rows.map(mergeRow);
+      devices = devicesResult.rows.map(mergeRow);
+    } else {
+      collaborator = memoryStore.collaborators.find((item: any) => item.id === collaboratorId);
+      lines = memoryStore.lines.filter((item: any) => item.currentCollaboratorId === collaboratorId);
+      devices = memoryStore.devices.filter((item: any) => item.currentCollaboratorId === collaboratorId);
+    }
+    if (!collaborator) throw new HttpError(400, 'O colaborador selecionado não foi encontrado.');
+
+    data.collaboratorId = collaborator.id;
+    data.collaboratorName = collaborator.fullName ?? collaborator.name ?? '';
+    data.department = collaborator.department || '';
+    data.position = collaborator.position ?? collaborator.role ?? '';
+    data.sector = collaborator.sector || '';
+    data.lines = lines.map((line) => ({
+      id: line.id,
+      phoneNumber: line.phoneNumber || '',
+      carrier: line.carrier || '',
+    }));
+    data.devices = devices.map((device) => ({
+      id: device.id,
+      assetTag: device.assetTag || '',
+      brand: device.brand || '',
+      model: device.model || '',
+      imei1: device.imei1 || '',
+    }));
+    // Datas são editáveis e pertencem ao formulário; os dados cadastrais acima são reconstruídos no servidor.
+    data.plannedReturnDate = str(submittedData.plannedReturnDate);
+    delete data.estimatedDeliveryDate;
+  } else if (requestType === 'Transferência') {
+    if (!str(data.originCollaboratorId) || !str(data.deviceId) || !str(data.destinationCollaboratorId)) {
+      throw new HttpError(400, 'Informe colaboradores de origem/destino e aparelho para a transferência.');
+    }
+    if (data.originCollaboratorId === data.destinationCollaboratorId) {
+      throw new HttpError(400, 'Os colaboradores de origem e destino devem ser diferentes.');
+    }
+  } else if (requestType === 'Troca de Aparelho') {
+    if (!str(data.collaboratorId) || !str(data.oldDeviceId) || !str(data.newDeviceId)) {
+      throw new HttpError(400, 'Informe colaborador, aparelho antigo e aparelho novo para a troca.');
+    }
+    if (data.oldDeviceId === data.newDeviceId) throw new HttpError(400, 'Os aparelhos antigo e novo devem ser diferentes.');
+  }
+
+  const requestRecord = {
+    id: `request-${Date.now()}-${randomBytes(4).toString('hex')}`,
+    type: requestType,
+    requesterId: String(user.id),
+    requesterName: str(user.fullName) || str(user.username) || 'Usuário',
+    createdAt: new Date().toISOString(),
+    status: 'Pendente de aprovação',
+    movementIds: [],
+    data,
+  };
+
+  if (pool && isDbConnected) {
+    const result = await pool.query(
+      `INSERT INTO movement_requests (id, request_type, created_by_id, requester_name, created_at, data, status, movement_ids)
+       VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, $5::jsonb, 'Pendente de aprovação', ARRAY[]::TEXT[])
+       RETURNING id, request_type as type, created_by_id as "requesterId",
+                 requester_name as "requesterName", created_at as "createdAt", status,
+                 decided_by_id as "decidedById", decided_by_name as "decidedByName",
+                 decided_at as "decidedAt", rejection_reason as "rejectionReason",
+                 movement_ids as "movementIds", data`,
+      [requestRecord.id, requestRecord.type, requestRecord.requesterId, requestRecord.requesterName, JSON.stringify(data)]
+    );
+    return res.status(201).json({ success: true, data: mapRequestRow(result.rows[0]) });
+  }
+
+  memoryStore.requests.unshift(requestRecord);
+  return res.status(201).json({ success: true, data: requestRecord });
+}));
+
+app.post('/api/requests/:id/reject', requireRequestApprover, route(async (req, res) => {
+  const user = (req as any).user;
+  const requestId = String(req.params.id || '');
+  const reason = (str(req.body?.reason) || '').trim();
+
+  if (pool && isDbConnected) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const current = await client.query(
+        `SELECT id, request_type as type, created_by_id as "requesterId",
+                requester_name as "requesterName", created_at as "createdAt", status,
+                decided_by_id as "decidedById", decided_by_name as "decidedByName",
+                decided_at as "decidedAt", rejection_reason as "rejectionReason",
+                movement_ids as "movementIds", data
+         FROM movement_requests WHERE id = $1 FOR UPDATE`,
+        [requestId]
+      );
+      if (!current.rows[0]) throw new HttpError(404, 'Solicitação não encontrada.');
+      if (current.rows[0].status !== 'Pendente de aprovação') {
+        throw new HttpError(409, 'Esta solicitação já foi decidida e não pode ser alterada novamente.');
+      }
+      const updated = await client.query(
+        `UPDATE movement_requests
+         SET status = 'Recusada', decided_by_id = $2, decided_by_name = $3,
+             decided_at = CURRENT_TIMESTAMP, rejection_reason = NULLIF($4, '')
+         WHERE id = $1 AND status = 'Pendente de aprovação'
+         RETURNING id, request_type as type, created_by_id as "requesterId",
+                   requester_name as "requesterName", created_at as "createdAt", status,
+                   decided_by_id as "decidedById", decided_by_name as "decidedByName",
+                   decided_at as "decidedAt", rejection_reason as "rejectionReason",
+                   movement_ids as "movementIds", data`,
+        [requestId, String(user.id), str(user.fullName) || str(user.username), reason]
+      );
+      if (!updated.rows[0]) throw new HttpError(409, 'Esta solicitação já foi decidida e não pode ser alterada novamente.');
+      await client.query('COMMIT');
+      return res.json({ success: true, data: mapRequestRow(updated.rows[0]) });
+    } catch (error) {
+      try { await client.query('ROLLBACK'); } catch { /* já encerrada */ }
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  const requestIndex = memoryStore.requests.findIndex((item: any) => item.id === requestId);
+  if (requestIndex < 0) throw new HttpError(404, 'Solicitação não encontrada.');
+  const request = memoryStore.requests[requestIndex];
+  if ((request.status || 'Pendente de aprovação') !== 'Pendente de aprovação') {
+    throw new HttpError(409, 'Esta solicitação já foi decidida e não pode ser alterada novamente.');
+  }
+  const decidedRequest = {
+    ...request,
+    status: 'Recusada',
+    decidedById: String(user.id),
+    decidedByName: str(user.fullName) || str(user.username),
+    decidedAt: new Date().toISOString(),
+    rejectionReason: reason || undefined,
+  };
+  memoryStore.requests[requestIndex] = decidedRequest;
+  return res.json({ success: true, data: decidedRequest });
+}));
+
+app.post('/api/requests/:id/approve', requireRequestApprover, route(async (req, res) => {
+  const user = (req as any).user;
+  const requestId = String(req.params.id || '');
+  const devices = Array.isArray(req.body?.devices) ? req.body.devices : [];
+  const lines = Array.isArray(req.body?.lines) ? req.body.lines : [];
+  const movements = Array.isArray(req.body?.movements) ? req.body.movements : [];
+  const auditLogs = Array.isArray(req.body?.auditLogs) ? req.body.auditLogs : [];
+  const expected = req.body?.expected || {};
+  if (movements.length === 0) throw new HttpError(400, 'A aprovação precisa registrar ao menos uma movimentação.');
+
+  if (pool && isDbConnected) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const current = await client.query(
+        `SELECT id, request_type as type, created_by_id as "requesterId",
+                requester_name as "requesterName", created_at as "createdAt", status,
+                decided_by_id as "decidedById", decided_by_name as "decidedByName",
+                decided_at as "decidedAt", rejection_reason as "rejectionReason",
+                movement_ids as "movementIds", data
+         FROM movement_requests WHERE id = $1 FOR UPDATE`,
+        [requestId]
+      );
+      if (!current.rows[0]) throw new HttpError(404, 'Solicitação não encontrada.');
+      if (current.rows[0].status !== 'Pendente de aprovação') {
+        throw new HttpError(409, 'Esta solicitação já foi decidida e não pode ser aprovada novamente.');
+      }
+      if (current.rows[0].type !== req.body?.type) throw new HttpError(400, 'O fluxo enviado não corresponde ao tipo da solicitação.');
+
+      for (const expectedDevice of Array.isArray(expected.devices) ? expected.devices : []) {
+        const fresh = await client.query(
+          `SELECT status, current_collaborator_id as "currentCollaboratorId",
+                  current_line_id as "associatedLineId" FROM devices WHERE id = $1 FOR UPDATE`,
+          [expectedDevice.id]
+        );
+        const row = fresh.rows[0];
+        if (!row || row.status !== expectedDevice.status ||
+            String(row.currentCollaboratorId || '') !== String(expectedDevice.currentCollaboratorId || '') ||
+            String(row.associatedLineId || '') !== String(expectedDevice.associatedLineId || '')) {
+          throw new HttpError(409, 'Os dados do aparelho mudaram após a abertura do modal. Atualize a tela e tente novamente.');
+        }
+      }
+      for (const expectedLine of Array.isArray(expected.lines) ? expected.lines : []) {
+        const fresh = await client.query(
+          `SELECT status, current_collaborator_id as "currentCollaboratorId",
+                  current_device_id as "associatedDeviceId" FROM phone_lines WHERE id = $1 FOR UPDATE`,
+          [expectedLine.id]
+        );
+        const row = fresh.rows[0];
+        if (!row || row.status !== expectedLine.status ||
+            String(row.currentCollaboratorId || '') !== String(expectedLine.currentCollaboratorId || '') ||
+            String(row.associatedDeviceId || '') !== String(expectedLine.associatedDeviceId || '')) {
+          throw new HttpError(409, 'Os dados da linha mudaram após a abertura do modal. Atualize a tela e tente novamente.');
+        }
+      }
+
+      const movementIds = movements.map((movement: any) => String(movement.id));
+      const approvedAt = new Date().toISOString();
+      const approverName = str(user.fullName) || str(user.username);
+      const requestApproval = {
+        requestId,
+        requestType: current.rows[0].type,
+        requesterName: current.rows[0].requesterName,
+        requestedAt: current.rows[0].createdAt instanceof Date
+          ? current.rows[0].createdAt.toISOString()
+          : String(current.rows[0].createdAt),
+        approverName,
+        approvedAt,
+        primaryMovementId: movementIds[0],
+      };
+      const approvedMovements = movements.map((movement: any) => ({ ...movement, requestApproval }));
+
+      for (const device of devices) await upsertDevice(client, device);
+      for (const line of lines) await upsertLine(client, line);
+      for (const movement of approvedMovements) await upsertMovement(client, movement);
+      for (const audit of auditLogs) await insertAudit(client, { ...audit, user: str(user.fullName) || str(user.username) });
+
+      const updated = await client.query(
+        `UPDATE movement_requests
+         SET status = 'Aprovada', decided_by_id = $2, decided_by_name = $3,
+             decided_at = $5::TIMESTAMP WITH TIME ZONE, movement_ids = $4::TEXT[]
+         WHERE id = $1 AND status = 'Pendente de aprovação'
+         RETURNING id, request_type as type, created_by_id as "requesterId",
+                   requester_name as "requesterName", created_at as "createdAt", status,
+                   decided_by_id as "decidedById", decided_by_name as "decidedByName",
+                   decided_at as "decidedAt", rejection_reason as "rejectionReason",
+                   movement_ids as "movementIds", data`,
+         [requestId, String(user.id), approverName, movementIds, approvedAt]
+      );
+      if (!updated.rows[0]) throw new HttpError(409, 'Esta solicitação já foi decidida e não pode ser aprovada novamente.');
+      await client.query('COMMIT');
+      return res.json({ success: true, data: {
+        request: mapRequestRow(updated.rows[0]), devices, lines, movements: approvedMovements,
+      } });
+    } catch (error) {
+      try { await client.query('ROLLBACK'); } catch { /* já encerrada */ }
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  const request = memoryStore.requests.find((item: any) => item.id === requestId);
+  if (!request) throw new HttpError(404, 'Solicitação não encontrada.');
+  if ((request.status || 'Pendente de aprovação') !== 'Pendente de aprovação') {
+    throw new HttpError(409, 'Esta solicitação já foi decidida e não pode ser aprovada novamente.');
+  }
+  if (request.type !== req.body?.type) throw new HttpError(400, 'O fluxo enviado não corresponde ao tipo da solicitação.');
+  for (const expectedDevice of Array.isArray(expected.devices) ? expected.devices : []) {
+    const row = memoryStore.devices.find((item: any) => item.id === expectedDevice.id);
+    if (!row || row.status !== expectedDevice.status ||
+        String(row.currentCollaboratorId || '') !== String(expectedDevice.currentCollaboratorId || '') ||
+        String(row.associatedLineId || '') !== String(expectedDevice.associatedLineId || '')) {
+      throw new HttpError(409, 'Os dados do aparelho mudaram após a abertura do modal. Atualize a tela e tente novamente.');
+    }
+  }
+  for (const expectedLine of Array.isArray(expected.lines) ? expected.lines : []) {
+    const row = memoryStore.lines.find((item: any) => item.id === expectedLine.id);
+    if (!row || row.status !== expectedLine.status ||
+        String(row.currentCollaboratorId || '') !== String(expectedLine.currentCollaboratorId || '') ||
+        String(row.associatedDeviceId || '') !== String(expectedLine.associatedDeviceId || '')) {
+      throw new HttpError(409, 'Os dados da linha mudaram após a abertura do modal. Atualize a tela e tente novamente.');
+    }
+  }
+  const replaceById = (target: any[], incoming: any[]) => {
+    for (const item of incoming) {
+      const index = target.findIndex((existing) => existing.id === item.id);
+      if (index < 0) target.unshift(item);
+      else target[index] = { ...target[index], ...item };
+    }
+  };
+  const approvedAt = new Date().toISOString();
+  const approverName = str(user.fullName) || str(user.username);
+  const movementIds = movements.map((movement: any) => String(movement.id));
+  const requestApproval = {
+    requestId,
+    requestType: request.type,
+    requesterName: request.requesterName,
+    requestedAt: request.createdAt,
+    approverName,
+    approvedAt,
+    primaryMovementId: movementIds[0],
+  };
+  const approvedMovements = movements.map((movement: any) => ({ ...movement, requestApproval }));
+
+  replaceById(memoryStore.devices, devices);
+  replaceById(memoryStore.lines, lines);
+  replaceById(memoryStore.movements, approvedMovements);
+  replaceById(memoryStore.auditLogs, auditLogs.map((audit: any) => ({ ...audit, user: str(user.fullName) || str(user.username) })));
+  const decidedRequest = {
+    ...request,
+    status: 'Aprovada',
+    decidedById: String(user.id),
+    decidedByName: approverName,
+    decidedAt: approvedAt,
+    movementIds,
+  };
+  const index = memoryStore.requests.findIndex((item: any) => item.id === requestId);
+  memoryStore.requests[index] = decidedRequest;
+  return res.json({ success: true, data: { request: decidedRequest, devices, lines, movements: approvedMovements } });
+}));
 
 // 7. Movimentações Patrimoniais
 app.get('/api/movements', requireReadAccess, route(async (_req, res) => {
@@ -1919,7 +2436,7 @@ app.post('/api/database/reset', async (req, res) => {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      await client.query('TRUNCATE TABLE movements, terms_documents, audit_logs CASCADE;');
+      await client.query('TRUNCATE TABLE movements, movement_requests, terms_documents, audit_logs CASCADE;');
       await client.query('UPDATE devices SET current_collaborator_id = NULL, current_line_id = NULL;');
       await client.query('UPDATE phone_lines SET current_device_id = NULL, current_collaborator_id = NULL;');
       await client.query('TRUNCATE TABLE devices, phone_lines, collaborators CASCADE;');
@@ -1940,6 +2457,7 @@ app.post('/api/database/reset', async (req, res) => {
   memoryStore.movements = [];
   memoryStore.terms = [];
   memoryStore.auditLogs = [];
+  memoryStore.requests = [];
   res.json({ success: true, message: 'Base de dados local zerada com sucesso.' });
 });
 

@@ -34,6 +34,7 @@ test('formatadores auxiliares continuam funcionando', () => {
   assert.equal(formatCurrency(undefined), '-');
   assert.equal(formatPhone('11987654321'), '(11) 98765-4321');
   assert.equal(formatPhone('1133334444'), '(11) 3333-4444');
-  assert.equal(formatImei('123456789012345'), '12 345678 901234 5');
+  assert.equal(formatImei('123456789012345'), '123456789012345');
+  assert.equal(formatImei('01 234567 891112 1'), '012345678911121');
   assert.equal(formatImei('123'), '123');
 });

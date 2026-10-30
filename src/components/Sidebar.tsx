@@ -5,6 +5,7 @@ import {
   PhoneCall,
   Users,
   ArrowLeftRight,
+  ClipboardList,
   FileText,
   BarChart3,
   Settings,
@@ -25,11 +26,13 @@ export type NavTab =
   | 'linhas'
   | 'colaboradores'
   | 'movimentacoes'
+  | 'solicitacoes'
   | 'termos'
   | 'relatorios'
   | 'configuracoes';
 
 import { User as UserType } from '../types';
+import { canAccessRequests } from '../config/requestAccess';
 
 interface SidebarProps {
   activeTab: NavTab;
@@ -145,6 +148,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'linhas', label: 'Linhas telefônicas', icon: PhoneCall },
     { id: 'colaboradores', label: 'Colaboradores', icon: Users },
     { id: 'movimentacoes', label: 'Movimentações', icon: ArrowLeftRight },
+    { id: 'solicitacoes', label: 'Solicitações', icon: ClipboardList },
     {
       id: 'termos',
       label: 'Termos e documentos',
@@ -158,7 +162,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const userPerms = currentUser?.permissions || ['all'];
   const isAdmin = currentUser?.role === 'admin' || userPerms.includes('all');
 
-  const permittedItems = navItems.filter((item) => isAdmin || userPerms.includes(item.id));
+  const permittedItems = navItems.filter((item) =>
+    item.id === 'solicitacoes'
+      ? canAccessRequests(currentUser?.role)
+      : isAdmin || userPerms.includes(item.id)
+  );
 
   const term = normalize(searchTerm);
   const filteredItems = term
@@ -215,7 +223,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             isExpanded ? 'px-4 gap-2.5' : 'justify-center px-2'
           }`}
         >
-          <img src="/icone.png" alt="IANE" className="h-7 w-auto object-contain shrink-0" />
+          <img src="/logo.png" alt="IANE" className="h-8 w-auto object-contain shrink-0" />
           {isExpanded && (
             <div className="flex flex-col min-w-0">
               <span className="font-bold text-sm tracking-tight text-white leading-tight truncate">

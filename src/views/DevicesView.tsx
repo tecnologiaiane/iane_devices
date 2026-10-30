@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Device, DeviceStatus, Movement, DocumentTerm, DeviceCondition } from '../types';
+import { Device, DeviceStatus, Movement, DocumentTerm, DeviceCondition, User as AppUser } from '../types';
 import { dataService, STOCK_LABEL } from '../services/dataStorage';
 import { formatDate, formatCurrency, formatImei } from '../utils/formatters';
 import { StatusBadge } from '../components/StatusBadge';
@@ -11,7 +11,6 @@ import {
   Eye,
   Edit2,
   Trash2,
-  ArrowLeftRight,
   ArrowRight,
   PackageCheck,
   X,
@@ -21,21 +20,21 @@ import {
   PhoneCall,
   CheckCircle2,
   Package,
-  Layers
+  Layers,
 } from 'lucide-react';
-import { OfficialFlowType } from '../components/modals/MovementModal';
 
 interface DevicesViewProps {
   onOpenDeviceModal: (device?: Device) => void;
-  onOpenMovementWithDevice: (deviceId: string, flow: OfficialFlowType) => void;
   onViewTerm: (term: DocumentTerm) => void;
+  currentUser?: AppUser | null;
 }
 
 export const DevicesView: React.FC<DevicesViewProps> = ({
   onOpenDeviceModal,
-  onOpenMovementWithDevice,
   onViewTerm,
+  currentUser,
 }) => {
+  const canRemoveDevice = currentUser?.role === 'admin';
   const [devices, setDevices] = useState<Device[]>(dataService.getDevices());
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('todos');
@@ -67,8 +66,9 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
       const matchTag = d.assetTag.toLowerCase().includes(q);
       const matchBrand = d.brand.toLowerCase().includes(q);
       const matchModel = d.model.toLowerCase().includes(q);
-      const matchImei1 = d.imei1.includes(q);
-      const matchImei2 = d.imei2?.includes(q) || false;
+      const qDigits = q.replace(/\D/g, '');
+      const matchImei1 = qDigits.length > 0 && (d.imei1 || '').replace(/\D/g, '').includes(qDigits);
+      const matchImei2 = qDigits.length > 0 && (d.imei2 || '').replace(/\D/g, '').includes(qDigits);
       const matchSerial = (d.serialNumber || '').toLowerCase().includes(q);
       const matchCollab = d.currentCollaboratorName?.toLowerCase().includes(q) || false;
       const matchLine = d.associatedPhoneNumber?.replace(/\D/g, '').includes(q.replace(/\D/g, '')) || false;
@@ -91,6 +91,10 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
   const uniqueBrands = Array.from(new Set(devices.map(d => d.brand)));
 
   const handleDelete = (id: string, tag: string) => {
+    if (!canRemoveDevice) {
+      alert('Apenas o Super Admin pode remover aparelhos.');
+      return;
+    }
     if (window.confirm(`Tem certeza de que deseja excluir o cadastro do aparelho ${tag}? Esta ação não pode ser desfeita.`)) {
       const res = dataService.deleteDevice(id);
       if (!res.success) {
@@ -141,14 +145,6 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => onOpenMovementWithDevice('', 'entrega')}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-iane-700 bg-iane-50 hover:bg-iane-100 border border-iane-200 transition-colors shrink-0"
-            >
-              <ArrowLeftRight className="w-3.5 h-3.5" />
-              <span>Movimentação</span>
-            </button>
-
             <button
               onClick={() => onOpenDeviceModal()}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold text-white bg-iane-600 hover:bg-iane-700 shadow-xs transition-colors shrink-0"
@@ -245,11 +241,11 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
               <tr>
                 <th className="py-3 px-4">Tag do Ativo</th>
                 <th className="py-3 px-4">Marca & Modelo</th>
-                <th className="py-3 px-4">IMEI 1</th>
+                <th className="py-3 px-4">IMEI</th>
                 <th className="py-3 px-4">Status Operacional</th>
-                <th className="py-3 px-4">Custódia / Responsável</th>
+                <th className="py-3 px-4">Responsável</th>
                 <th className="py-3 px-4">Linha Associada</th>
-                <th className="py-3 px-4 text-right">Ações Oficiais</th>
+                <th className="py-3 px-4 text-right">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-ink-100">
@@ -268,6 +264,7 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
                   <td className="py-3 px-4 font-medium text-ink-900">
                     <div>{device.model}</div>
                     <span className="text-[11px] text-ink-400 font-mono">S/N: {device.serialNumber}</span>
+                    <span className="block text-[11px] text-ink-500">Setor: {device.sector || 'Não informado'}</span>
                   </td>
 
                   {/* IMEI */}
@@ -292,7 +289,7 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
                     ) : (
                       <span className="font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200 text-[11px] inline-flex items-center gap-1">
                         <Package className="w-3 h-3" />
-                        Estoque do Gestor
+                        Estoque
                       </span>
                     )}
                   </td>
@@ -314,17 +311,6 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
                       <Eye className="w-3.5 h-3.5" />
                     </button>
 
-                    {/* Ação se Disponível: Entrega */}
-                    {device.status === 'Disponível' && (
-                      <button
-                        title="Entregar a colaborador do Estoque"
-                        onClick={() => onOpenMovementWithDevice(device.id, 'entrega')}
-                        className="px-2.5 py-1 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-md transition-colors font-semibold text-xs"
-                      >
-                        Entregar
-                      </button>
-                    )}
-
                     {/* Ação se Aguardando Avaliação: Liberar para Estoque Disponível */}
                     {device.status === 'Aguardando avaliação' && (
                       <button
@@ -337,27 +323,6 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
                       </button>
                     )}
 
-                    {/* Ações se Em uso: Devolver, Transferir ou Trocar */}
-                    {device.status === 'Em uso' && (
-                      <>
-                        <button
-                          title="Devolver ao Estoque do Gestor"
-                          onClick={() => onOpenMovementWithDevice(device.id, 'devolucao')}
-                          className="px-2 py-1 text-gold-700 bg-sun-50 hover:bg-sun-100 border border-sun-300 rounded-md transition-colors font-semibold text-xs"
-                        >
-                          Devolver
-                        </button>
-
-                        <button
-                          title="Transferência entre colaboradores (Passagem obrigatória por estoque)"
-                          onClick={() => onOpenMovementWithDevice(device.id, 'transferencia')}
-                          className="px-2 py-1 text-iane-700 bg-iane-50 hover:bg-iane-100 border border-iane-200 rounded-md transition-colors font-semibold text-xs"
-                        >
-                          Transferir
-                        </button>
-                      </>
-                    )}
-
                     <button
                       title="Editar"
                       onClick={() => onOpenDeviceModal(device)}
@@ -366,13 +331,15 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
                       <Edit2 className="w-3.5 h-3.5" />
                     </button>
 
-                    <button
-                      title="Excluir"
-                      onClick={() => handleDelete(device.id, device.assetTag)}
-                      className="p-1.5 text-ink-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    {canRemoveDevice && (
+                      <button
+                        title="Remover"
+                        onClick={() => handleDelete(device.id, device.assetTag)}
+                        className="p-1.5 text-ink-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -605,7 +572,11 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
                         <span className="font-semibold text-ink-900">{detailDevice.model}</span>
                       </div>
                       <div>
-                        <span className="text-ink-400 text-[11px] block">IMEI 1</span>
+                        <span className="text-ink-400 text-[11px] block">Setor</span>
+                        <span className="font-semibold text-ink-900">{detailDevice.sector || 'Não informado'}</span>
+                      </div>
+                      <div>
+                        <span className="text-ink-400 text-[11px] block">IMEI</span>
                         <span className="font-mono text-ink-900">{formatImei(detailDevice.imei1)}</span>
                       </div>
                       <div>

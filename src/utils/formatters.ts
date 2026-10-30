@@ -62,11 +62,8 @@ export function formatPhone(phone?: string): string {
 
 export function formatImei(imei?: string): string {
   if (!imei) return '-';
-  const clean = imei.replace(/\s+/g, '');
-  if (clean.length === 15) {
-    return `${clean.slice(0, 2)} ${clean.slice(2, 8)} ${clean.slice(8, 14)} ${clean.slice(14)}`;
-  }
-  return imei;
+  const clean = imei.replace(/\D/g, '');
+  return clean || imei;
 }
 
 // Download CSV helper

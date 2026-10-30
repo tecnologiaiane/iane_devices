@@ -144,16 +144,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
     return !ddd || !TARGET_DDDS.includes(ddd);
   }).length;
 
-  // Aparelhos em uso por Setor (vínculo atual do aparelho com o colaborador).
-  const collaboratorsById = new Map(collaborators.map((c) => [c.id, c]));
+  // Aparelhos em uso por Setor (setor do próprio aparelho, definido no cadastro).
   const inUseBySector = new Map<string, number>(SECTORS.map((sector) => [sector, 0]));
   let inUseWithoutSector = 0;
   devices.forEach((device) => {
     if (device.status !== 'Em uso') return;
-    const collaborator = device.currentCollaboratorId
-      ? collaboratorsById.get(device.currentCollaboratorId)
-      : undefined;
-    const sector = collaborator?.sector?.trim();
+    const sector = device.sector?.trim();
     if (sector && inUseBySector.has(sector)) {
       inUseBySector.set(sector, (inUseBySector.get(sector) || 0) + 1);
     } else {
@@ -463,7 +459,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
           <div className="px-5 pt-5 pb-3 flex items-start justify-between">
             <div>
               <h2 className="text-sm font-bold text-ink-900">Aparelhos por Setor</h2>
-              <p className="text-xs text-ink-500">Aparelhos em uso por setor do colaborador</p>
+              <p className="text-xs text-ink-500">Aparelhos em uso por setor do aparelho</p>
             </div>
             <Building2 className="w-4 h-4 text-ink-400" />
           </div>

@@ -129,6 +129,7 @@ const AVAILABLE_PERMISSIONS = [
   { id: 'colaboradores', label: 'Colaboradores (Visualização)', description: 'Consultar colaboradores e departamentos' },
   { id: 'colaboradores_edit', label: 'Colaboradores (Cadastro/Edição)', description: 'Cadastrar novos colaboradores e matrículas' },
   { id: 'movimentacoes', label: 'Movimentações Patrimoniais', description: 'Executar fluxos de entrega, devolução, transferência e troca' },
+  { id: 'solicitacoes', label: 'Solicitações', description: 'Registrar e consultar solicitações de movimentação' },
   { id: 'termos', label: 'Termos e Documentos', description: 'Emitir, imprimir e assinar termos de custódia' },
   { id: 'relatorios', label: 'Relatórios & Exportações', description: 'Acessar relatórios analíticos e exportar dados' },
   { id: 'configuracoes', label: 'Configurações & Backup', description: 'Acessar tela de configurações e cópias de segurança' },
@@ -136,9 +137,9 @@ const AVAILABLE_PERMISSIONS = [
 ];
 
 const DEFAULT_ROLE_PERMS: Record<UserRole, string[]> = {
-  admin: ['all', 'dashboard', 'dispositivos', 'dispositivos_edit', 'linhas', 'linhas_edit', 'colaboradores', 'colaboradores_edit', 'movimentacoes', 'termos', 'relatorios', 'configuracoes', 'manage_users'],
-  gestor: ['dashboard', 'dispositivos', 'dispositivos_edit', 'linhas', 'linhas_edit', 'colaboradores', 'colaboradores_edit', 'movimentacoes', 'termos', 'relatorios', 'configuracoes'],
-  operador: ['dashboard', 'dispositivos', 'linhas', 'colaboradores', 'movimentacoes', 'termos'],
+  admin: ['all', 'dashboard', 'dispositivos', 'dispositivos_edit', 'linhas', 'linhas_edit', 'colaboradores', 'colaboradores_edit', 'movimentacoes', 'solicitacoes', 'termos', 'relatorios', 'configuracoes', 'manage_users'],
+  gestor: ['dashboard', 'dispositivos', 'dispositivos_edit', 'linhas', 'linhas_edit', 'colaboradores', 'colaboradores_edit', 'movimentacoes', 'solicitacoes', 'termos', 'relatorios', 'configuracoes'],
+  operador: ['dashboard', 'dispositivos', 'linhas', 'colaboradores', 'movimentacoes', 'solicitacoes', 'termos'],
   visualizador: ['dashboard', 'dispositivos', 'linhas', 'colaboradores', 'relatorios'],
 };
 
@@ -1109,15 +1110,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   <input
                     type="text"
                     required
+                    disabled={!isAdmin}
                     value={formUsername}
                     onChange={(e) => setFormUsername(e.target.value.toLowerCase())}
                     placeholder="Ex: carlos.silva"
-                    className="w-full text-xs px-3 py-2 border border-ink-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-iane-500"
+                    className="w-full text-xs px-3 py-2 border border-ink-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-iane-500 disabled:bg-ink-100 disabled:text-ink-500 disabled:cursor-not-allowed"
                   />
                   <p className="mt-1 text-[11px] text-ink-500">
-                    {userToEdit
-                      ? 'Pode ser alterado a qualquer momento. O novo login vale no próximo acesso.'
-                      : 'Letras, números, ponto, hífen, underline ou @ (mínimo 3 caracteres).'}
+                    {!isAdmin
+                      ? 'Somente o Super Admin pode alterar o nome de login.'
+                      : userToEdit
+                        ? 'Pode ser alterado a qualquer momento. O novo login vale no próximo acesso.'
+                        : 'Letras, números, ponto, hífen, underline ou @ (mínimo 3 caracteres).'}
                   </p>
                 </div>
 

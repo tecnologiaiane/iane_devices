@@ -27,6 +27,7 @@ export interface Device {
   purchaseValue?: number; // R$
   condition: DeviceCondition;
   status: DeviceStatus;
+  sector?: string;
   currentDepartment?: string;
   currentCollaboratorId?: string;
   currentCollaboratorName?: string;
@@ -152,6 +153,33 @@ export interface Movement {
   maintenanceProvider?: string;
   maintenanceCost?: number;
   returnForecastDate?: string;
+  requestApproval?: {
+    requestId: string;
+    requestType: RequestType;
+    requesterName: string;
+    requestedAt: string;
+    approverName: string;
+    approvedAt: string;
+    primaryMovementId: string;
+  };
+}
+
+export type RequestType = 'Entrega' | 'Devolução' | 'Transferência' | 'Troca de Aparelho';
+export type RequestStatus = 'Pendente de aprovação' | 'Aprovada' | 'Recusada';
+
+export interface RequestRecord {
+  id: string;
+  type: RequestType;
+  requesterId: string;
+  requesterName: string;
+  createdAt: string;
+  status: RequestStatus;
+  decidedById?: string;
+  decidedByName?: string;
+  decidedAt?: string;
+  rejectionReason?: string;
+  movementIds?: string[];
+  data: Record<string, any>;
 }
 
 export type TermType = 
