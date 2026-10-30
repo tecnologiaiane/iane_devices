@@ -60,6 +60,27 @@ export function formatPhone(phone?: string): string {
   return phone;
 }
 
+/**
+ * Compara telefone e termo de busca ignorando formatação, DDI e diferenças de
+ * DDD/nono dígito. Também aceita busca parcial (ex.: "9999").
+ */
+export function matchesPhoneSearch(phone?: string, query?: string): boolean {
+  const normalize = (value?: string) => {
+    let digits = String(value || '').replace(/\D/g, '');
+    if (digits.startsWith('0055')) digits = digits.slice(4);
+    else if (digits.startsWith('55') && digits.length > 11) digits = digits.slice(2);
+    return digits.replace(/^0+/, '');
+  };
+
+  const digits = normalize(phone);
+  const queryDigits = normalize(query);
+  if (!queryDigits) return false;
+  if (digits.includes(queryDigits)) return true;
+
+  // Ignora DDD e o nono dígito: compara o assinante pelos 8 últimos dígitos.
+  return queryDigits.length >= 8 && digits.length >= 8 && digits.slice(-8) === queryDigits.slice(-8);
+}
+
 export function formatImei(imei?: string): string {
   if (!imei) return '-';
   const clean = imei.replace(/\D/g, '');

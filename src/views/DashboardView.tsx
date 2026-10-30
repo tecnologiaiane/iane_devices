@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { dataService } from '../services/dataStorage';
+import { dataService, stockDisplayName } from '../services/dataStorage';
 import { formatDate } from '../utils/formatters';
 import { SECTORS } from '../utils/collaborators';
 import { StatusBadge } from '../components/StatusBadge';
@@ -595,8 +595,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
                       </span>
                     </div>
                     <p className="text-[11px] text-ink-500 truncate">
-                      {movement.originCollaboratorName || 'Estoque'} →{' '}
-                      {movement.destinationCollaboratorName || 'Estoque'}
+                      {stockDisplayName(movement.originCollaboratorName)} →{' '}
+                      {stockDisplayName(movement.destinationCollaboratorName)}
                     </p>
                   </div>
                 </div>

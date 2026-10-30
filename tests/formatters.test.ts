@@ -6,6 +6,7 @@ import {
   formatCurrency,
   formatPhone,
   formatImei,
+  matchesPhoneSearch,
 } from '../src/utils/formatters';
 
 test('formatDate formata datas puras sem passar por Date', () => {
@@ -37,4 +38,13 @@ test('formatadores auxiliares continuam funcionando', () => {
   assert.equal(formatImei('123456789012345'), '123456789012345');
   assert.equal(formatImei('01 234567 891112 1'), '012345678911121');
   assert.equal(formatImei('123'), '123');
+});
+
+test('matchesPhoneSearch ignora formatação, DDD e nono dígito', () => {
+  assert.equal(matchesPhoneSearch('83 99999-9999', '83999999999'), true);
+  assert.equal(matchesPhoneSearch('83999999999', '83 99999-9999'), true);
+  assert.equal(matchesPhoneSearch('(83) 99999-9999', '9999-9999'), true);
+  assert.equal(matchesPhoneSearch('+55 83 99999-9999', '8399999999'), true);
+  assert.equal(matchesPhoneSearch('83 3333-4444', '9999'), false);
+  assert.equal(matchesPhoneSearch(undefined, '83'), false);
 });

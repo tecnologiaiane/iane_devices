@@ -3,7 +3,7 @@ import { Collaborator, Device, PhoneLine, RequestRecord, RequestType, User } fro
 import { dataService } from '../services/dataStorage';
 import { Modal } from '../components/Modal';
 import { StatusBadge } from '../components/StatusBadge';
-import { formatDate, formatDateTime, formatPhone } from '../utils/formatters';
+import { formatDate, formatDateTime, formatPhone, matchesPhoneSearch } from '../utils/formatters';
 import { toDateInputValue } from '../utils/dates';
 import {
   AlertTriangle,
@@ -61,6 +61,7 @@ interface RequestsViewProps {
 interface SearchOption {
   id: string;
   label: string;
+  phone?: string;
 }
 
 interface SearchableSelectProps {
@@ -78,7 +79,8 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ value, options, pla
   const isEditingQueryRef = useRef(false);
   const selected = options.find((option) => option.id === value);
   const visibleOptions = options.filter((option) =>
-    option.label.toLocaleLowerCase('pt-BR').includes(query.toLocaleLowerCase('pt-BR'))
+    option.label.toLocaleLowerCase('pt-BR').includes(query.toLocaleLowerCase('pt-BR')) ||
+    (option.phone ? matchesPhoneSearch(option.phone, query) : false)
   );
 
   useEffect(() => {
@@ -475,7 +477,7 @@ const RequestModal: React.FC<RequestModalProps> = ({ flow, onClose, onCreated })
   const lineOptions = lines.map((line) => {
     const dddValue = extractLineDdd(line.phoneNumber);
     const ddd = dddValue ? ` · DDD ${dddValue}` : '';
-    return { id: line.id, label: `${formatPhone(line.phoneNumber)} · ${line.carrier || 'Sem operadora'}${ddd}` };
+    return { id: line.id, label: `${formatPhone(line.phoneNumber)} · ${line.carrier || 'Sem operadora'}${ddd}`, phone: line.phoneNumber };
   });
   const deviceOptions = (items: Device[]) => items.map((device) => ({
     id: device.id,
@@ -736,7 +738,7 @@ const RequestModal: React.FC<RequestModalProps> = ({ flow, onClose, onCreated })
                 <SearchableSelect value={form.destinationCollaboratorId || ''} options={activeCollaborators.filter((c) => c.id !== form.originCollaboratorId).map((c) => ({ id: c.id, label: `${c.fullName} · ${c.registrationNumber || 'Sem matrícula'} · ${c.department || 'Sem depto'}` }))} placeholder="Pesquisar colaborador..." onChange={(value) => setValue('destinationCollaboratorId', value)} />
               </Field>
             </FormSection>
-            <FormSection icon={<Package className="h-4 w-4 text-iane-600" />} title="Etapa Intermediária: Estoque do Gestor">
+            <FormSection icon={<Package className="h-4 w-4 text-iane-600" />} title="Etapa Intermediária: Estoque">
               <Field label="Condição do aparelho">
                 <select value={form.condition} onChange={(event) => setValue('condition', event.target.value)} className={selectClass}><ConditionOptions /></select>
               </Field>

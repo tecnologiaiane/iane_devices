@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Movement, MovementType, DocumentTerm, RequestRecord, User as UserRecord } from '../types';
-import { dataService, STOCK_LABEL } from '../services/dataStorage';
+import { dataService, isStockCustody, stockDisplayName } from '../services/dataStorage';
 import { formatDate } from '../utils/formatters';
 import { StatusBadge } from '../components/StatusBadge';
 import {
@@ -127,8 +127,8 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
       const matchDevice = m.deviceTag?.toLowerCase().includes(q) || false;
       const matchName = m.deviceName?.toLowerCase().includes(q) || false;
       const matchLine = m.phoneNumber?.replace(/\D/g, '').includes(q.replace(/\D/g, '')) || false;
-      const matchDest = m.destinationCollaboratorName?.toLowerCase().includes(q) || false;
-      const matchOrig = m.originCollaboratorName?.toLowerCase().includes(q) || false;
+      const matchDest = stockDisplayName(m.destinationCollaboratorName).toLowerCase().includes(q);
+      const matchOrig = stockDisplayName(m.originCollaboratorName).toLowerCase().includes(q);
       const matchReason = m.reason?.toLowerCase().includes(q) || false;
       if (!matchCode && !matchBatch && !matchDevice && !matchName && !matchLine && !matchDest && !matchOrig && !matchReason) {
         return false;
@@ -350,12 +350,12 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
                   {/* Flow with stock highlight */}
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-1.5 text-xs">
-                      <span className={`px-1.5 py-0.5 rounded ${mov.originCollaboratorName === STOCK_LABEL ? 'bg-indigo-50 text-indigo-800 font-bold' : 'text-ink-800 font-medium'}`}>
-                        {mov.originCollaboratorName || STOCK_LABEL}
+                      <span className={`px-1.5 py-0.5 rounded ${isStockCustody(mov.originCollaboratorName) ? 'bg-indigo-50 text-indigo-800 font-bold' : 'text-ink-800 font-medium'}`}>
+                        {stockDisplayName(mov.originCollaboratorName)}
                       </span>
                       <ArrowRight className="w-3 h-3 text-ink-400 shrink-0" />
-                      <span className={`px-1.5 py-0.5 rounded ${mov.destinationCollaboratorName === STOCK_LABEL ? 'bg-indigo-50 text-indigo-800 font-bold' : 'text-ink-800 font-medium'}`}>
-                        {mov.destinationCollaboratorName || STOCK_LABEL}
+                      <span className={`px-1.5 py-0.5 rounded ${isStockCustody(mov.destinationCollaboratorName) ? 'bg-indigo-50 text-indigo-800 font-bold' : 'text-ink-800 font-medium'}`}>
+                        {stockDisplayName(mov.destinationCollaboratorName)}
                       </span>
                     </div>
                   </td>
@@ -470,9 +470,9 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
               <div className="p-3 bg-iane-50/70 border border-iane-200 rounded-lg text-xs space-y-1">
                 <span className="font-semibold text-iane-800 block">Fluxo de Custódia Patrimonial:</span>
                 <div className="flex items-center gap-2 font-bold text-iane-800">
-                  <span>{detailMovement.originCollaboratorName || STOCK_LABEL}</span>
+                  <span>{stockDisplayName(detailMovement.originCollaboratorName)}</span>
                   <ArrowRight className="w-4 h-4 text-iane-500" />
-                  <span>{detailMovement.destinationCollaboratorName || STOCK_LABEL}</span>
+                  <span>{stockDisplayName(detailMovement.destinationCollaboratorName)}</span>
                 </div>
               </div>
 

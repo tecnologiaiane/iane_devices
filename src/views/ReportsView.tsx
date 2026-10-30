@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { dataService } from '../services/dataStorage';
+import { dataService, stockDisplayName } from '../services/dataStorage';
 import { formatDate, formatCurrency, formatImei, downloadCsv } from '../utils/formatters';
 import { todayISO } from '../utils/dates';
 import { StatusBadge } from '../components/StatusBadge';
@@ -148,8 +148,8 @@ export const ReportsView: React.FC = () => {
         m.type,
         m.deviceTag || '',
         m.phoneNumber || '',
-        m.originCollaboratorName || 'Estoque do Gestor',
-        m.destinationCollaboratorName || 'Estoque do Gestor',
+        stockDisplayName(m.originCollaboratorName),
+        stockDisplayName(m.destinationCollaboratorName),
         m.stockTransit?.stage || '',
         m.reason || '',
         m.documentCode || ''
@@ -420,8 +420,8 @@ export const ReportsView: React.FC = () => {
                     <td className="py-2.5 px-3 font-mono text-iane-700">{m.deviceTag || '-'}</td>
                     <td className="py-2.5 px-3 font-mono">{m.phoneNumber || '-'}</td>
                     <td className="py-2.5 px-3 text-ink-700">
-                      {m.originCollaboratorName ? `De: ${m.originCollaboratorName} ` : ''}
-                      {m.destinationCollaboratorName ? `Para: ${m.destinationCollaboratorName}` : ''}
+                      {m.originCollaboratorName ? `De: ${stockDisplayName(m.originCollaboratorName)} ` : ''}
+                      {m.destinationCollaboratorName ? `Para: ${stockDisplayName(m.destinationCollaboratorName)}` : ''}
                     </td>
                     <td className="py-2.5 px-3 text-ink-600">{m.reason || '-'}</td>
                     <td className="py-2.5 px-3 font-mono text-iane-600 font-semibold">{m.documentCode || '-'}</td>

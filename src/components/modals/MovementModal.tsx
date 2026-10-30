@@ -92,7 +92,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
     'Cabo USB-C / Lightning',
     'Capa Protetora Anti-Impacto',
   ]);
-  const [devolucaoReason, setDevolucaoReason] = useState('Devolução de aparelho para o estoque do Gestor.');
+  const [devolucaoReason, setDevolucaoReason] = useState('Devolução de aparelho para o Estoque.');
 
   // --- State for TRANSFERÊNCIA (Colaborador A -> Estoque -> Colaborador B) ---
   const [transfCollabAId, setTransfCollabAId] = useState('');
@@ -448,7 +448,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
             <div className="flex items-center gap-2 font-medium">
               <span className="px-2.5 py-1 bg-white border border-iane-200 rounded-md shadow-2xs font-bold flex items-center gap-1">
                 <Package className="w-3.5 h-3.5 text-iane-600" />
-                Estoque do Gestor (Disponível)
+                Estoque (Disponível)
               </span>
               <ArrowRight className="w-4 h-4 text-iane-500" />
               <span className="px-2.5 py-1 bg-white border border-iane-200 rounded-md shadow-2xs font-bold flex items-center gap-1">
@@ -467,7 +467,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
               <ArrowRight className="w-4 h-4 text-iane-500" />
               <span className="px-2.5 py-1 bg-white border border-iane-200 rounded-md shadow-2xs font-bold flex items-center gap-1">
                 <Package className="w-3.5 h-3.5 text-iane-600" />
-                Estoque do Gestor de Telefonia
+                Estoque
               </span>
             </div>
           )}
@@ -679,7 +679,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
 
                 <h3 className="text-sm font-semibold text-ink-800 flex items-center gap-1.5">
                   <Package className="w-4 h-4 text-iane-600" />
-                  Destino no Estoque do Gestor
+                  Destino no Estoque
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
@@ -745,7 +745,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
               <div className="space-y-4">
                 <h3 className="text-sm font-semibold text-ink-800 flex items-center gap-1.5">
                   <RotateCcw className="w-4 h-4 text-iane-600" />
-                  Transferência entre Colaboradores (via Estoque do Gestor)
+                  Transferência entre Colaboradores (via Estoque)
                 </h3>
 
                 <div className="p-3 bg-iane-50/40 border border-iane-200 rounded-lg space-y-3">
@@ -813,7 +813,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                 </div>
 
                 <div className="p-3 bg-ink-50 border border-ink-200 rounded-lg space-y-3">
-                  <span className="block text-xs font-semibold text-ink-700">Etapa Intermediária: Estoque do Gestor</span>
+                  <span className="block text-xs font-semibold text-ink-700">Etapa Intermediária: Estoque</span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-medium text-ink-600 mb-1">Status do aparelho ao entrar no Estoque</label>
@@ -1185,7 +1185,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                 <div className="space-y-3 text-xs">
                   <div>
                     <span className="text-ink-500">Tipo: </span>
-                    <strong className="text-gold-700">Devolução de Aparelho (Colaborador → Estoque do Gestor)</strong>
+                    <strong className="text-gold-700">Devolução de Aparelho (Colaborador → Estoque)</strong>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-ink-500">Aparelho:</span>

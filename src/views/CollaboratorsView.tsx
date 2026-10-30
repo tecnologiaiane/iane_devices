@@ -11,6 +11,7 @@ import {
   Eye,
   Edit2,
   Smartphone,
+  Microchip,
   PhoneCall,
   Mail,
   Phone,
@@ -199,21 +200,29 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
                     </td>
 
                     <td className="py-3 px-4">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {heldDevices.length > 0 ? (
-                          heldDevices.map(d => (
-                            <span key={d.id} className="font-mono text-[11px] font-semibold text-iane-700 bg-iane-50 px-2 py-0.5 rounded border border-iane-200">
-                              {d.assetTag}
-                            </span>
-                          ))
-                        ) : (
-                          <span className="text-ink-400 italic">Nenhum aparelho</span>
-                        )}
-                        {heldLines.length > 0 && (
-                          <span className="font-mono text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                            {heldLines.length} linha(s)
-                          </span>
-                        )}
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          title={heldDevices.length > 0 ? heldDevices.map(d => d.assetTag).join(', ') : 'Nenhum aparelho vinculado'}
+                          aria-label={heldDevices.length > 0 ? 'Aparelho vinculado' : 'Nenhum aparelho vinculado'}
+                          className={`inline-flex items-center justify-center p-1.5 rounded border ${
+                            heldDevices.length > 0
+                              ? 'bg-iane-50 border-iane-200 text-iane-700'
+                              : 'bg-ink-50 border-ink-200 text-ink-300'
+                          }`}
+                        >
+                          <Smartphone className="w-3.5 h-3.5" />
+                        </span>
+                        <span
+                          title={heldLines.length > 0 ? `${heldLines.length} linha(s) vinculada(s)` : 'Nenhuma linha vinculada'}
+                          aria-label={heldLines.length > 0 ? 'Linha vinculada' : 'Nenhuma linha vinculada'}
+                          className={`inline-flex items-center justify-center p-1.5 rounded border ${
+                            heldLines.length > 0
+                              ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                              : 'bg-ink-50 border-ink-200 text-ink-300'
+                          }`}
+                        >
+                          <Microchip className="w-3.5 h-3.5" />
+                        </span>
                       </div>
                     </td>
 

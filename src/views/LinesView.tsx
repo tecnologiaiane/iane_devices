@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { PhoneLine, Carrier, LineStatus, Device } from '../types';
 import { dataService } from '../services/dataStorage';
-import { formatDate, formatCurrency, formatPhone } from '../utils/formatters';
+import { formatDate, formatCurrency, formatPhone, matchesPhoneSearch } from '../utils/formatters';
 import { StatusBadge } from '../components/StatusBadge';
 import {
   PhoneCall,
@@ -49,7 +49,7 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
   const filteredLines = lines.filter((l) => {
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      const matchPhone = l.phoneNumber.replace(/\D/g, '').includes(q.replace(/\D/g, ''));
+      const matchPhone = matchesPhoneSearch(l.phoneNumber, searchQuery);
       const matchCarrier = l.carrier.toLowerCase().includes(q);
       const matchPlan = (l.planName || '').toLowerCase().includes(q);
       const matchCollab = l.currentCollaboratorName?.toLowerCase().includes(q) || false;

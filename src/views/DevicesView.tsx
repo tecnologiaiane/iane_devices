@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Device, DeviceStatus, Movement, DocumentTerm, DeviceCondition, User as AppUser } from '../types';
-import { dataService, STOCK_LABEL } from '../services/dataStorage';
+import { dataService, STOCK_LABEL, isStockCustody, stockDisplayName } from '../services/dataStorage';
 import { formatDate, formatCurrency, formatImei } from '../utils/formatters';
 import { StatusBadge } from '../components/StatusBadge';
 import {
@@ -169,7 +169,7 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
             className="rounded-md border border-ink-300 bg-white px-2.5 py-1 text-ink-700 font-medium"
           >
             <option value="todos">Custódia: Todas</option>
-            <option value="em_estoque">No Estoque do Gestor</option>
+            <option value="em_estoque">No Estoque</option>
             <option value="com_colaborador">Em Uso com Colaborador</option>
           </select>
 
@@ -488,7 +488,7 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
                     <div className="p-3 bg-iane-50/70 border border-iane-200 rounded-lg text-xs text-iane-800">
                       <p className="font-semibold mb-0.5">Rastreabilidade Patrimonial de Estoque:</p>
                       <p className="text-[11px] leading-relaxed">
-                        Apresenta formalmente cada período de utilização por colaborador e a devolução e conferência intermediária no Estoque do Gestor de Telefonia.
+                        Apresenta formalmente cada período de utilização por colaborador e a devolução e conferência intermediária no Estoque.
                       </p>
                     </div>
 
@@ -521,13 +521,13 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
                             {/* Detalhe do Fluxo de Origem e Destino com Estoque destacado */}
                             <div className="text-[11px] text-ink-700 flex items-center gap-1.5 py-0.5 font-medium">
                               <span className="text-ink-500">De:</span>
-                              <span className={`px-1.5 py-0.5 rounded ${mov.originCollaboratorName === STOCK_LABEL ? 'bg-indigo-50 text-indigo-800 font-bold' : 'text-ink-900'}`}>
-                                {mov.originCollaboratorName || STOCK_LABEL}
+                              <span className={`px-1.5 py-0.5 rounded ${isStockCustody(mov.originCollaboratorName) ? 'bg-indigo-50 text-indigo-800 font-bold' : 'text-ink-900'}`}>
+                                {stockDisplayName(mov.originCollaboratorName)}
                               </span>
                               <ArrowRight className="w-3 h-3 text-ink-400" />
                               <span className="text-ink-500">Para:</span>
-                              <span className={`px-1.5 py-0.5 rounded ${mov.destinationCollaboratorName === STOCK_LABEL ? 'bg-indigo-50 text-indigo-800 font-bold' : 'text-ink-900'}`}>
-                                {mov.destinationCollaboratorName || STOCK_LABEL}
+                              <span className={`px-1.5 py-0.5 rounded ${isStockCustody(mov.destinationCollaboratorName) ? 'bg-indigo-50 text-indigo-800 font-bold' : 'text-ink-900'}`}>
+                                {stockDisplayName(mov.destinationCollaboratorName)}
                               </span>
                             </div>
 

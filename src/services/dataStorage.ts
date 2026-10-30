@@ -59,7 +59,18 @@ export interface RejectedWrite {
   entity?: string;
 }
 
-export const STOCK_LABEL = 'Estoque do Gestor de Telefonia';
+export const STOCK_LABEL = 'Estoque';
+
+const LEGACY_STOCK_LABELS = ['Estoque do Gestor de Telefonia', 'Estoque do Gestor'];
+
+/** Indica se o nome de custódia corresponde ao estoque (inclui registros antigos). */
+export const isStockCustody = (name?: string | null): boolean =>
+  !name || String(name).trim().toLocaleLowerCase('pt-BR') === STOCK_LABEL.toLocaleLowerCase('pt-BR') ||
+  LEGACY_STOCK_LABELS.some((label) => label.toLocaleLowerCase('pt-BR') === String(name).trim().toLocaleLowerCase('pt-BR'));
+
+/** Normaliza o rótulo do estoque exibido, inclusive para movimentações antigas. */
+export const stockDisplayName = (name?: string | null): string =>
+  isStockCustody(name) ? STOCK_LABEL : String(name);
 
 // Base de dados 100% limpa (sem dados fictícios para produção)
 const INITIAL_COLLABORATORS: Collaborator[] = [];

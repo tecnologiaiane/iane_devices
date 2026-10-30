@@ -2048,7 +2048,7 @@ app.post('/api/movements/transfer', requirePermission('movimentacoes'), async (r
     await client.query('BEGIN');
 
     const batchOperationId = `batch-transf-${Date.now()}`;
-    const STOCK_LABEL = 'Estoque do Gestor de Telefonia';
+    const STOCK_LABEL = 'Estoque';
 
     const devRes = await client.query('SELECT * FROM devices WHERE id = $1 FOR UPDATE', [deviceId]);
     if (devRes.rows.length === 0) throw new Error('Dispositivo não encontrado');
