@@ -553,35 +553,35 @@ export default function App() {
           </div>
         ))}
       </aside>
+    </div>
 
-      {/* Modal de confirmação de logout */}
-      {showLogoutConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true" aria-label="Confirmar saída">
-          <div className="fixed inset-0 bg-black/50 transition-opacity" onClick={() => setShowLogoutConfirm(false)} />
-          <div className="bg-white rounded-lg p-6 shadow-2xl max-w-sm w-full mx-4 border border-ink-100">
-            <h3 className="text-lg font-semibold text-ink-900 mb-2">Tem certeza que deseja sair?</h3>
-            <p className="text-ink-600 text-sm mb-6">
-              Sua sessão será encerrada e você será redirecionado para a tela de login.
-            </p>
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setShowLogoutConfirm(false)}
-                className="px-4 py-2 text-sm font-medium text-ink-700 bg-ink-100 hover:bg-ink-200 rounded-lg transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={confirmLogout}
-                className="px-4 py-2 text-sm font-medium text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition-colors"
-              >
-                Sair
-              </button>
-            </div>
+    {/* Modal de confirmação de logout (fora do aside para garantir z-index acima de tudo) */}
+    {showLogoutConfirm && (
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center" role="dialog" aria-modal="true" aria-label="Confirmar saída">
+        <div className="absolute inset-0 bg-black/60 transition-opacity backdrop-blur-sm" onClick={() => setShowLogoutConfirm(false)} />
+        <div className="relative bg-white rounded-lg p-6 shadow-2xl max-w-sm w-full mx-4 border border-ink-100">
+          <h3 className="text-lg font-semibold text-ink-900 mb-2">Tem certeza que deseja sair?</h3>
+          <p className="text-ink-600 text-sm mb-6">
+            Sua sessão será encerrada e você será redirecionado para a tela de login.
+          </p>
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setShowLogoutConfirm(false)}
+              className="px-4 py-2 text-sm font-medium text-ink-700 bg-ink-100 hover:bg-ink-200 rounded-lg transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={confirmLogout}
+              className="px-4 py-2 text-sm font-medium text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition-colors"
+            >
+              Sair
+            </button>
           </div>
         </div>
-      )}
-    </div>
+      </div>
+    )}
   );
 }
