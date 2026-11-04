@@ -1384,7 +1384,10 @@ class DataStorageService {
       };
     }
 
-    if (device.currentCollaboratorId) {
+    // Nota: currentCollaboratorId vem do cache local. Se o status é "Disponível",
+    // confiamos no servidor (o banco pode estar correto mas o cache não). A validação
+    // real acontece no backend ao salvar.
+    if (device.currentCollaboratorId && device.status !== this.availableDeviceStatus()) {
       return { 
         success: false, 
         message: `Inconsistência: O aparelho ${device.assetTag} já está vinculado ao colaborador ${device.currentCollaboratorName}.` 
