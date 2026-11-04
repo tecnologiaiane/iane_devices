@@ -65,7 +65,7 @@ const CSP = [
   "connect-src 'self' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
   "object-src 'self'",
-  "frame-src 'self'",
+  "frame-src 'self' blob:",
   "base-uri 'self'",
   "frame-ancestors 'none'",
   "form-action 'self'",
