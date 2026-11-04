@@ -1728,7 +1728,7 @@ async function upsertCollaborator(q: Queryable, c: any, overwrite = true) {
     [
       c.id,
       name,
-      str(c.registrationNumber ?? c.registration_id) || `MAT-${c.id}`,
+      str(c.registrationNumber ?? c.registration_id) || null,
       str(c.department) || 'Geral',
       str(c.sector),
       str(c.unit),
