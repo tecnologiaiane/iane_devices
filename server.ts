@@ -1731,7 +1731,12 @@ async function upsertCollaborator(q: Queryable, c: any, overwrite = true) {
       str(c.department) || 'Geral',
       str(c.sector),
       str(c.unit),
-      str(c.role ?? c.position) || null,
+      // Tratar campo role: se estiver vazio usar null
+      (() => {
+        const roleValue = c.role ?? c.position;
+        const trimmed = str(roleValue);
+        return trimmed === '' ? null : (roleValue || null);
+      })(),
       str(c.corporateEmail ?? c.email),
       str(c.contactPhone ?? c.phone),
       c.status ? c.status !== 'Desligado' : c.active !== false,
