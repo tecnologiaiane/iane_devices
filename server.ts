@@ -46,13 +46,13 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '12h';
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
 
-// Limite padrão de JSON: 1 MB para a maioria das rotas.
-app.use(express.json({ limit: '1mb' }));
-app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+// Limite padrão de JSON: 50 MB para a maioria das rotas.
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Limite maior apenas para rotas que recebem PDF em base64 (termos).
-const jsonParserLarge = express.json({ limit: '20mb' });
-const urlencodedParserLarge = express.urlencoded({ extended: true, limit: '20mb' });
+const jsonParserLarge = express.json({ limit: '50mb' });
+const urlencodedParserLarge = express.urlencoded({ extended: true, limit: '50mb' });
 
 // ----------------------------------------------------------------------------
 // Security headers (equivalente a helmet com CSP restritiva)
