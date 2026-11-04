@@ -60,10 +60,10 @@ const urlencodedParserLarge = express.urlencoded({ extended: true, limit: '20mb'
 const CSP = [
   "default-src 'self'",
   "script-src 'self'",
-  "style-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "img-src 'self' data: blob:",
-  "connect-src 'self'",
-  "font-src 'self'",
+  "connect-src 'self' https://fonts.googleapis.com",
+  "font-src 'self' data: https://fonts.gstatic.com",
   "object-src 'self'",
   "frame-src 'self'",
   "base-uri 'self'",
