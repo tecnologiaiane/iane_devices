@@ -1731,7 +1731,7 @@ async function upsertCollaborator(q: Queryable, c: any, overwrite = true) {
       str(c.department) || 'Geral',
       str(c.sector),
       str(c.unit),
-      str(c.position ?? c.role) || 'Colaborador',
+      str(c.role ?? c.position) || null,
       str(c.corporateEmail ?? c.email),
       str(c.contactPhone ?? c.phone),
       c.status ? c.status !== 'Desligado' : c.active !== false,
