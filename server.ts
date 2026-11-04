@@ -322,6 +322,8 @@ async function autoMigrateDatabase(client: pg.PoolClient) {
     // 8. Compatibilidade: bancos criados pelo init-db.sql antigo tinham restrições que rejeitavam as gravações do app
     //    (serial_number/imei obrigatórios e únicos, FKs RESTRICT). Aqui o schema é relaxado e a coluna JSONB "data" é criada.
     const compatStatements = [
+      `ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS sector VARCHAR(100)`,
+      `ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS unit VARCHAR(100)`,
       `ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS data JSONB NOT NULL DEFAULT '{}'::jsonb`,
       `ALTER TABLE phone_lines ADD COLUMN IF NOT EXISTS data JSONB NOT NULL DEFAULT '{}'::jsonb`,
       `ALTER TABLE devices ADD COLUMN IF NOT EXISTS data JSONB NOT NULL DEFAULT '{}'::jsonb`,
@@ -1246,17 +1248,19 @@ async function upsertCollaborator(q: Queryable, c: any, overwrite = true) {
   if (!name) throw new HttpError(400, 'O nome do colaborador é obrigatório.');
   const onConflict = overwrite
     ? `DO UPDATE SET name = EXCLUDED.name, registration_id = EXCLUDED.registration_id, department = EXCLUDED.department,
-         role = EXCLUDED.role, email = EXCLUDED.email, phone = EXCLUDED.phone, active = EXCLUDED.active, data = EXCLUDED.data`
+         sector = EXCLUDED.sector, unit = EXCLUDED.unit, role = EXCLUDED.role, email = EXCLUDED.email, phone = EXCLUDED.phone, active = EXCLUDED.active, data = EXCLUDED.data`
     : 'DO NOTHING';
   await q.query(
-    `INSERT INTO collaborators (id, name, registration_id, department, role, email, phone, active, data)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb)
+    `INSERT INTO collaborators (id, name, registration_id, department, sector, unit, role, email, phone, active, data)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb)
      ON CONFLICT (id) ${onConflict}`,
     [
       c.id,
       name,
       str(c.registrationNumber ?? c.registration_id) || `MAT-${c.id}`,
       str(c.department) || 'Geral',
+      str(c.sector),
+      str(c.unit),
       str(c.position ?? c.role) || 'Colaborador',
       str(c.corporateEmail ?? c.email),
       str(c.contactPhone ?? c.phone),
@@ -1867,7 +1871,7 @@ app.get('/api/collaborators', requireReadAccess, route(async (_req, res) => {
     const result = await pool.query(`
       SELECT
         id, name as "fullName", registration_id as "registrationNumber",
-        department, role as "position", email as "corporateEmail",
+        department, sector, unit, role as "position", email as "corporateEmail",
         phone as "contactPhone", active, created_at as "createdAt", data
       FROM collaborators
       ORDER BY name ASC
