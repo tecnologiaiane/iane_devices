@@ -65,7 +65,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
   const terms = dataService.getTerms();
   const collaborators = dataService.getCollaborators();
 
-  const permissions = currentUser?.permissions || ['all'];
+  const permissions = currentUser?.permissions || [];
   const isAdmin = currentUser?.role === 'admin' || permissions.includes('all');
 
   const pendingTerms = terms.filter((t) => t.status === 'Pendente de Assinatura');

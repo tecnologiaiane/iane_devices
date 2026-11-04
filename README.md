@@ -123,7 +123,7 @@ Cada aba possui URL própria (navegação direta e recarregamento funcionam no s
 - **Administração**: `/api/users`, reset do banco e backup exigem `manage_users`/perfil `admin`.
 - **Revogação de sessão**: cada usuário possui `token_version`; logout, troca de senha, alteração de papel/permissões ou desativação invalidam imediatamente os tokens já emitidos.
 - **Auditoria**: o autor do log vem sempre do token autenticado, nunca do corpo da requisição.
-- **Seed idempotente**: os superusuários padrão usam `ON CONFLICT DO NOTHING` — a senha alterada pelo administrador nunca é sobrescrita em reinícios.
+- **Primeiro administrador**: se a tabela de usuários estiver vazia, o servidor cria o primeiro admin usando `INITIAL_ADMIN_USER` e `INITIAL_ADMIN_PASSWORD` do ambiente. Se não definidas, gera um usuário `admin` com senha aleatória, exibe uma única vez no log e obriga a troca no primeiro login (`must_change_password`). Nenhuma senha está fixa no código.
 
 ### Docker
 

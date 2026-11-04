@@ -288,6 +288,33 @@ class DataStorageService {
     this.emitSyncStatus();
   }
 
+  /** Remove do localStorage toda chave iane_* exceto preferências visuais. Usado no logout/401. */
+  public clearIaneStorageExceptVisual(): void {
+    const ls = typeof globalThis !== 'undefined' ? (globalThis as any).localStorage : undefined;
+    if (!ls) return;
+    const keys: string[] = [];
+    try {
+      for (let i = 0; i < ls.length; i++) {
+        const key = ls.key(i);
+        if (key && key.startsWith('iane_') && key !== 'iane_sidebar_collapsed_v1') {
+          keys.push(key);
+        }
+      }
+    } catch {
+      // Armazenamento indisponível.
+    }
+    for (const key of keys) {
+      try { ls.removeItem(key); } catch (_) {}
+    }
+  }
+
+  /** Limpa a fila de gravação pendente (outbox). Chamado apenas após confirmação do usuário. */
+  public clearOutbox(): void {
+    this.saveOutbox([]);
+    this.clearRejectedWrites();
+    this.emitSyncStatus();
+  }
+
   private notifyProblem(title: string, message: string, status?: number): void {
     apiClient.notifyError({
       id: `sync-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -715,6 +742,8 @@ class DataStorageService {
       const rejected = res.data?.rejected ?? [];
       this.recordBatchRejections(rejected);
       localStorage.setItem(MIGRATED_KEY, new Date().toISOString());
+      // Remove o backup pré-migração após confirmação bem-sucedida no servidor.
+      try { localStorage.removeItem(PRE_MIGRATION_BACKUP_KEY); } catch (_) {}
       console.log('✅ [Sync] Migração dos dados locais para o PostgreSQL concluída.', res.data?.saved);
       return true;
     } catch (e) {

@@ -160,6 +160,17 @@ export default function App() {
     return apiClient.subscribeError((notif) => {
       // Token inválido/expirado: encerra a sessão para o usuário autenticar novamente
       if (notif.status === 401 && authService.getCurrentUser()) {
+        if (dataService.getPendingSyncCount() > 0) {
+          if (
+            !window.confirm(
+              `Existem ${dataService.getPendingSyncCount()} gravação(ões) pendente(s) que ainda não foi(ram) confirmada(s) no servidor. ` +
+                'Ao sair, elas serão descartadas. Deseja continuar?'
+            )
+          ) {
+            return;
+          }
+          dataService.clearOutbox();
+        }
         authService.logout({ revoke: false });
         setCurrentUser(null);
         return;
@@ -207,7 +218,7 @@ export default function App() {
   // Guarda de rota / permissão: se usuário não tem permissão para a aba ativa, redireciona para dashboard
   React.useEffect(() => {
     if (currentUser && activeTab !== 'dashboard') {
-      const perms = currentUser.permissions || ['all'];
+      const perms = currentUser.permissions || [];
       const hasPerm = activeTab === 'solicitacoes'
         ? canAccessRequests(currentUser.role)
         : currentUser.role === 'admin' || perms.includes('all') || perms.includes(activeTab);
@@ -314,6 +325,17 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    if (dataService.getPendingSyncCount() > 0) {
+      if (
+        !window.confirm(
+          `Existem ${dataService.getPendingSyncCount()} gravação(ões) pendente(s) que ainda não foi(ram) confirmada(s) no servidor. ` +
+            'Ao sair, elas serão descartadas. Deseja continuar?'
+        )
+      ) {
+        return;
+      }
+      dataService.clearOutbox();
+    }
     authService.logout();
     setCurrentUser(null);
   };

@@ -159,7 +159,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'configuracoes', label: 'Configurações', icon: Settings },
   ];
 
-  const userPerms = currentUser?.permissions || ['all'];
+  const userPerms = currentUser?.permissions || [];
   const isAdmin = currentUser?.role === 'admin' || userPerms.includes('all');
 
   const permittedItems = navItems.filter((item) =>

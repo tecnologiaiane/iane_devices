@@ -1,0 +1,37 @@
+# docker-compose.test.yml
+# PostgreSQL descartável para testes de segurança (porta 5433, volume efêmero).
+# Uso: docker compose -f docker-compose.test.yml up -d
+#      docker compose -f docker-compose.test.yml down -v
+
+services:
+  postgres-test:
+    image: postgres:16-alpine
+    container_name: telecom_postgres_test
+    restart: "no"
+    environment:
+      POSTGRES_DB: telecom_assets_test
+      POSTGRES_USER: iane_admin
+      POSTGRES_PASSWORD: "${POSTGRES_TEST_PASSWORD:-Iane@test2026!}"
+      TZ: "America/Sao_Paulo"
+    volumes:
+      # Volume efêmero: apagado com `down -v`
+      - postgres_test_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    ports:
+      # Porta 5433 no host para não conflitar com o ambiente de desenvolvimento
+      - "127.0.0.1:5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U iane_admin -d telecom_assets_test"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    networks:
+      - telecom_test_net
+
+volumes:
+  postgres_test_data:
+    driver: local
+
+networks:
+  telecom_test_net:
+    driver: bridge

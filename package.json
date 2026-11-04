@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "test": "tsx --test tests/dates.test.ts tests/formatters.test.ts tests/server.test.ts"
+    "test": "tsx --test tests/dates.test.ts tests/formatters.test.ts tests/server.test.ts tests/authz.test.ts tests/db-security.test.ts tests/auth-storage.test.ts tests/db-integration.test.ts"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
@@ -28,6 +28,23 @@
     "react-router-dom": "^7.9.4",
     "vite": "^8.3.0"
   },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@vitejs/plugin-react": "^6.1.1",
+    "axios": "^1.21.0",
+    "bcryptjs": "^3.0.3",
+    "dotenv": "^17.2.3",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.3",
+    "lucide-react": "^0.546.0",
+    "motion": "^12.23.24",
+    "pg": "^8.23.1",
+    "react": "^19.0.1",
+    "react-dom": "^19.0.1",
+    "react-router-dom": "^7.9.4",
+    "tsx": "^4.21.0",
+    "vite": "^8.3.0"
+  },
   "devDependencies": {
     "@types/bcryptjs": "^3.0.0",
     "@types/express": "^4.17.21",
@@ -39,7 +56,6 @@
     "autoprefixer": "^10.4.21",
     "esbuild": "^0.25.0",
     "tailwindcss": "^4.3.3",
-    "tsx": "^4.21.0",
     "typescript": "^7.0.2"
   }
 }

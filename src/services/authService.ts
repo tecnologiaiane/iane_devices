@@ -4,6 +4,29 @@ import { apiClient } from './apiClient';
 const AUTH_USER_KEY = 'iane_auth_current_user_v2';
 const AUTH_TOKEN_KEY = 'iane_auth_token_v2';
 
+// Chaves de preferência visual que NÃO devem ser apagadas no logout (apenas dados pessoais/sessão).
+const VISUAL_PREF_KEYS = ['iane_sidebar_collapsed_v1'];
+
+/** Remove do localStorage toda chave iane_* exceto preferências visuais. */
+function clearIaneStorageExceptVisual(): void {
+  const ls = typeof globalThis !== 'undefined' ? (globalThis as any).localStorage : undefined;
+  if (!ls) return;
+  const keys: string[] = [];
+  try {
+    for (let i = 0; i < ls.length; i++) {
+      const key = ls.key(i);
+      if (key && key.startsWith('iane_') && !VISUAL_PREF_KEYS.includes(key)) {
+        keys.push(key);
+      }
+    }
+  } catch {
+    // Armazenamento indisponível.
+  }
+  for (const key of keys) {
+    try { ls.removeItem(key); } catch (_) {}
+  }
+}
+
 type AuthListener = (user: User | null) => void;
 
 class AuthService {
@@ -79,7 +102,7 @@ class AuthService {
           fullName: u.fullName,
           email: u.email,
           role: u.role,
-          permissions: u.permissions || ['all'],
+          permissions: u.permissions || [],
           active: u.active !== false,
         };
 
@@ -106,11 +129,12 @@ class AuthService {
   /**
    * Encerra a sessão local e, por padrão, revoga o token no servidor (best-effort).
    * Use `revoke: false` quando a sessão já foi rejeitada (401), evitando chamadas inúteis.
+   * Use `confirmOutboxLoss: false` para não apagar a fila de gravação pendente
+   * (o usuário deve confirmar a perda antes).
    */
-  public logout(options: { revoke?: boolean } = {}): void {
+  public logout(options: { revoke?: boolean; confirmOutboxLoss?: boolean } = {}): void {
     const token = this.getToken();
-    localStorage.removeItem(AUTH_USER_KEY);
-    localStorage.removeItem(AUTH_TOKEN_KEY);
+    clearIaneStorageExceptVisual();
     this.notify(null);
     if (options.revoke !== false && token) {
       this.revokeSession(token);

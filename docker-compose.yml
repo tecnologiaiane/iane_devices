@@ -11,14 +11,17 @@ services:
       POSTGRES_USER: iane_admin
       # Obrigatória: defina POSTGRES_PASSWORD no .env (sem valor padrão inseguro).
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no arquivo .env}"
+      # Senha do usuário de aplicação (iane_app). Obrigatória em produção.
+      IANE_APP_PASSWORD: "${IANE_APP_PASSWORD:?Defina IANE_APP_PASSWORD no arquivo .env}"
       TZ: ${TZ:-America/Sao_Paulo}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+      - ./docker-entrypoint-initdb.d/02-app-user.sh:/docker-entrypoint-initdb.d/02-app-user.sh:ro
     ports:
-      # Para acesso remoto, escuta nas interfaces do servidor. Restrinja a porta
-      # 5432 no firewall aos IPs autorizados; pode definir POSTGRES_BIND_IP no .env.
-      - "${POSTGRES_BIND_IP:-0.0.0.0}:5432:5432"
+      # Por padrão, publicada apenas na interface local. Para acesso remoto,
+      # defina POSTGRES_BIND_IP no .env e restrinja a porta 5432 no firewall.
+      - "${POSTGRES_BIND_IP:-127.0.0.1}:5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U iane_admin -d telecom_assets"]
       interval: 5s
@@ -36,6 +39,10 @@ services:
       dockerfile: Dockerfile
     container_name: telecom_app
     restart: always
+    user: node
+    read_only: true
+    tmpfs:
+      - /tmp
     environment:
       NODE_ENV: production
       PORT: 3000
@@ -44,7 +51,8 @@ services:
       JWT_SECRET: "${JWT_SECRET:?Defina JWT_SECRET no arquivo .env (ex.: openssl rand -hex 48)}"
       # Validade da sessão (padrão 12h). Ex.: 8h, 12h, 1d.
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-12h}
-      # A senha na URL deve ser a mesma de POSTGRES_PASSWORD (codifique caracteres especiais, ex.: @ -> %40).
+      # Usuário de aplicação (princípio do menor privilégio). iane_admin é usado
+      # apenas para administração; o app se conecta como iane_app.
       DATABASE_URL: "${DATABASE_URL:?Defina DATABASE_URL no arquivo .env}"
       # Em produção, NUNCA habilite o modo memória: ele não persiste dados.
       ALLOW_MEMORY_FALLBACK: ${ALLOW_MEMORY_FALLBACK:-false}
@@ -53,11 +61,17 @@ services:
       BACKUP_RETENTION: ${BACKUP_RETENTION:-14}
       BACKUP_DIR: /app/backups
     ports:
-      # Acesso web via rede local ou externa
-      - "3000:3000"
+      # Publicada apenas na interface local. Para acesso externo, use túnel SSH ou reverse proxy.
+      - "127.0.0.1:3000:3000"
     volumes:
-      # Mantém as cópias de segurança fora do container (sobrevivem a rebuilds)
+      # Mantém as cópias de segurança fora do container (sobrevivem a rebuilds).
       - ./backups:/app/backups
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+    cpus: '0.5'
     depends_on:
       postgres:
         condition: service_healthy

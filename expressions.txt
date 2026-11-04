@@ -1,0 +1,36 @@
+# expressions.txt para git filter-repo
+# Revise antes de usar. Cada linha é uma expressão regular (regex) que o
+# git filter-repo usará para substituir segredos por [REMOVIDO].
+#
+# Uso (após revisão):
+#   git filter-repo --replace-text expressions.txt --force
+#
+# Atenção: reescreve o histórico. Faça backup do repositório antes.
+
+# --- Senhas de teste em texto plano ---
+Teste@123
+Iane@2026
+Iane@admin
+
+# --- Senha de exemplo (.env.example) ---
+SuaSenhaForteAqui123!
+
+# --- Hash bcrypt fixo do super admin (valor completo) ---
+\$2b\$10\$fngkbVvcbicIlBm\.BPw7TOEYDiwJEb7qyC\.qFTgTxLDKMGEDm8bIW
+
+# --- JWT_SECRET fixos / fallbacks inseguros ---
+troque-por-um-segredo-longo-e-aleatorio
+iane_telecom_dev_insecure_secret_change_me
+iane_telecom_default_secure_jwt_secret_2026
+iane_telecom_asset_secret_key_2026
+ci-secret-apenas-para-testes
+
+# --- Chave de API de exemplo ---
+MY_GEMINI_API_KEY
+
+# --- E-mails corporativos ---
+tecnologia@iane\.ind\.br
+operador\.teste@iane\.ind\.br
+
+# --- IP interno do servidor de produção ---
+10\.0\.0\.45

@@ -43,8 +43,109 @@ const EFFECTIVE_JWT_SECRET = JWT_SECRET;
 // Validade do token de sessão (configurável). Padrão: 12h em vez dos 7 dias anteriores.
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '12h';
 
-app.use(express.json({ limit: '20mb' }));
-app.use(express.urlencoded({ extended: true, limit: '20mb' }));
+app.disable('x-powered-by');
+app.set('trust proxy', 1);
+
+// Limite padrão de JSON: 1 MB para a maioria das rotas.
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+
+// Limite maior apenas para rotas que recebem PDF em base64 (termos).
+const jsonParserLarge = express.json({ limit: '20mb' });
+const urlencodedParserLarge = express.urlencoded({ extended: true, limit: '20mb' });
+
+// ----------------------------------------------------------------------------
+// Security headers (equivalente a helmet com CSP restritiva)
+// ----------------------------------------------------------------------------
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob:",
+  "connect-src 'self'",
+  "font-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "frame-ancestors 'none'",
+  "form-action 'self'",
+].join('; ');
+
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Content-Security-Policy', CSP);
+  next();
+});
+
+// ----------------------------------------------------------------------------
+// Rate limiting em memória (por IP e por usuário) para /api/auth/login
+// Bloqueio temporário após 5 falhas consecutivas (janela de 15 minutos).
+// ----------------------------------------------------------------------------
+const LOGIN_FAIL_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_MAX_FAILS = 5;
+const LOGIN_BLOCK_MS = 15 * 60 * 1000;
+
+type LoginFailRecord = { count: number; firstFail: number; blockedUntil: number };
+const loginFailsByIp = new Map<string, LoginFailRecord>();
+const loginFailsByUser = new Map<string, LoginFailRecord>();
+
+function loginFailKey(ip: string, user?: string) {
+  return user ? `${ip}:::${user}` : ip;
+}
+
+function registerLoginFail(ip: string, user?: string): { blocked: boolean; remainingMs: number } {
+  const key = loginFailKey(ip, user);
+  const now = Date.now();
+  let rec = loginFailsByIp.get(key);
+  if (!rec || now > rec.blockedUntil) {
+    rec = { count: 0, firstFail: now, blockedUntil: 0 };
+  }
+  rec.count += 1;
+  if (rec.count >= LOGIN_MAX_FAILS) {
+    rec.blockedUntil = now + LOGIN_BLOCK_MS;
+  }
+  loginFailsByIp.set(key, rec);
+  return { blocked: now < rec.blockedUntil, remainingMs: Math.max(0, rec.blockedUntil - now) };
+}
+
+function clearLoginFails(ip: string, user?: string) {
+  const key = loginFailKey(ip, user);
+  loginFailsByIp.delete(key);
+}
+
+function isLoginBlocked(ip: string, user?: string): { blocked: boolean; remainingMs: number } {
+  const key = loginFailKey(ip, user);
+  const rec = loginFailsByIp.get(key);
+  if (!rec) return { blocked: false, remainingMs: 0 };
+  const now = Date.now();
+  if (now > rec.blockedUntil) return { blocked: false, remainingMs: 0 };
+  return { blocked: true, remainingMs: rec.blockedUntil - now };
+}
+
+function clientIp(req: Request): string {
+  return (req.ip || req.socket?.remoteAddress || 'unknown').replace(/^::ffff:/, '');
+}
+
+// ----------------------------------------------------------------------------
+// Error handler global: nunca devolve err.message ao cliente.
+// Loga no servidor e responde mensagem genérica com id de correlação.
+// ----------------------------------------------------------------------------
+function correlationId(): string {
+  return randomBytes(8).toString('hex');
+}
+
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  const cid = correlationId();
+  console.error(`❌ [CORRELATION_ID=${cid}] ${err?.stack || err?.message || String(err)}`);
+  const status = err?.status || err?.statusCode || 500;
+  res.status(status).json({
+    success: false,
+    message: status === 500 ? 'Erro interno do servidor.' : err?.message || 'Erro ao processar a requisição.',
+    correlationId: cid,
+  });
+});
 
 // ----------------------------------------------------------------------------
 // Configuração do Pool de Conexões PostgreSQL & Migrações Automáticas
@@ -93,32 +194,7 @@ let isDbConnected = false;
 
 // Fallback in-memory store para contingência caso o banco Postgres esteja inicializando
 const memoryStore = {
-  users: [
-    {
-      id: 'user-iane-super-1',
-      username: 'tecnologia@iane.ind.br',
-      passwordHash: '$2b$10$fngkbVvcbicIlBm.BPw7TOEYDiwJEb7qyC.qFTgTxLDKMGEDm8bIW', // Iane@2026
-      fullName: 'TI IANE - Super Usuário',
-      email: 'tecnologia@iane.ind.br',
-      role: 'admin',
-      permissions: ['all', 'dashboard', 'dispositivos', 'dispositivos_edit', 'linhas', 'linhas_edit', 'colaboradores', 'colaboradores_edit', 'movimentacoes', 'solicitacoes', 'termos', 'relatorios', 'configuracoes', 'manage_users'],
-      active: true,
-      tokenVersion: 0,
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'user-iane-super-2',
-      username: 'tecnologia',
-      passwordHash: '$2b$10$fngkbVvcbicIlBm.BPw7TOEYDiwJEb7qyC.qFTgTxLDKMGEDm8bIW', // Iane@2026
-      fullName: 'TI IANE - Super Usuário',
-      email: 'tecnologia@iane.ind.br',
-      role: 'admin',
-      permissions: ['all', 'dashboard', 'dispositivos', 'dispositivos_edit', 'linhas', 'linhas_edit', 'colaboradores', 'colaboradores_edit', 'movimentacoes', 'solicitacoes', 'termos', 'relatorios', 'configuracoes', 'manage_users'],
-      active: true,
-      tokenVersion: 0,
-      createdAt: new Date().toISOString(),
-    }
-  ],
+  users: [] as any[],
   devices: [] as any[],
   lines: [] as any[],
   collaborators: [] as any[],
@@ -246,12 +322,16 @@ async function autoMigrateDatabase(client: pg.PoolClient) {
         permissions TEXT[] DEFAULT ARRAY['all']::TEXT[],
         active BOOLEAN DEFAULT TRUE,
         token_version INTEGER NOT NULL DEFAULT 0,
+        must_change_password BOOLEAN NOT NULL DEFAULT FALSE,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
     `);
     // Compatibilidade com bancos criados antes da revogação de sessão
     await client.query(
       `ALTER TABLE system_users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0;`
+    );
+    await client.query(
+      `ALTER TABLE system_users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE;`
     );
 
     // 7. Tabela de Auditoria
@@ -325,10 +405,15 @@ async function autoMigrateDatabase(client: pg.PoolClient) {
       `ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS sector VARCHAR(100)`,
       `ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS unit VARCHAR(100)`,
       `ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS data JSONB NOT NULL DEFAULT '{}'::jsonb`,
+      `ALTER TABLE collaborators ADD CONSTRAINT IF NOT EXISTS chk_collaborators_data_size CHECK (pg_column_size(data) < 65536)`,
       `ALTER TABLE phone_lines ADD COLUMN IF NOT EXISTS data JSONB NOT NULL DEFAULT '{}'::jsonb`,
+      `ALTER TABLE phone_lines ADD CONSTRAINT IF NOT EXISTS chk_phone_lines_data_size CHECK (pg_column_size(data) < 65536)`,
       `ALTER TABLE devices ADD COLUMN IF NOT EXISTS data JSONB NOT NULL DEFAULT '{}'::jsonb`,
+      `ALTER TABLE devices ADD CONSTRAINT IF NOT EXISTS chk_devices_data_size CHECK (pg_column_size(data) < 65536)`,
       `ALTER TABLE movements ADD COLUMN IF NOT EXISTS data JSONB NOT NULL DEFAULT '{}'::jsonb`,
+      `ALTER TABLE movements ADD CONSTRAINT IF NOT EXISTS chk_movements_data_size CHECK (pg_column_size(data) < 65536)`,
       `ALTER TABLE terms_documents ADD COLUMN IF NOT EXISTS data JSONB NOT NULL DEFAULT '{}'::jsonb`,
+      `ALTER TABLE terms_documents ADD CONSTRAINT IF NOT EXISTS chk_terms_data_size CHECK (pg_column_size(data) < 65536)`,
       `ALTER TABLE terms_documents ADD COLUMN IF NOT EXISTS file_data TEXT`,
       `ALTER TABLE devices ALTER COLUMN serial_number DROP NOT NULL`,
       `ALTER TABLE devices DROP CONSTRAINT IF EXISTS devices_serial_number_key`,
@@ -385,18 +470,33 @@ async function autoMigrateDatabase(client: pg.PoolClient) {
       console.log(`✅ [PostgreSQL] Setor migrado em ${sectorMigration.rowCount} colaborador(es) legado(s).`);
     }
 
-    // 8. Garante que os Super Usuários oficiais existam com senha bcrypt.
-    //    ON CONFLICT DO NOTHING: NUNCA sobrescreve a senha/permissões já alteradas pelo administrador.
-    const superAdminHash = '$2b$10$fngkbVvcbicIlBm.BPw7TOEYDiwJEb7qyC.qFTgTxLDKMGEDm8bIW'; // Iane@2026
-    const allPerms = ['all', 'dashboard', 'dispositivos', 'dispositivos_edit', 'linhas', 'linhas_edit', 'colaboradores', 'colaboradores_edit', 'movimentacoes', 'termos', 'relatorios', 'configuracoes', 'manage_users'];
+    // 8. Garante que exista ao menos um administrador se a tabela estiver vazia.
+    //    Usa INITIAL_ADMIN_USER / INITIAL_ADMIN_PASSWORD do ambiente. Se não houver,
+    //    gera uma senha aleatória, imprime uma única vez no log e marca must_change_password.
+    //    ON CONFLICT DO NOTHING: NUNCA sobrescreve usuários já cadastrados.
+    const adminCountRes = await client.query('SELECT COUNT(*) as cnt FROM system_users');
+    if (Number(adminCountRes.rows[0].cnt) === 0) {
+      const adminUsername = str(process.env.INITIAL_ADMIN_USER) || 'admin';
+      const adminPassword =
+        str(process.env.INITIAL_ADMIN_PASSWORD) || randomBytes(16).toString('hex');
+      const adminHash = await bcrypt.hash(adminPassword, 10);
+      const mustChange = !process.env.INITIAL_ADMIN_PASSWORD;
+      const allPerms = ['all', 'dashboard', 'dispositivos', 'dispositivos_edit', 'linhas', 'linhas_edit', 'colaboradores', 'colaboradores_edit', 'movimentacoes', 'solicitacoes', 'termos', 'relatorios', 'configuracoes', 'manage_users'];
 
-    await client.query(`
-      INSERT INTO system_users (id, username, password_hash, full_name, email, role, permissions, active)
-      VALUES 
-        ('user-iane-super-1', 'tecnologia@iane.ind.br', $1, 'TI IANE - Super Usuário', 'tecnologia@iane.ind.br', 'admin', $2, true),
-        ('user-iane-super-2', 'tecnologia', $1, 'TI IANE - Super Usuário', 'tecnologia@iane.ind.br', 'admin', $2, true)
-      ON CONFLICT DO NOTHING;
-    `, [superAdminHash, allPerms]);
+      await client.query(`
+        INSERT INTO system_users (id, username, password_hash, full_name, email, role, permissions, active, must_change_password)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        ON CONFLICT (username) DO NOTHING;
+      `, [`user-${Date.now()}`, adminUsername, adminHash, 'Administrador Inicial', `${adminUsername}@iane.ind.br`, 'admin', allPerms, true, mustChange]);
+
+      if (mustChange) {
+        console.log(
+          `🔑 [SEGURANÇA] Primeiro administrador criado (sem INITIAL_ADMIN_PASSWORD): usuário="${adminUsername}", senha="${adminPassword}". Altere esta senha no primeiro login.`
+        );
+      } else {
+        console.log(`✅ [SEGURANÇA] Primeiro administrador criado via INITIAL_ADMIN_USER: usuário="${adminUsername}".`);
+      }
+    }
 
     console.log('✅ [PostgreSQL] Todas as tabelas e migrações do sistema verificadas com sucesso!');
   } catch (err: any) {
@@ -582,7 +682,11 @@ function authenticateToken(req: Request, res: Response, next: NextFunction) {
 
   let decoded: any;
   try {
-    decoded = jwt.verify(token, EFFECTIVE_JWT_SECRET);
+    decoded = jwt.verify(token, EFFECTIVE_JWT_SECRET, {
+      algorithms: ['HS256'],
+      issuer: 'iane-devices',
+      audience: 'iane-devices-frontend',
+    });
   } catch {
     (req as any).user = null;
     return next();
@@ -778,6 +882,7 @@ app.get('/api/health', async (_req, res) => {
 
 // 2. Autenticação e Login Corporativo
 app.post('/api/auth/login', async (req, res) => {
+  const ip = clientIp(req);
   const { username, password } = req.body || {};
   const trimmedUser = (username || '').trim().toLowerCase();
   const trimmedPass = (password || '').trim();
@@ -786,104 +891,98 @@ app.post('/api/auth/login', async (req, res) => {
     return res.status(400).json({ success: false, message: 'Usuário e senha são obrigatórios.' });
   }
 
-  // Se o banco estiver conectado
+  // Rate limiting: bloqueia por IP e por usuário após N falhas.
+  const blocked = isLoginBlocked(ip, trimmedUser);
+  if (blocked.blocked) {
+    return res.status(429).json({
+      success: false,
+      message: 'Muitas tentativas de login. Tente novamente em instantes.',
+      retryAfter: Math.ceil(blocked.remainingMs / 1000),
+    });
+  }
+
+  // Hash falso para usuários que não existem: evita timing attack revelando se o usuário existe.
+  const dummyHash = '$2b$10$dummyhashfortimingattackprevention0000000000000000';
+
+  let dbUser: any = null;
+  let userFound = false;
+
   if (pool && isDbConnected) {
     try {
       const userRes = await pool.query(
         'SELECT id, username, password_hash, full_name as "fullName", email, role, permissions, active, token_version FROM system_users WHERE LOWER(username) = $1 OR LOWER(email) = $1',
         [trimmedUser]
       );
-
-      if (userRes.rows.length === 0) {
-        return res.status(401).json({ success: false, message: 'Usuário ou senha inválidos.' });
-      }
-
-      if (userRes.rows.length > 0) {
-        const dbUser = userRes.rows[0];
-        if (!dbUser.active) {
-          return res.status(403).json({ success: false, message: 'Usuário desativado pelo administrador.' });
-        }
-
-        // Verifica bcrypt
-        let isMatch = false;
-        if (dbUser.password_hash.startsWith('$2a$') || dbUser.password_hash.startsWith('$2b$')) {
-          isMatch = await bcrypt.compare(trimmedPass, dbUser.password_hash);
-        } else if (dbUser.password_hash === trimmedPass) {
-          // Migra senha legada de texto puro para bcrypt
-          isMatch = true;
-          const newHash = await bcrypt.hash(trimmedPass, 10);
-          await pool.query('UPDATE system_users SET password_hash = $1 WHERE id = $2', [newHash, dbUser.id]);
-        }
-
-        if (isMatch) {
-          const userPayload = {
-            id: dbUser.id,
-            username: dbUser.username,
-            fullName: dbUser.fullName,
-            email: dbUser.email,
-            role: dbUser.role,
-            permissions: dbUser.permissions || ['all'],
-          };
-
-          const token = jwt.sign(
-            { ...userPayload, tv: Number(dbUser.token_version ?? 0) },
-            EFFECTIVE_JWT_SECRET,
-            { expiresIn: JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'] }
-          );
-
-          return res.json({
-            success: true,
-            user: userPayload,
-            token,
-          });
-        } else {
-          return res.status(401).json({ success: false, message: 'Usuário ou senha inválidos.' });
-        }
-      }
-    } catch (e: any) {
-      console.warn('⚠️ [Auth] Erro ao consultar banco:', e.message);
+      userFound = userRes.rows.length > 0;
+      if (userFound) dbUser = userRes.rows[0];
+    } catch {
+      // Falha transitória: não revela detalhes.
       return res.status(503).json({
         success: false,
         message: 'Não foi possível validar as credenciais agora. Tente novamente em instantes.',
       });
     }
+  } else if (ALLOW_MEMORY_FALLBACK) {
+    const memUser = memoryStore.users.find(
+      (u) => (u.username.toLowerCase() === trimmedUser || u.email?.toLowerCase() === trimmedUser)
+    );
+    userFound = !!memUser;
+    if (memUser) dbUser = { ...memUser, password_hash: memUser.passwordHash, token_version: memUser.tokenVersion };
   }
 
-  // Fallback em memória: SOMENTE quando o banco está indisponível e o modo contingência foi autorizado.
-  if (!ALLOW_MEMORY_FALLBACK) {
-    return res.status(503).json({
-      success: false,
-      message: 'Banco de dados indisponível. Não é possível autenticar no momento.',
+  // Sempre executa bcrypt (mesmo para usuário inexistente) para evitar timing attack.
+  const hashToCompare = dbUser?.password_hash || dummyHash;
+  let isMatch = false;
+  try {
+    if (dbUser?.password_hash && (dbUser.password_hash.startsWith('$2a$') || dbUser.password_hash.startsWith('$2b$'))) {
+      isMatch = await bcrypt.compare(trimmedPass, dbUser.password_hash);
+    } else {
+      // Hash falso: sempre falha, mas gasta o mesmo tempo de bcrypt.
+      await bcrypt.compare(trimmedPass, dummyHash);
+    }
+  } catch {
+    isMatch = false;
+  }
+
+  // Remove bloqueio apenas se login for bem-sucedido.
+  if (isMatch && userFound) {
+    clearLoginFails(ip, trimmedUser);
+
+    if (!dbUser.active) {
+      // Conta desativada: mesma resposta genérica que senha errada (não revela se a conta existe).
+      registerLoginFail(ip, trimmedUser);
+      return res.status(401).json({ success: false, message: 'Usuário ou senha inválidos.' });
+    }
+
+    const userPayload = {
+      id: dbUser.id,
+      username: dbUser.username,
+      fullName: dbUser.fullName,
+      email: dbUser.email,
+      role: dbUser.role,
+      permissions: Array.isArray(dbUser.permissions) ? dbUser.permissions : ['all'],
+    };
+
+    const token = jwt.sign(
+      { ...userPayload, tv: Number(dbUser.token_version ?? 0) },
+      EFFECTIVE_JWT_SECRET,
+      {
+        expiresIn: JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'],
+        algorithm: 'HS256',
+        issuer: 'iane-devices',
+        audience: 'iane-devices-frontend',
+      }
+    );
+
+    return res.json({
+      success: true,
+      user: userPayload,
+      token,
     });
   }
 
-  const user = memoryStore.users.find(
-    (u) => (u.username.toLowerCase() === trimmedUser || u.email?.toLowerCase() === trimmedUser)
-  );
-
-  if (user) {
-    if (!user.active) {
-      return res.status(403).json({ success: false, message: 'Usuário desativado.' });
-    }
-    const isMatch = await bcrypt.compare(trimmedPass, user.passwordHash);
-    if (isMatch) {
-      const userPayload = {
-        id: user.id,
-        username: user.username,
-        fullName: user.fullName,
-        email: user.email,
-        role: user.role as any,
-        permissions: user.permissions,
-      };
-      const token = jwt.sign(
-        { ...userPayload, tv: user.tokenVersion || 0 },
-        EFFECTIVE_JWT_SECRET,
-        { expiresIn: JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'] }
-      );
-      return res.json({ success: true, user: userPayload, token });
-    }
-  }
-
+  // Falha de autenticação (usuário inexistente, senha errada ou conta desativada): mesma resposta.
+  registerLoginFail(ip, trimmedUser);
   return res.status(401).json({ success: false, message: 'Usuário ou senha inválidos.' });
 });
 
@@ -917,7 +1016,7 @@ app.get('/api/users', requirePermission('manage_users'), async (_req, res) => {
       `);
       return res.json({ success: true, data: result.rows });
     } catch (err: any) {
-      return res.status(500).json({ success: false, error: err.message });
+      throw err;
     }
   }
   // Fallback
@@ -927,17 +1026,65 @@ app.get('/api/users', requirePermission('manage_users'), async (_req, res) => {
 
 app.post('/api/users', requirePermission('manage_users'), async (req, res) => {
   const { username, fullName, email, password, role, permissions, active } = req.body || {};
+  const requester = (req as any).user;
 
   if (!username || !fullName || !password) {
     return res.status(400).json({ success: false, message: 'Nome, usuário e senha são obrigatórios.' });
   }
 
+  // Senha mínima: 12 caracteres.
+  if (String(password).trim().length < 12) {
+    return res.status(400).json({
+      success: false,
+      message: 'A senha deve ter no mínimo 12 caracteres.',
+    });
+  }
+
   const trimmedUsername = username.trim();
-  const passwordHash = await bcrypt.hash(password.trim(), 10);
   const id = `user-${Date.now()}`;
-  const userRole = role || 'operador';
-  const userPerms = Array.isArray(permissions) ? permissions : ['dashboard', 'dispositivos', 'linhas', 'colaboradores', 'solicitacoes'];
+
+  // Lista fixa de roles válidas.
+  const VALID_ROLES = ['admin', 'operador'];
+  // Lista conhecida de permissions válidas.
+  const VALID_PERMISSIONS = [
+    'all', 'dashboard', 'dispositivos', 'dispositivos_edit',
+    'linhas', 'linhas_edit', 'colaboradores', 'colaboradores_edit',
+    'movimentacoes', 'solicitacoes', 'termos', 'relatorios', 'configuracoes', 'manage_users',
+  ];
+
+  const userRole = (role || 'operador').toLowerCase();
+  if (!VALID_ROLES.includes(userRole)) {
+    return res.status(400).json({
+      success: false,
+      message: `Role inválida. Valores permitidos: ${VALID_ROLES.join(', ')}.`,
+    });
+  }
+
+  let userPerms: string[];
+  if (Array.isArray(permissions)) {
+    const invalidPerms = permissions.filter((p: string) => !VALID_PERMISSIONS.includes(p));
+    if (invalidPerms.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Permissão(ões) inválida(s): ${invalidPerms.join(', ')}.`,
+      });
+    }
+    userPerms = [...new Set(permissions)];
+  } else {
+    userPerms = ['dashboard', 'dispositivos', 'linhas', 'colaboradores', 'solicitacoes'];
+  }
+
+  // Somente role admin pode criar contas com role admin ou permissions de admin.
+  const isCreatingAdmin = userRole === 'admin' || userPerms.includes('manage_users') || userPerms.includes('all');
+  if (isCreatingAdmin && requester?.role !== 'admin') {
+    return res.status(403).json({
+      success: false,
+      message: 'Apenas administradores podem criar contas com role admin ou permissões de gestão.',
+    });
+  }
+
   const userActive = active !== undefined ? !!active : true;
+  const passwordHash = await bcrypt.hash(String(password).trim(), 10);
 
   if (pool && isDbConnected) {
     try {
@@ -955,7 +1102,10 @@ app.post('/api/users', requirePermission('manage_users'), async (req, res) => {
 
       return res.status(201).json({ success: true, data: result.rows[0], message: 'Usuário criado com sucesso.' });
     } catch (err: any) {
-      return res.status(500).json({ success: false, error: err.message });
+      if (err?.code === '23505') {
+        return res.status(409).json({ success: false, message: 'Este nome de usuário já está em uso.' });
+      }
+      throw err;
     }
   }
 
@@ -1035,6 +1185,92 @@ app.put('/api/users/:id', requirePermission('manage_users'), async (req, res) =>
         }
       }
 
+      const passwordChanged = Boolean(password && String(password).trim());
+      const roleChanged = role !== undefined && role !== currentUser.role;
+      const activeChanged = active !== undefined && Boolean(active) !== Boolean(currentUser.active);
+
+      // Lista fixa de roles válidas.
+      const VALID_ROLES = ['admin', 'operador'];
+      // Lista conhecida de permissions válidas.
+      const VALID_PERMISSIONS = [
+        'all', 'dashboard', 'dispositivos', 'dispositivos_edit',
+        'linhas', 'linhas_edit', 'colaboradores', 'colaboradores_edit',
+        'movimentacoes', 'solicitacoes', 'termos', 'relatorios', 'configuracoes', 'manage_users',
+      ];
+
+      if (role !== undefined) {
+        const newRole = String(role).toLowerCase();
+        if (!VALID_ROLES.includes(newRole)) {
+          return res.status(400).json({
+            success: false,
+            message: `Role inválida. Valores permitidos: ${VALID_ROLES.join(', ')}.`,
+          });
+        }
+        // Somente admin pode alterar role de contas admin.
+        if (currentUser.role === 'admin' && newRole === 'admin' && (req as any).user?.role !== 'admin') {
+          return res.status(403).json({
+            success: false,
+            message: 'Apenas administradores podem definir o role admin em contas.',
+          });
+        }
+      }
+
+      if (permissions !== undefined) {
+        if (!Array.isArray(permissions)) {
+          return res.status(400).json({ success: false, message: 'Permissions deve ser uma lista.' });
+        }
+        const invalidPerms = permissions.filter((p: string) => !VALID_PERMISSIONS.includes(p));
+        if (invalidPerms.length > 0) {
+          return res.status(400).json({
+            success: false,
+            message: `Permissão(ões) inválida(s): ${invalidPerms.join(', ')}.`,
+          });
+        }
+        // Somente admin pode atribuir permissions de admin a contas admin.
+        const targetIsAdmin = currentUser.role === 'admin';
+        const hasAdminPerms = permissions.includes('manage_users') || permissions.includes('all');
+        if (targetIsAdmin && hasAdminPerms && (req as any).user?.role !== 'admin') {
+          return res.status(403).json({
+            success: false,
+            message: 'Apenas administradores podem atribuir permissões de gestão a contas admin.',
+          });
+        }
+      }
+
+      if (passwordChanged) {
+        if (String(password).trim().length < 12) {
+          return res.status(400).json({
+            success: false,
+            message: 'A senha deve ter no mínimo 12 caracteres.',
+          });
+        }
+        // Somente admin pode alterar senha de contas admin.
+        if (currentUser.role === 'admin' && (req as any).user?.role !== 'admin') {
+          return res.status(403).json({
+            success: false,
+            message: 'Apenas administradores podem alterar a senha de contas admin.',
+          });
+        }
+      }
+
+      // Impede rebaixar ou desativar o último administrador ativo.
+      const willCeaseToBeAdmin =
+        currentUser.role === 'admin' &&
+        currentUser.active === true &&
+        ((roleChanged && role !== 'admin') || (activeChanged && !active));
+      if (willCeaseToBeAdmin) {
+        const remainingAdmins = await pool.query(
+          "SELECT COUNT(*) as cnt FROM system_users WHERE role = 'admin' AND active = true AND id <> $1",
+          [id]
+        );
+        if (Number(remainingAdmins.rows[0].cnt) === 0) {
+          return res.status(403).json({
+            success: false,
+            message: 'Não é possível rebaixar ou desativar o último administrador ativo. Cadastre outro administrador antes.',
+          });
+        }
+      }
+
       const fields: string[] = [];
       const values: any[] = [];
       const setField = (column: string, value: any) => {
@@ -1042,9 +1278,6 @@ app.put('/api/users/:id', requirePermission('manage_users'), async (req, res) =>
         fields.push(`${column} = $${values.length}`);
       };
 
-      const passwordChanged = Boolean(password && String(password).trim());
-      const roleChanged = role !== undefined && role !== currentUser.role;
-      const activeChanged = active !== undefined && Boolean(active) !== Boolean(currentUser.active);
       const currentPermissions = Array.isArray(currentUser.permissions) ? currentUser.permissions : [];
       const permissionsChanged =
         permissions !== undefined &&
@@ -1087,7 +1320,7 @@ app.put('/api/users/:id', requirePermission('manage_users'), async (req, res) =>
       if (err?.code === '23505') {
         return res.status(409).json({ success: false, message: 'Este nome de usuário já está em uso por outro operador.' });
       }
-      return res.status(500).json({ success: false, error: err.message });
+      throw err;
     }
   }
 
@@ -1117,6 +1350,85 @@ app.put('/api/users/:id', requirePermission('manage_users'), async (req, res) =>
   const passwordChanged = Boolean(password && String(password).trim());
   const roleChanged = role !== undefined && role !== user.role;
   const activeChanged = active !== undefined && Boolean(active) !== Boolean(user.active);
+
+  // Lista fixa de roles válidas.
+  const VALID_ROLES = ['admin', 'operador'];
+  // Lista conhecida de permissions válidas.
+  const VALID_PERMISSIONS = [
+    'all', 'dashboard', 'dispositivos', 'dispositivos_edit',
+    'linhas', 'linhas_edit', 'colaboradores', 'colaboradores_edit',
+    'movimentacoes', 'solicitacoes', 'termos', 'relatorios', 'configuracoes', 'manage_users',
+  ];
+
+  if (role !== undefined) {
+    const newRole = String(role).toLowerCase();
+    if (!VALID_ROLES.includes(newRole)) {
+      return res.status(400).json({
+        success: false,
+        message: `Role inválida. Valores permitidos: ${VALID_ROLES.join(', ')}.`,
+      });
+    }
+    if (user.role === 'admin' && newRole === 'admin' && (req as any).user?.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Apenas administradores podem definir o role admin em contas.',
+      });
+    }
+  }
+
+  if (permissions !== undefined) {
+    if (!Array.isArray(permissions)) {
+      return res.status(400).json({ success: false, message: 'Permissions deve ser uma lista.' });
+    }
+    const invalidPerms = permissions.filter((p: string) => !VALID_PERMISSIONS.includes(p));
+    if (invalidPerms.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Permissão(ões) inválida(s): ${invalidPerms.join(', ')}.`,
+      });
+    }
+    const targetIsAdmin = user.role === 'admin';
+    const hasAdminPerms = permissions.includes('manage_users') || permissions.includes('all');
+    if (targetIsAdmin && hasAdminPerms && (req as any).user?.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Apenas administradores podem atribuir permissões de gestão a contas admin.',
+      });
+    }
+  }
+
+  if (passwordChanged) {
+    if (String(password).trim().length < 12) {
+      return res.status(400).json({
+        success: false,
+        message: 'A senha deve ter no mínimo 12 caracteres.',
+      });
+    }
+    if (user.role === 'admin' && (req as any).user?.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Apenas administradores podem alterar a senha de contas admin.',
+      });
+    }
+  }
+
+  // Impede rebaixar ou desativar o último administrador ativo (fallback em memória).
+  const willCeaseToBeAdminFallback =
+    user.role === 'admin' &&
+    user.active === true &&
+    ((roleChanged && role !== 'admin') || (activeChanged && !active));
+  if (willCeaseToBeAdminFallback) {
+    const remainingAdmins = memoryStore.users.filter(
+      u => u.id !== id && u.role === 'admin' && u.active === true
+    ).length;
+    if (remainingAdmins === 0) {
+      return res.status(403).json({
+        success: false,
+        message: 'Não é possível rebaixar ou desativar o último administrador ativo. Cadastre outro administrador antes.',
+      });
+    }
+  }
+
   const permissionsChanged =
     permissions !== undefined &&
     JSON.stringify([...permissions].sort()) !== JSON.stringify([...(user.permissions || [])].sort());
@@ -1139,22 +1451,51 @@ app.put('/api/users/:id', requirePermission('manage_users'), async (req, res) =>
 app.delete('/api/users/:id', requirePermission('manage_users'), async (req, res) => {
   const { id } = req.params;
 
-  if (id === 'user-iane-super-1' || id === 'user-iane-super-2') {
-    return res.status(403).json({ success: false, message: 'O Super Administrador principal da IANE não pode ser excluído.' });
-  }
-
   if (pool && isDbConnected) {
     try {
+      // Impede remover o último administrador ativo.
+      const target = await pool.query('SELECT role, active FROM system_users WHERE id = $1', [id]);
+      if (target.rows.length === 0) {
+        return res.status(404).json({ success: false, message: 'Usuário não encontrado.' });
+      }
+      const isLastAdmin =
+        target.rows[0].role === 'admin' &&
+        target.rows[0].active === true &&
+        (await pool.query(
+          "SELECT COUNT(*) as cnt FROM system_users WHERE role = 'admin' AND active = true AND id <> $1",
+          [id]
+        )).rows[0].cnt === '0';
+
+      if (isLastAdmin) {
+        return res.status(403).json({
+          success: false,
+          message: 'Não é possível excluir o último administrador ativo. Cadastre outro administrador antes.',
+        });
+      }
+
       await pool.query('DELETE FROM system_users WHERE id = $1', [id]);
       return res.json({ success: true, message: 'Usuário excluído com sucesso.' });
     } catch (err: any) {
-      return res.status(500).json({ success: false, error: err.message });
+      throw err;
     }
   }
 
   // Fallback
   const idx = memoryStore.users.findIndex(u => u.id === id);
-  if (idx !== -1) memoryStore.users.splice(idx, 1);
+  if (idx === -1) return res.status(404).json({ success: false, message: 'Usuário não encontrado.' });
+  const target = memoryStore.users[idx];
+  const isLastAdmin =
+    target.role === 'admin' &&
+    target.active === true &&
+    memoryStore.users.filter(u => u.id !== id && u.role === 'admin' && u.active === true).length === 0;
+
+  if (isLastAdmin) {
+    return res.status(403).json({
+      success: false,
+      message: 'Não é possível excluir o último administrador ativo. Cadastre outro administrador antes.',
+    });
+  }
+  memoryStore.users.splice(idx, 1);
   res.json({ success: true, message: 'Usuário excluído com sucesso.' });
 });
 
@@ -1187,6 +1528,135 @@ const todayISO = (date: Date = new Date()) => {
   return `${y}-${m}-${d}`;
 };
 const withId = (body: any, prefix: string) => ({ ...(body || {}), id: body?.id || `${prefix}-${Date.now()}` });
+
+// ----------------------------------------------------------------------------
+// Validação de corpo JSON / JSONB (equivalente a Zod com allowlist de chaves)
+// Não há dependência de zod; validação nativa implementada aqui.
+// Regras:
+//   1. Allowlist de chaves por entidade (chaves desconhecidas → 400).
+//   2. Bloqueia chaves perigosas: __proto__, constructor, prototype.
+//   3. Limita profundidade de aninhamento a 10 níveis.
+//   4. Limita strings a 5 MB (5 * 1024 * 1024 bytes).
+//   5. Bloqueia strings contendo <script (XSS) → 400.
+// ----------------------------------------------------------------------------
+const MAX_JSON_DEPTH = 10;
+const MAX_STRING_BYTES = 5 * 1024 * 1024; // 5 MB
+const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+const SCRIPT_PATTERN = /<script\b/i;
+
+// Allowlist de chaves permitidas por entidade (chaves do JSONB "data").
+const JSON_ALLOWLIST: Record<string, Set<string>> = {
+  devices: new Set([
+    'assetTag','brand','model','serialNumber','purchaseDate','purchaseValue',
+    'condition','status','sector','unit','currentDepartment','currentCollaboratorId',
+    'currentLineId','associatedLineId','associatedPhoneNumber','stockCustodyNotes',
+    'imei1','imei2','notes',
+  ]),
+  lines: new Set([
+    'phoneNumber','carrier','accountNumber','planName','monthlyCost','status',
+    'currentDeviceId','currentCollaboratorId','associatedDeviceId','associatedDeviceTag',
+    'associatedDeviceModel','department','unit','notes',
+  ]),
+  collaborators: new Set([
+    'fullName','registrationNumber','department','sector','unit','position',
+    'corporateEmail','contactPhone','cpf','status','notes',
+  ]),
+  movements: newSetLike([
+    'flowType','deviceId','deviceTag','deviceModel','deviceImei','originCollaboratorId',
+    'originCollaboratorName','destinationCollaboratorId','destinationCollaboratorName',
+    'movementType','movementDate','operatorName','conditionAtMovement','accessoriesReturned',
+    'reason','stockTransit','accessoriesIncluded',
+  ]),
+  terms: new Set([
+    'code','type','collaboratorId','collaboratorName','deviceId','deviceTag','deviceModel',
+    'phoneNumber','date','status','fileName','notes','accessoriesList','clauses',
+  ]),
+  catalogs: new Set(['name', 'id']),
+};
+
+// Helper para o allowlist de movements (evita duplicação de Set literal)
+function newSetLike(items: string[]): Set<string> {
+  return new Set(items);
+}
+
+function validateJsonDepth(value: any, depth: number = 0): void {
+  if (depth > MAX_JSON_DEPTH) {
+    const err: any = new Error(`Objeto JSON excede profundidade máxima de ${MAX_JSON_DEPTH} níveis.`);
+    err.status = 400;
+    throw err;
+  }
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    for (const [k, v] of Object.entries(value)) {
+      if (DANGEROUS_KEYS.has(k)) {
+        const err: any = new Error(`Chave JSON não permitida: "${k}".`);
+        err.status = 400;
+        throw err;
+      }
+      if (typeof v === 'string') {
+        const byteLen = Buffer.byteLength(v, 'utf8');
+        if (byteLen > MAX_STRING_BYTES) {
+          const err: any = new Error(`String excede 5 MB (${byteLen} bytes).`);
+          err.status = 413;
+          throw err;
+        }
+        if (SCRIPT_PATTERN.test(v)) {
+          const err: any = new Error('String contém tag <script> não permitida.');
+          err.status = 400;
+          throw err;
+        }
+      }
+      validateJsonDepth(v, depth + 1);
+    }
+  } else if (Array.isArray(value)) {
+    for (const item of value) validateJsonDepth(item, depth + 1);
+  }
+}
+
+function validateJsonBody(entity: string, body: any): void {
+  const allowed = JSON_ALLOWLIST[entity];
+  if (!allowed) return; // entidade sem allowlist: não valida chaves
+
+  const data = body.data || {};
+  if (data && typeof data === 'object') {
+    for (const k of Object.keys(data)) {
+      if (!allowed.has(k)) {
+        const err: any = new Error(`Chave não permitida no JSONB de ${entity}: "${k}".`);
+        err.status = 400;
+        throw err;
+      }
+    }
+    validateJsonDepth(data);
+  }
+
+  // Valida também campos de string de nível superior do corpo (ex.: notes, reason)
+  for (const [k, v] of Object.entries(body)) {
+    if (typeof v === 'string') {
+      const byteLen = Buffer.byteLength(v, 'utf8');
+      if (byteLen > MAX_STRING_BYTES) {
+        const err: any = new Error(`Campo "${k}" excede 5 MB (${byteLen} bytes).`);
+        err.status = 413;
+        throw err;
+      }
+      if (SCRIPT_PATTERN.test(v)) {
+        const err: any = new Error(`Campo "${k}" contém tag <script> não permitida.`);
+        err.status = 400;
+        throw err;
+      }
+    }
+  }
+}
+
+// Middleware de validação JSONB por entidade.
+function jsonBodyValidator(entity: string) {
+  return (req: any, _res: any, next: any) => {
+    try {
+      validateJsonBody(entity, req.body || {});
+      next();
+    } catch (err: any) {
+      next(err);
+    }
+  };
+}
 
 // Junta o objeto completo (JSONB) com as colunas relacionais; coluna preenchida prevalece
 function mergeRow(row: any): any {
@@ -1648,7 +2118,7 @@ app.get('/api/catalogs', requireReadAccess, route(async (_req, res) => {
   return res.json({ success: true, data: memoryStore.catalogs });
 }));
 
-app.put('/api/catalogs/:type', requirePermission('configuracoes'), route(async (req, res) => {
+app.put('/api/catalogs/:type', jsonBodyValidator('catalogs'), requirePermission('configuracoes'), route(async (req, res) => {
   const type = req.params.type as CatalogType;
   if (!CATALOG_TYPES.includes(type)) throw new HttpError(404, 'Lista de cadastro não encontrada.');
   const rawItems = req.body?.items;
@@ -1773,7 +2243,7 @@ app.get('/api/devices', requireReadAccess, route(async (_req, res) => {
   res.json({ success: true, data: memoryStore.devices });
 }));
 
-app.post('/api/devices', requirePermission('dispositivos_edit'), route(async (req, res) => {
+app.post('/api/devices', jsonBodyValidator('devices'), requirePermission('dispositivos_edit'), route(async (req, res) => {
   const d = withId(req.body, 'dev');
 
   if (pool && isDbConnected) {
@@ -1802,7 +2272,7 @@ app.delete('/api/devices/:id', requirePermission('dispositivos_edit'), async (re
       await pool.query('DELETE FROM devices WHERE id = $1', [id]);
       return res.json({ success: true, message: 'Dispositivo excluído.' });
     } catch (err: any) {
-      return res.status(500).json({ success: false, error: err.message });
+      throw err;
     }
   }
   memoryStore.devices = memoryStore.devices.filter(d => d.id !== id);
@@ -1833,7 +2303,7 @@ app.get('/api/lines', requireReadAccess, route(async (_req, res) => {
   res.json({ success: true, data: memoryStore.lines });
 }));
 
-app.post('/api/lines', requirePermission('linhas_edit'), route(async (req, res) => {
+app.post('/api/lines', jsonBodyValidator('lines'), requirePermission('linhas_edit'), route(async (req, res) => {
   const l = withId(req.body, 'line');
 
   if (pool && isDbConnected) {
@@ -1858,7 +2328,7 @@ app.delete('/api/lines/:id', requirePermission('linhas_edit'), async (req, res) 
       await pool.query('DELETE FROM phone_lines WHERE id = $1', [id]);
       return res.json({ success: true, message: 'Linha excluída.' });
     } catch (err: any) {
-      return res.status(500).json({ success: false, error: err.message });
+      throw err;
     }
   }
   memoryStore.lines = memoryStore.lines.filter(l => l.id !== id);
@@ -1885,7 +2355,7 @@ app.get('/api/collaborators', requireReadAccess, route(async (_req, res) => {
   res.json({ success: true, data: memoryStore.collaborators });
 }));
 
-app.post('/api/collaborators', requirePermission('colaboradores_edit'), route(async (req, res) => {
+app.post('/api/collaborators', jsonBodyValidator('collaborators'), requirePermission('colaboradores_edit'), route(async (req, res) => {
   const c = withId(req.body, 'col');
 
   if (pool && isDbConnected) {
@@ -1910,7 +2380,7 @@ app.delete('/api/collaborators/:id', requirePermission('colaboradores_edit'), as
       await pool.query('DELETE FROM collaborators WHERE id = $1', [id]);
       return res.json({ success: true, message: 'Colaborador excluído.' });
     } catch (err: any) {
-      return res.status(500).json({ success: false, error: err.message });
+      throw err;
     }
   }
   memoryStore.collaborators = memoryStore.collaborators.filter(c => c.id !== id);
@@ -2342,7 +2812,7 @@ app.get('/api/movements', requireReadAccess, route(async (_req, res) => {
   res.json({ success: true, data: memoryStore.movements });
 }));
 
-app.post('/api/movements', requirePermission('movimentacoes'), route(async (req, res) => {
+app.post('/api/movements', jsonBodyValidator('movements'), requirePermission('movimentacoes'), route(async (req, res) => {
   const m = withId(req.body, 'mov');
 
   if (pool && isDbConnected) {
@@ -2461,7 +2931,7 @@ app.post('/api/movements/transfer', requirePermission('movimentacoes'), async (r
     });
   } catch (err: any) {
     await client.query('ROLLBACK');
-    res.status(500).json({ success: false, error: err.message });
+    throw err;
   } finally {
     client.release();
   }
@@ -2516,7 +2986,7 @@ function readPdfBase64(input: any): string | null {
   return base64;
 }
 
-app.post('/api/terms', requirePermission('termos'), route(async (req, res) => {
+app.post('/api/terms', jsonParserLarge, jsonBodyValidator('terms'), requirePermission('termos'), route(async (req, res) => {
   const body = req.body || {};
   const fileData = body.fileData ? readPdfBase64(body.fileData) : null;
   const t = withId(body, 'term');
@@ -2631,7 +3101,7 @@ app.post('/api/audit-logs', route(async (req, res) => {
 // 11. Sincronização em Lote (Upload Completo do LocalStorage para o PostgreSQL)
 // Parâmetro opcional "mode": 'overwrite' (padrão) regrava registros existentes; 'insert-missing' só insere os que ainda não existem no banco.
 // Cada registro é gravado em um SAVEPOINT próprio: um registro inválido NÃO derruba o lote inteiro; ele volta em "rejected" com o motivo.
-app.post('/api/sync/batch-upload', route(async (req, res) => {
+app.post('/api/sync/batch-upload', jsonBodyValidator('movements'), route(async (req, res) => {
   const { devices, lines, collaborators, movements, terms, auditLogs, mode } = req.body || {};
   const overwrite = mode !== 'insert-missing';
 
@@ -2777,7 +3247,7 @@ app.post('/api/database/reset', async (req, res) => {
       return res.json({ success: true, message: 'Base de dados PostgreSQL zerada com sucesso.' });
     } catch (err: any) {
       await client.query('ROLLBACK');
-      return res.status(500).json({ success: false, error: err.message });
+      throw err;
     } finally {
       client.release();
     }
@@ -2873,6 +3343,36 @@ async function startServer(): Promise<import('http').Server> {
   return new Promise((resolve) => {
     const server = app.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 [IANE - Gestão de Dispositivos] Servidor ativo em http://0.0.0.0:${PORT}`);
+
+      // Modo contingência sem banco: garante ao menos um admin na memória.
+      if (ALLOW_MEMORY_FALLBACK && memoryStore.users.length === 0) {
+        const adminUsername = str(process.env.INITIAL_ADMIN_USER) || 'admin';
+        const adminPassword =
+          str(process.env.INITIAL_ADMIN_PASSWORD) || randomBytes(16).toString('hex');
+        const mustChange = !process.env.INITIAL_ADMIN_PASSWORD;
+        const allPerms = ['all', 'dashboard', 'dispositivos', 'dispositivos_edit', 'linhas', 'linhas_edit', 'colaboradores', 'colaboradores_edit', 'movimentacoes', 'solicitacoes', 'termos', 'relatorios', 'configuracoes', 'manage_users'];
+        memoryStore.users.push({
+          id: `user-${Date.now()}`,
+          username: adminUsername,
+          passwordHash: bcrypt.hashSync(adminPassword, 10),
+          fullName: 'Administrador Inicial',
+          email: `${adminUsername}@iane.ind.br`,
+          role: 'admin',
+          permissions: allPerms,
+          active: true,
+          tokenVersion: 0,
+          mustChangePassword: mustChange,
+          createdAt: new Date().toISOString(),
+        });
+        if (mustChange) {
+          console.log(
+            `🔑 [SEGURANÇA] Primeiro administrador criado em memória (sem INITIAL_ADMIN_PASSWORD): usuário="${adminUsername}", senha="${adminPassword}". Altere esta senha no primeiro login.`
+          );
+        } else {
+          console.log(`✅ [SEGURANÇA] Primeiro administrador criado em memória via INITIAL_ADMIN_USER: usuário="${adminUsername}".`);
+        }
+      }
+
       resolve(server);
     });
   });
