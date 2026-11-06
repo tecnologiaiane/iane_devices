@@ -406,15 +406,10 @@ async function autoMigrateDatabase(client: pg.PoolClient) {
       `ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS sector VARCHAR(100)`,
       `ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS unit VARCHAR(100)`,
       `ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS data JSONB NOT NULL DEFAULT '{}'::jsonb`,
-      `ALTER TABLE collaborators ADD CONSTRAINT IF NOT EXISTS chk_collaborators_data_size CHECK (pg_column_size(data) < 65536)`,
       `ALTER TABLE phone_lines ADD COLUMN IF NOT EXISTS data JSONB NOT NULL DEFAULT '{}'::jsonb`,
-      `ALTER TABLE phone_lines ADD CONSTRAINT IF NOT EXISTS chk_phone_lines_data_size CHECK (pg_column_size(data) < 65536)`,
       `ALTER TABLE devices ADD COLUMN IF NOT EXISTS data JSONB NOT NULL DEFAULT '{}'::jsonb`,
-      `ALTER TABLE devices ADD CONSTRAINT IF NOT EXISTS chk_devices_data_size CHECK (pg_column_size(data) < 65536)`,
       `ALTER TABLE movements ADD COLUMN IF NOT EXISTS data JSONB NOT NULL DEFAULT '{}'::jsonb`,
-      `ALTER TABLE movements ADD CONSTRAINT IF NOT EXISTS chk_movements_data_size CHECK (pg_column_size(data) < 65536)`,
       `ALTER TABLE terms_documents ADD COLUMN IF NOT EXISTS data JSONB NOT NULL DEFAULT '{}'::jsonb`,
-      `ALTER TABLE terms_documents ADD CONSTRAINT IF NOT EXISTS chk_terms_data_size CHECK (pg_column_size(data) < 65536)`,
       `ALTER TABLE terms_documents ADD COLUMN IF NOT EXISTS file_data TEXT`,
       `ALTER TABLE devices ALTER COLUMN serial_number DROP NOT NULL`,
       `ALTER TABLE devices DROP CONSTRAINT IF EXISTS devices_serial_number_key`,
@@ -433,6 +428,31 @@ async function autoMigrateDatabase(client: pg.PoolClient) {
         await client.query(stmt);
       } catch (e: any) {
         console.warn(`⚠️ [PostgreSQL] Ajuste de schema ignorado (${e.message}): ${stmt}`);
+      }
+    }
+
+    // O PostgreSQL não aceita "ADD CONSTRAINT IF NOT EXISTS" (sintaxe inválida).
+    // Consulta o catálogo antes de criar, mantendo a migração idempotente.
+    const dataSizeChecks: Array<[table: string, constraint: string]> = [
+      ['collaborators', 'chk_collaborators_data_size'],
+      ['phone_lines', 'chk_phone_lines_data_size'],
+      ['devices', 'chk_devices_data_size'],
+      ['movements', 'chk_movements_data_size'],
+      ['terms_documents', 'chk_terms_data_size'],
+    ];
+    for (const [table, constraint] of dataSizeChecks) {
+      try {
+        const exists = await client.query(
+          `SELECT 1 FROM pg_constraint WHERE conname = $1 AND conrelid = $2::regclass`,
+          [constraint, table]
+        );
+        if (exists.rowCount === 0) {
+          await client.query(
+            `ALTER TABLE ${table} ADD CONSTRAINT ${constraint} CHECK (pg_column_size(data) < 65536)`
+          );
+        }
+      } catch (e: any) {
+        console.warn(`⚠️ [PostgreSQL] Ajuste de schema ignorado (${e.message}): ${constraint}`);
       }
     }
 
