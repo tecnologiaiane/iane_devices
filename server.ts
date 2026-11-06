@@ -563,40 +563,108 @@ async function createDatabaseBackup(origin: BackupOrigin): Promise<BackupFileInf
   }
 
   backupInProgress = true;
-  try {
-    const tables: Record<string, unknown[]> = {};
-    for (const table of BACKUP_TABLES) {
-      const result = await pool.query(`SELECT * FROM ${table}`);
-      tables[table] = result.rows;
-    }
+  const createdAt = new Date().toISOString();
+  const stamp = createdAt.replace(/[:.]/g, '-');
+  const fileName = `iane-backup-${origin}-${stamp}.json`;
+  const fullPath = path.join(BACKUP_DIR, fileName);
+  const tempPath = `${fullPath}.tmp`;
 
-    const createdAt = new Date().toISOString();
-    const stamp = createdAt.replace(/[:.]/g, '-');
-    const fileName = `iane-backup-${origin}-${stamp}.json`;
-    const payload = {
-      format: 'iane-postgres-backup',
-      version: 1,
-      createdAt,
-      origin,
-      tables,
+  try {
+    await fs.mkdir(BACKUP_DIR, { recursive: true });
+    const handle = await fs.open(tempPath, 'w');
+    let bytes = 0;
+
+    // O backup é gravado em blocos. A versão anterior carregava todas as tabelas
+    // (incluindo PDFs em base64 de terms_documents) e montava um único JSON em
+    // memória, o que estourava o heap do container (mem_limit: 512m) e derrubava
+    // a aplicação durante o backup automático.
+    const write = async (chunk: string) => {
+      if (!chunk) return;
+      const buffer = Buffer.from(chunk, 'utf8');
+      let offset = 0;
+      while (offset < buffer.length) {
+        const { bytesWritten } = await handle.write(buffer, offset, buffer.length - offset);
+        offset += bytesWritten;
+      }
+      bytes += buffer.length;
     };
 
-    await fs.mkdir(BACKUP_DIR, { recursive: true });
-    const fullPath = path.join(BACKUP_DIR, fileName);
-    const tempPath = `${fullPath}.tmp`;
-    const serialized = JSON.stringify(payload);
-    await fs.writeFile(tempPath, serialized, 'utf8');
+    try {
+      await write(
+        `{"format":"iane-postgres-backup","version":1,"createdAt":${JSON.stringify(createdAt)},"origin":${JSON.stringify(origin)},"tables":{`
+      );
+
+      let firstTable = true;
+      for (const table of BACKUP_TABLES) {
+        if (!firstTable) await write(',');
+        firstTable = false;
+        await write(`${JSON.stringify(table)}:[`);
+
+        // terms_documents guarda PDFs em base64: uma linha por consulta evita
+        // carregar vários anexos grandes de uma vez. As demais tabelas usam
+        // paginação por chave para manter o uso de memória constante.
+        const batchSize = table === 'terms_documents' ? 1 : 500;
+        let lastId: string | null = null;
+        let firstRow = true;
+        let buffer = '';
+
+        const flush = async () => {
+          if (!buffer) return;
+          const chunk = buffer;
+          buffer = '';
+          await write(chunk);
+        };
+
+        for (;;) {
+          const result: { rows: any[] } =
+            lastId === null
+              ? await pool.query(`SELECT * FROM ${table} ORDER BY id ASC LIMIT $1`, [batchSize])
+              : await pool.query(
+                  `SELECT * FROM ${table} WHERE id > $1 ORDER BY id ASC LIMIT $2`,
+                  [lastId, batchSize]
+                );
+
+          if (result.rows.length === 0) break;
+
+          for (const row of result.rows) {
+            const serializedRow = `${firstRow ? '' : ','}${JSON.stringify(row)}`;
+            firstRow = false;
+            if (serializedRow.length >= 1024 * 1024) {
+              await flush();
+              await write(serializedRow);
+            } else {
+              buffer += serializedRow;
+              if (buffer.length >= 1024 * 1024) await flush();
+            }
+          }
+
+          lastId = String(result.rows[result.rows.length - 1].id);
+          if (result.rows.length < batchSize) break;
+        }
+
+        await flush();
+        await write(']');
+      }
+
+      await write('}}');
+    } finally {
+      await handle.close();
+    }
+
     await fs.rename(tempPath, fullPath);
 
     await pruneOldBackups();
-    console.log(`💾 [Backup] Cópia ${origin} criada: ${fileName} (${serialized.length} bytes)`);
+    console.log(`💾 [Backup] Cópia ${origin} criada: ${fileName} (${bytes} bytes)`);
 
     return {
       fileName,
       createdAt,
-      size: Buffer.byteLength(serialized, 'utf8'),
+      size: bytes,
       origin,
     };
+  } catch (err) {
+    await fs.unlink(tempPath).catch(() => undefined);
+    throw err;
   } finally {
     backupInProgress = false;
   }
