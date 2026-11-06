@@ -705,15 +705,50 @@ function startBackupScheduler(): void {
   );
 }
 
+async function runMigrations(): Promise<void> {
+  const adminUrl = process.env.DATABASE_ADMIN_URL;
+
+  // Migrações exigem DDL (CREATE/ALTER) e ownership das tabelas. O usuário de
+  // aplicação (iane_app) tem apenas DML por princípio do menor privilégio, então
+  // usamos uma conexão administrativa exclusiva para a automigração, quando
+  // DATABASE_ADMIN_URL estiver definida.
+  if (adminUrl) {
+    const adminPool = new Pool({
+      connectionString: adminUrl,
+      connectionTimeoutMillis: 5000,
+      max: 1,
+    });
+    try {
+      const client = await adminPool.connect();
+      try {
+        await autoMigrateDatabase(client);
+      } finally {
+        client.release();
+      }
+      return;
+    } catch (err: any) {
+      console.warn(
+        '⚠️ [PostgreSQL] Falha ao migrar com DATABASE_ADMIN_URL; tentando com a conexão da aplicação:',
+        err?.message || err
+      );
+    } finally {
+      await adminPool.end().catch(() => undefined);
+    }
+  }
+
+  if (!pool) return;
+  const client = await pool.connect();
+  try {
+    await autoMigrateDatabase(client);
+  } finally {
+    client.release();
+  }
+}
+
 async function connectDatabase(attempt = 1): Promise<void> {
   if (!pool) return;
   try {
-    const client = await pool.connect();
-    try {
-      await autoMigrateDatabase(client);
-    } finally {
-      client.release();
-    }
+    await runMigrations();
     isDbConnected = true;
     console.log('✅ [PostgreSQL] Conexão com o banco de dados corporativo estabelecida com sucesso!');
     startBackupScheduler();

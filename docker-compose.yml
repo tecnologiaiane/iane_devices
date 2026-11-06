@@ -54,6 +54,10 @@ services:
       # Usuário de aplicação (princípio do menor privilégio). iane_admin é usado
       # apenas para administração; o app se conecta como iane_app.
       DATABASE_URL: "${DATABASE_URL:?Defina DATABASE_URL no arquivo .env}"
+      # Conexão administrativa usada apenas pela automigração (DDL). O app roda
+      # as consultas do dia a dia como iane_app (menor privilégio). Por padrão é
+      # montada com POSTGRES_PASSWORD; pode ser sobrescrita no .env.
+      DATABASE_ADMIN_URL: "${DATABASE_ADMIN_URL:-postgresql://iane_admin:${POSTGRES_PASSWORD}@postgres:5432/telecom_assets}"
       # Em produção, NUNCA habilite o modo memória: ele não persiste dados.
       ALLOW_MEMORY_FALLBACK: ${ALLOW_MEMORY_FALLBACK:-false}
       # Backup automático: intervalo em horas, cópias mantidas e pasta persistida no host.

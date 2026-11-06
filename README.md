@@ -112,7 +112,8 @@ Cada aba possui URL própria (navegação direta e recarregamento funcionam no s
 | --- | --- |
 | `JWT_SECRET` | **Obrigatória em produção.** Segredo longo e aleatório para assinar os tokens (ex.: `openssl rand -hex 48`). Sem ela, o servidor gera um segredo efêmero e as sessões caem a cada reinício. |
 | `JWT_EXPIRES_IN` | Validade da sessão. Padrão `12h` (ex.: `8h`, `1d`). |
-| `DATABASE_URL` | String de conexão do PostgreSQL. **Obrigatória** no `docker-compose`. |
+| `DATABASE_URL` | String de conexão do PostgreSQL. **Obrigatória** no `docker-compose`. Em produção use o usuário de aplicação `iane_app` (DML). |
+| `DATABASE_ADMIN_URL` | Conexão administrativa (`iane_admin`) usada **apenas pela automigração** (DDL). Por padrão o compose monta com `POSTGRES_PASSWORD`; pode ser sobrescrita no `.env`. |
 | `POSTGRES_PASSWORD` | Senha do banco usada pelo `docker-compose`. **Obrigatória**. |
 | `ALLOW_MEMORY_FALLBACK` | Apenas desenvolvimento. Com `true`, permite operar sem PostgreSQL (sem persistência real). Em produção mantenha `false`. |
 | `TZ` | Fuso horário do servidor e do banco. Padrão `America/Sao_Paulo` (datas sem deslocamento UTC). |
@@ -131,11 +132,14 @@ Cada aba possui URL própria (navegação direta e recarregamento funcionam no s
 # 1. Gere o .env (senha do banco, segredo JWT e URL de conexão)
 cd /opt/iane_devices
 PGPASS=$(openssl rand -hex 24)
+APPPASS=$(openssl rand -hex 24)
 JWT=$(openssl rand -hex 48)
 sudo tee .env > /dev/null <<EOF
 POSTGRES_PASSWORD=$PGPASS
+IANE_APP_PASSWORD=$APPPASS
 JWT_SECRET=$JWT
-DATABASE_URL=postgresql://iane_admin:$PGPASS@postgres:5432/telecom_assets
+DATABASE_URL=postgresql://iane_app:$APPPASS@postgres:5432/telecom_assets
+DATABASE_ADMIN_URL=postgresql://iane_admin:$PGPASS@postgres:5432/telecom_assets
 TZ=America/Sao_Paulo
 EOF
 
@@ -153,6 +157,8 @@ docker compose up -d --build
 > Se o volume `postgres_data` já existe, `POSTGRES_PASSWORD` precisa ser a senha com que o banco foi inicializado; alterar a variável não muda a senha dentro do volume. Trocar implica recriar o volume (`docker compose down -v`), o que apaga os dados.
 
 O compose recusa iniciar sem `POSTGRES_PASSWORD`, `DATABASE_URL` e `JWT_SECRET` definidos. Por padrão, a porta do PostgreSQL é publicada apenas em `127.0.0.1:5432` (acesso administrativo local). Para liberar acesso externo, defina `POSTGRES_BIND_IP=0.0.0.0` no `.env` e restrinja a porta 5432 ao firewall da rede interna. O container da aplicação define `TZ=America/Sao_Paulo` e `ALLOW_MEMORY_FALLBACK=false`. Senhas com caracteres especiais (`@`, `#`, `/`, `:`) precisam ser codificadas na URL do `DATABASE_URL` (ex.: `@` → `%40`).
+
+> O diretório `./backups` é montado no container, que roda como usuário `node` (uid 1000). Se o log mostrar `EACCES: permission denied` ao gravar backup, ajuste o dono no host: `sudo chown -R 1000:1000 /opt/iane_devices/backups`.
 
 #### Login retorna 503 e o log mostra `password authentication failed`
 
