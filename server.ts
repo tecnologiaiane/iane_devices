@@ -2429,7 +2429,7 @@ app.get('/report/device/:id', async (req, res) => {
     const result = await pool.query(`
       SELECT d.id, d.tag as "assetTag", d.brand, d.model, d.imei_1 as "imei1",
              d.serial_number as "serialNumber", d.status, d.condition,
-             d.current_department as "department", d.unit,
+             c.department as "department",
              c.name as "currentCollaboratorName",
              l.phone_number as "associatedPhoneNumber",
              d.purchase_date as "purchaseDate",
