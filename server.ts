@@ -2428,12 +2428,10 @@ app.get('/report/device/:id', async (req, res) => {
   if (pool && isDbConnected) {
     const result = await pool.query(`
       SELECT d.id, d.tag as "assetTag", d.brand, d.model, d.imei_1 as "imei1",
-             d.serial_number as "serialNumber", d.status, d.condition,
+             d.status, d.condition,
              c.department as "department",
              c.name as "currentCollaboratorName",
-             l.phone_number as "associatedPhoneNumber",
-             d.purchase_date as "purchaseDate",
-             d.purchase_value as "purchaseValue"
+             l.phone_number as "associatedPhoneNumber"
       FROM devices d
       LEFT JOIN collaborators c ON d.current_collaborator_id = c.id
       LEFT JOIN phone_lines l ON d.current_line_id = l.id
@@ -2447,15 +2445,7 @@ app.get('/report/device/:id', async (req, res) => {
     return;
   }
 
-  const esc = (s: any) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] || c));
-  const statusLabel = esc(device.status || 'Não informado');
-  const conditionLabel = esc(device.condition || 'Não informado');
-  const collabLabel = esc(device.currentCollaboratorName || 'Estoque do Gestor de Telefonia');
-  const phoneLabel = esc(device.associatedPhoneNumber || 'Sem linha');
   const deptLabel = esc(device.department || 'Não informado');
-  const unitLabel = esc(device.unit || 'Não informada');
-  const purchaseDate = esc(device.purchaseDate || '—');
-  const purchaseValue = device.purchaseValue != null ? `R$ ${Number(device.purchaseValue).toFixed(2)}` : '—';
 
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -2467,15 +2457,18 @@ app.get('/report/device/:id', async (req, res) => {
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #f3f4f6; color: #111827; padding: 24px; }
   .card { max-width: 720px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-  .header { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 2px solid #e5e7eb; }
-  .tag { font-size: 24px; font-weight: 800; letter-spacing: 0.5px; color: #1f2937; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .header { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 2px solid #e5e7eb; }
+  .logo { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .logo svg { width: 28px; height: 28px; }
+  .brand { font-size: 16px; font-weight: 800; color: #111827; letter-spacing: 0.5px; }
+  .tag { font-size: 22px; font-weight: 800; letter-spacing: 0.5px; color: #1f2937; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
   .badge { display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; padding: 2px 8px; border-radius: 4px; color: #fff; }
   .badge-disponivel { background: #10b981; }
   .badge-em-uso { background: #3b82f6; }
   .badge-em-manutencao { background: #f59e0b; }
   .badge-baixado { background: #6b7280; }
   .badge-extraviado { background: #ef4444; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }
   .field { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px 16px; }
   .field-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: #6b7280; margin-bottom: 6px; display: block; }
   .field-value { font-size: 15px; font-weight: 600; color: #111827; word-break: break-all; }
@@ -2495,22 +2488,24 @@ app.get('/report/device/:id', async (req, res) => {
 <body>
 <div class="card">
   <div class="header">
-    <span class="tag">${esc(device.assetTag)}</span>
-    <span class="badge badge-${String(device.status || 'disponivel').toLowerCase().replace(/\s/g,'-')}">${statusLabel}</span>
+    <div class="logo">
+      <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="12" y1="17" x2="12.01" y2="17"/><line x1="8.5" y1="17" x2="8.51" y2="17"/><line x1="15.5" y1="17" x2="15.51" y2="17"/></svg>
+      <span class="brand">GELIN</span>
+    </div>
+    <div style="flex:1; display:flex; flex-direction:column; gap:6px;">
+      <span class="tag">${esc(device.assetTag)}</span>
+      <span class="badge badge-${String(device.status || 'disponivel').toLowerCase().replace(/\s/g,'-')}">${statusLabel}</span>
+    </div>
   </div>
 
   <div class="grid">
     <div class="field"><span class="field-label">Marca</span><span class="field-value">${esc(device.brand)}</span></div>
     <div class="field"><span class="field-label">Modelo</span><span class="field-value">${esc(device.model)}</span></div>
     <div class="field"><span class="field-label">IMEI</span><span class="field-value mono">${esc(device.imei1 || '—')}</span></div>
-    <div class="field"><span class="field-label">Nº de Série</span><span class="field-value mono">${esc(device.serialNumber || '—')}</span></div>
     <div class="field"><span class="field-label">Estado de Conservação</span><span class="field-value">${conditionLabel}</span></div>
     <div class="field"><span class="field-label">Departamento</span><span class="field-value">${deptLabel}</span></div>
-    <div class="field"><span class="field-label">Unidade</span><span class="field-value">${unitLabel}</span></div>
     <div class="field"><span class="field-label">Linha Telefônica</span><span class="field-value mono">${phoneLabel}</span></div>
     <div class="field"><span class="field-label">Responsável</span><span class="field-value">${collabLabel}</span></div>
-    <div class="field"><span class="field-label">Data de Aquisição</span><span class="field-value">${purchaseDate}</span></div>
-    <div class="field"><span class="field-label">Valor de Compra</span><span class="field-value">${purchaseValue}</span></div>
   </div>
 
   <div class="qr-section">
