@@ -2445,6 +2445,11 @@ app.get('/report/device/:id', async (req, res) => {
     return;
   }
 
+  const esc = (s: any) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] || c));
+  const statusLabel = esc(device.status || 'Não informado');
+  const conditionLabel = esc(device.condition || 'Não informado');
+  const collabLabel = esc(device.currentCollaboratorName || 'Estoque do Gestor de Telefonia');
+  const phoneLabel = esc(device.associatedPhoneNumber || 'Sem linha');
   const deptLabel = esc(device.department || 'Não informado');
 
   const html = `<!DOCTYPE html>
