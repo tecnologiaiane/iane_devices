@@ -80,6 +80,9 @@ app.use((_req, res, next) => {
   next();
 });
 
+// Serve assets públicos (ex.: logo.png) acessíveis em /logo.png
+app.use(express.static(path.join(__dirname, 'public')));
+
 // ----------------------------------------------------------------------------
 // Rate limiting em memória (por IP e por usuário) para /api/auth/login
 // Bloqueio temporário após 5 falhas consecutivas (janela de 15 minutos).
@@ -2452,41 +2455,51 @@ app.get('/report/device/:id', async (req, res) => {
   const phoneLabel = esc(device.associatedPhoneNumber || 'Sem linha');
   const deptLabel = esc(device.department || 'Não informado');
 
+  // Badges seguem o mesmo design system do StatusBadge (frontend)
+  const badgeMap: Record<string, string> = {
+    'Disponível': 'bg-emerald-50 text-emerald-800 border-emerald-200',
+    'Em uso': 'bg-iane-50 text-iane-800 border-iane-200',
+    'Em Uso': 'bg-iane-50 text-iane-800 border-iane-200',
+    'Ativa': 'bg-iane-50 text-iane-800 border-iane-200',
+    'Aguardando avaliação': 'bg-sun-50 text-gold-700 border-sun-300',
+    'Em manutenção': 'bg-orange-50 text-orange-800 border-orange-200',
+    'Reservado': 'bg-purple-50 text-purple-800 border-purple-200',
+    'Aguardando baixa patrimonial': 'bg-rose-50 text-rose-800 border-rose-300',
+    'Extraviado': 'bg-rose-100 text-rose-900 border-rose-200',
+    'Baixado': 'bg-ink-100 text-ink-600 border-ink-300',
+    'Cancelada': 'bg-rose-100 text-rose-900 border-rose-200',
+    'Suspensa': 'bg-orange-50 text-orange-800 border-orange-200',
+  };
+  const statusBadgeClass = badgeMap[device.status || ''] || 'bg-ink-100 text-ink-700 border-ink-200';
+  const conditionBadgeClass = badgeMap[device.condition || ''] || 'bg-ink-100 text-ink-700 border-ink-200';
+
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Relatório do Aparelho · ${esc(device.assetTag)} · GELIN</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=Source+Code+Pro:wght@400;600&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #f3f4f6; color: #111827; padding: 24px; }
+  body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #f3f4f6; color: #111827; padding: 24px; }
   .card { max-width: 720px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-  .header { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 2px solid #e5e7eb; }
-  .logo { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-  .logo svg { width: 28px; height: 28px; }
-  .brand { font-size: 16px; font-weight: 800; color: #111827; letter-spacing: 0.5px; }
-  .tag { font-size: 22px; font-weight: 800; letter-spacing: 0.5px; color: #1f2937; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-  .badge { display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; padding: 2px 8px; border-radius: 4px; color: #fff; }
-  .badge-disponivel { background: #10b981; }
-  .badge-em-uso { background: #3b82f6; }
-  .badge-em-manutencao { background: #f59e0b; }
-  .badge-baixado { background: #6b7280; }
-  .badge-extraviado { background: #ef4444; }
+  .header { display: flex; align-items: center; gap: 16px; margin-bottom: 28px; padding-bottom: 20px; border-bottom: 2px solid #e5e7eb; }
+  .logo { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  .logo-img { width: 32px; height: 32px; object-fit: contain; display: block; }
+  .brand { font-size: 18px; font-weight: 800; color: #111827; letter-spacing: 0.4px; }
+  .tag { font-size: 20px; font-weight: 800; letter-spacing: 0.5px; color: #1f2937; font-family: 'Source Code Pro', ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .badge { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; padding: 3px 10px; border-radius: 6px; white-space: nowrap; }
+  .badge-dot { width: 8px; height: 8px; border-radius: 50%; }
   .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }
   .field { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px 16px; }
   .field-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: #6b7280; margin-bottom: 6px; display: block; }
   .field-value { font-size: 15px; font-weight: 600; color: #111827; word-break: break-all; }
-  .field-value.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-  .qr-section { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center; }
-  .qr-section h3 { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #6b7280; margin-bottom: 12px; }
-  .qr-img { width: 160px; height: 160px; image-rendering: pixelated; background: #fff; padding: 8px; border: 1px solid #e5e7eb; border-radius: 8px; display: inline-block; }
-  .qr-url { margin-top: 12px; font-size: 12px; color: #6b7280; word-break: break-all; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-  .footer { margin-top: 28px; font-size: 11px; color: #9ca3af; border-top: 1px solid #e5e7eb; padding-top: 16px; text-align: center; }
+  .field-value.mono { font-family: 'Source Code Pro', ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .footer { margin-top: 32px; font-size: 11px; color: #9ca3af; border-top: 1px solid #e5e7eb; padding-top: 16px; text-align: center; }
   @media print {
     body { background: #fff; padding: 0; }
     .card { box-shadow: none; border: none; }
-    .no-print { display: none !important; }
   }
 </style>
 </head>
@@ -2494,12 +2507,12 @@ app.get('/report/device/:id', async (req, res) => {
 <div class="card">
   <div class="header">
     <div class="logo">
-      <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="12" y1="17" x2="12.01" y2="17"/><line x1="8.5" y1="17" x2="8.51" y2="17"/><line x1="15.5" y1="17" x2="15.51" y2="17"/></svg>
+      <img class="logo-img" src="/logo.png" alt="GELIN">
       <span class="brand">GELIN</span>
     </div>
-    <div style="flex:1; display:flex; flex-direction:column; gap:6px;">
+    <div style="flex:1; display:flex; flex-direction:column; gap:8px;">
       <span class="tag">${esc(device.assetTag)}</span>
-      <span class="badge badge-${String(device.status || 'disponivel').toLowerCase().replace(/\s/g,'-')}">${statusLabel}</span>
+      <span class="badge ${statusBadgeClass}"><span class="badge-dot" style="background:currentColor"></span>${statusLabel}</span>
     </div>
   </div>
 
@@ -2507,17 +2520,10 @@ app.get('/report/device/:id', async (req, res) => {
     <div class="field"><span class="field-label">Marca</span><span class="field-value">${esc(device.brand)}</span></div>
     <div class="field"><span class="field-label">Modelo</span><span class="field-value">${esc(device.model)}</span></div>
     <div class="field"><span class="field-label">IMEI</span><span class="field-value mono">${esc(device.imei1 || '—')}</span></div>
-    <div class="field"><span class="field-label">Estado de Conservação</span><span class="field-value">${conditionLabel}</span></div>
+    <div class="field"><span class="field-label">Estado de Conservação</span><span class="badge ${conditionBadgeClass}"><span class="badge-dot" style="background:currentColor"></span>${conditionLabel}</span></div>
     <div class="field"><span class="field-label">Departamento</span><span class="field-value">${deptLabel}</span></div>
     <div class="field"><span class="field-label">Linha Telefônica</span><span class="field-value mono">${phoneLabel}</span></div>
     <div class="field"><span class="field-label">Responsável</span><span class="field-value">${collabLabel}</span></div>
-  </div>
-
-  <div class="qr-section">
-    <h3>Etiqueta QR — Escaneie para ver este relatório</h3>
-    <img class="qr-img" src="https://chart.googleapis.com/chart?chs=300x300&cht=qr&chl=${encodeURIComponent(`${process.env.APP_BASE_URL || 'http://app.telefonia.local'}/report/device/${esc(device.assetTag)}`)}&choe=UTF-8" alt="QR Code ${esc(device.assetTag)}">
-    <div class="qr-url">${process.env.APP_BASE_URL || 'http://app.telefonia.local'}/report/device/${esc(device.assetTag)}</div>
-    <button class="no-print" onclick="window.print()" style="margin-top:14px;padding:10px 18px;background:#1f2937;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer">Imprimir Etiqueta</button>
   </div>
 
   <div class="footer">GELIN — Gestão de Dispositivos · Relatório gerado em ${new Date().toLocaleString('pt-BR')}</div>
