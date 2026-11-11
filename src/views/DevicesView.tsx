@@ -3,6 +3,7 @@ import { Device, DeviceStatus, Movement, DocumentTerm, DeviceCondition, User as 
 import { dataService, STOCK_LABEL, isStockCustody, stockDisplayName } from '../services/dataStorage';
 import { formatDate, formatCurrency, formatImei } from '../utils/formatters';
 import { StatusBadge } from '../components/StatusBadge';
+import { QrCode } from '../components/QrCode';
 import {
   Smartphone,
   Search,
@@ -21,6 +22,9 @@ import {
   CheckCircle2,
   Package,
   Layers,
+  Link,
+  Printer,
+  Loader2,
 } from 'lucide-react';
 
 interface DevicesViewProps {
@@ -46,7 +50,40 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
 
   // Detail Drawer
   const [detailDevice, setDetailDevice] = useState<Device | null>(null);
-  const [detailTab, setDetailTab] = useState<'historico' | 'geral' | 'linha' | 'responsavel' | 'termos' | 'observacoes'>('historico');
+  const [detailTab, setDetailTab] = useState<'historico' | 'geral' | 'linha' | 'responsavel' | 'termos' | 'observacoes' | 'etiqueta'>('historico');
+
+  // QR Code / Etiqueta do dispositivo
+  const [qrUrl, setQrUrl] = useState<string | null>(null);
+  const [qrLoading, setQrLoading] = useState(false);
+
+  const fetchQrUrl = async (deviceId: string) => {
+    setQrLoading(true);
+    try {
+      const res = await fetch(`/api/devices/${encodeURIComponent(deviceId)}/qr-url`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('iane_auth_token_v2') || ''}`,
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setQrUrl(data.data?.qrUrl || null);
+      } else {
+        setQrUrl(null);
+      }
+    } catch {
+      setQrUrl(null);
+    } finally {
+      setQrLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (detailDevice) {
+      void fetchQrUrl(detailDevice.id);
+    } else {
+      setQrUrl(null);
+    }
+  }, [detailDevice]);
 
   // Quick Release Modal for "Aguardando avaliação"
   const [releasingDevice, setReleasingDevice] = useState<Device | null>(null);
@@ -463,6 +500,7 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
                   { id: 'responsavel', label: 'Custódia Atual' },
                   { id: 'termos', label: `Termos (${deviceTerms.length})` },
                   { id: 'observacoes', label: 'Observações' },
+                  { id: 'etiqueta', label: 'Etiqueta QR' },
                 ].map((t) => (
                   <button
                     key={t.id}
@@ -690,6 +728,49 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
                     <p className="text-ink-700 whitespace-pre-wrap leading-relaxed">
                       {detailDevice.notes || 'Nenhuma observação registrada para este ativo.'}
                     </p>
+                  </div>
+                )}
+
+                {/* 7. Etiqueta QR (para impressão) */}
+                {detailTab === 'etiqueta' && (
+                  <div className="space-y-4">
+                    <div className="p-4 bg-iane-50 border border-iane-200 rounded-lg text-xs text-iane-800">
+                      <p className="font-semibold mb-1">Etiqueta de Identificação do Aparelho</p>
+                      <p className="text-[11px] leading-relaxed">
+                        Escaneie o QR Code para abrir o relatório web deste aparelho. Ideal para colar na parte
+                        traseira do equipamento e identificar rapidamente o ativo patrimonial.
+                      </p>
+                    </div>
+
+                    <div className="flex flex-col items-center gap-4">
+                      {qrLoading ? (
+                        <div className="flex items-center gap-2 text-xs text-ink-500">
+                          <Loader2 className="w-3 h-3 animate-spin" /> Gerando QR Code…
+                        </div>
+                      ) : qrUrl ? (
+                        <>
+                          <div className="bg-white p-4 rounded-xl border border-ink-200 shadow-sm text-center">
+                            <QrCode value={qrUrl} size={220} alt={`QR Code ${detailDevice.assetTag}`} />
+                            <p className="mt-3 text-xs font-mono text-ink-600 break-all max-w-xs">
+                              {qrUrl}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => window.print()}
+                            className="px-4 py-2 text-xs font-semibold text-white bg-iane-600 hover:bg-iane-700 rounded-lg shadow-xs transition-colors flex items-center gap-1.5"
+                          >
+                            <Printer className="w-3.5 h-3.5" /> <span>Imprimir Etiqueta</span>
+                          </button>
+                          <p className="text-[10px] text-ink-400 text-center max-w-xs">
+                            Dica: use "Imprimir" e selecione "Salvar como PDF" ou imprima em etiquetas adesivas.
+                          </p>
+                        </>
+                      ) : (
+                        <div className="p-6 text-center text-ink-500 border border-dashed border-ink-200 rounded-lg">
+                          <p>Não foi possível gerar o QR Code. Tente novamente.</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>

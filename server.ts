@@ -2408,6 +2408,127 @@ app.delete('/api/devices/:id', requirePermission('dispositivos_edit'), async (re
   res.json({ success: true, message: 'Dispositivo excluído.' });
 });
 
+// ----------------------------------------------------------------------------
+// QR Code / Relatório Web de Dispositivo (etiqueta para impressão)
+// ----------------------------------------------------------------------------
+
+// Retorna a URL do relatório público do dispositivo para geração do QR Code.
+app.get('/api/devices/:id/qr-url', requireReadAccess, route(async (req, res) => {
+  const { id } = req.params;
+  const baseUrl = (process.env.APP_BASE_URL || 'http://app.telefonia.local').replace(/\/$/, '');
+  const reportUrl = `${baseUrl}/report/device/${encodeURIComponent(id)}`;
+  res.json({ success: true, data: { reportUrl, qrUrl: reportUrl } });
+}));
+
+// Página pública de relatório do dispositivo (acessível via QR Code, sem login).
+app.get('/report/device/:id', async (req, res) => {
+  const { id } = req.params;
+  let device: any = null;
+
+  if (pool && isDbConnected) {
+    const result = await pool.query(`
+      SELECT d.id, d.tag as "assetTag", d.brand, d.model, d.imei_1 as "imei1",
+             d.serial_number as "serialNumber", d.status, d.condition,
+             d.current_department as "department", d.unit,
+             c.name as "currentCollaboratorName",
+             l.phone_number as "associatedPhoneNumber",
+             d.purchase_date as "purchaseDate",
+             d.purchase_value as "purchaseValue"
+      FROM devices d
+      LEFT JOIN collaborators c ON d.current_collaborator_id = c.id
+      LEFT JOIN phone_lines l ON d.current_line_id = l.id
+      WHERE d.id = $1 OR d.tag = $1
+    `, [id]);
+    if (result.rows.length > 0) device = result.rows[0];
+  }
+
+  if (!device) {
+    res.status(404).send('<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Dispositivo não encontrado</title></head><body style="font-family:sans-serif;padding:2rem;color:#374151"><h1>Dispositivo não encontrado</h1><p>O código escaneado não corresponde a nenhum aparelho cadastrado no GELIN.</p></body></html>');
+    return;
+  }
+
+  const esc = (s: any) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] || c));
+  const statusLabel = esc(device.status || 'Não informado');
+  const conditionLabel = esc(device.condition || 'Não informado');
+  const collabLabel = esc(device.currentCollaboratorName || 'Estoque do Gestor de Telefonia');
+  const phoneLabel = esc(device.associatedPhoneNumber || 'Sem linha');
+  const deptLabel = esc(device.department || 'Não informado');
+  const unitLabel = esc(device.unit || 'Não informada');
+  const purchaseDate = esc(device.purchaseDate || '—');
+  const purchaseValue = device.purchaseValue != null ? `R$ ${Number(device.purchaseValue).toFixed(2)}` : '—';
+
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Relatório do Aparelho · ${esc(device.assetTag)} · GELIN</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #f3f4f6; color: #111827; padding: 24px; }
+  .card { max-width: 720px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+  .header { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 2px solid #e5e7eb; }
+  .tag { font-size: 24px; font-weight: 800; letter-spacing: 0.5px; color: #1f2937; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .badge { display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; padding: 2px 8px; border-radius: 4px; color: #fff; }
+  .badge-disponivel { background: #10b981; }
+  .badge-em-uso { background: #3b82f6; }
+  .badge-em-manutencao { background: #f59e0b; }
+  .badge-baixado { background: #6b7280; }
+  .badge-extraviado { background: #ef4444; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .field { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px 16px; }
+  .field-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: #6b7280; margin-bottom: 6px; display: block; }
+  .field-value { font-size: 15px; font-weight: 600; color: #111827; word-break: break-all; }
+  .field-value.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .qr-section { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center; }
+  .qr-section h3 { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #6b7280; margin-bottom: 12px; }
+  .qr-img { width: 160px; height: 160px; image-rendering: pixelated; background: #fff; padding: 8px; border: 1px solid #e5e7eb; border-radius: 8px; display: inline-block; }
+  .qr-url { margin-top: 12px; font-size: 12px; color: #6b7280; word-break: break-all; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .footer { margin-top: 28px; font-size: 11px; color: #9ca3af; border-top: 1px solid #e5e7eb; padding-top: 16px; text-align: center; }
+  @media print {
+    body { background: #fff; padding: 0; }
+    .card { box-shadow: none; border: none; }
+    .no-print { display: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="header">
+    <span class="tag">${esc(device.assetTag)}</span>
+    <span class="badge badge-${String(device.status || 'disponivel').toLowerCase().replace(/\s/g,'-')}">${statusLabel}</span>
+  </div>
+
+  <div class="grid">
+    <div class="field"><span class="field-label">Marca</span><span class="field-value">${esc(device.brand)}</span></div>
+    <div class="field"><span class="field-label">Modelo</span><span class="field-value">${esc(device.model)}</span></div>
+    <div class="field"><span class="field-label">IMEI</span><span class="field-value mono">${esc(device.imei1 || '—')}</span></div>
+    <div class="field"><span class="field-label">Nº de Série</span><span class="field-value mono">${esc(device.serialNumber || '—')}</span></div>
+    <div class="field"><span class="field-label">Estado de Conservação</span><span class="field-value">${conditionLabel}</span></div>
+    <div class="field"><span class="field-label">Departamento</span><span class="field-value">${deptLabel}</span></div>
+    <div class="field"><span class="field-label">Unidade</span><span class="field-value">${unitLabel}</span></div>
+    <div class="field"><span class="field-label">Linha Telefônica</span><span class="field-value mono">${phoneLabel}</span></div>
+    <div class="field"><span class="field-label">Responsável</span><span class="field-value">${collabLabel}</span></div>
+    <div class="field"><span class="field-label">Data de Aquisição</span><span class="field-value">${purchaseDate}</span></div>
+    <div class="field"><span class="field-label">Valor de Compra</span><span class="field-value">${purchaseValue}</span></div>
+  </div>
+
+  <div class="qr-section">
+    <h3>Etiqueta QR — Escaneie para ver este relatório</h3>
+    <img class="qr-img" src="https://chart.googleapis.com/chart?chs=300x300&cht=qr&chl=${encodeURIComponent(`${process.env.APP_BASE_URL || 'http://app.telefonia.local'}/report/device/${esc(device.assetTag)}`)}&choe=UTF-8" alt="QR Code ${esc(device.assetTag)}">
+    <div class="qr-url">${process.env.APP_BASE_URL || 'http://app.telefonia.local'}/report/device/${esc(device.assetTag)}</div>
+    <button class="no-print" onclick="window.print()" style="margin-top:14px;padding:10px 18px;background:#1f2937;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer">Imprimir Etiqueta</button>
+  </div>
+
+  <div class="footer">GELIN — Gestão de Dispositivos · Relatório gerado em ${new Date().toLocaleString('pt-BR')}</div>
+</div>
+</body>
+</html>`;
+
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(html);
+});
+
 // 5. Linhas Telefônicas
 app.get('/api/lines', requireReadAccess, route(async (_req, res) => {
   if (pool && isDbConnected) {
