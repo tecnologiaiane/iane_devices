@@ -1015,11 +1015,11 @@ test('SEGURANÇA: erro interno não expõe err.message e devolve correlationId',
   assert.ok(!res.response.headers.get('x-powered-by'));
 });
 
-test('SEGURANÇA: limite de JSON é 1 MB (requisição muito grande é rejeitada)', async () => {
+test('SEGURANÇA: limite de JSON é 50 MB (requisição muito grande é rejeitada)', async () => {
   const adminToken = await login(ADMIN.username, ADMIN.password);
   const headers = bearer(adminToken);
-  // Corpo de ~2 MB excede o limite de 1 MB
-  const grande = 'x'.repeat(2 * 1024 * 1024);
+  // Corpo de ~51 MB excede o limite de 50 MB
+  const grande = 'x'.repeat(51 * 1024 * 1024);
   const res = await api('/api/users', {
     method: 'POST',
     headers,
