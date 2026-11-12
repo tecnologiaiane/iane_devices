@@ -1,4 +1,3 @@
-import * as Dialog from '@base-ui/react/dialog'
 import { twMerge } from 'tailwind-merge'
 import type { ComponentProps } from 'react'
 import { DeviceDetailHeader } from './device-detail-header'
@@ -9,7 +8,7 @@ import { DeviceGeneralInfo } from './device-general-info'
 import { QrCode } from './QrCode'
 import { Badge } from './badge'
 
-export interface DeviceDetailProps extends ComponentProps<typeof Dialog.Root> {
+export interface DeviceDetailProps extends ComponentProps<'div'> {
 	className?: string
 	device: {
 		tag: string
@@ -36,26 +35,29 @@ export function DeviceDetail({ device, onClose, className, ...props }: DeviceDet
 	]
 
 	return (
-		<Dialog.Root
-			open
-			onOpenChange={onClose}
-			className={twMerge('w-full max-w-3xl', className)}
+		<div
+			data-slot="device-detail-root"
+			className={twMerge(
+				'fixed inset-0 z-50 overflow-y-auto',
+				className
+			)}
 			{...props}
 		>
-			<Dialog.Portal>
-				<Dialog.Backdrop
+			<div
+				data-slot="device-detail-backdrop"
+				className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300"
+				onClick={onClose}
+				aria-hidden="true"
+			/>
+			<div className="flex min-h-full items-center justify-center p-4 sm:p-6">
+				<div
+					data-slot="device-detail-popup"
 					className={twMerge(
-						'fixed inset-0 z-40 bg-black/50',
-						'data-[state=open]:animate-in data-[state=closed]:animate-out',
-						'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0'
+						'relative w-full max-w-3xl bg-surface-raised rounded-xl border border-border shadow-xl flex flex-col overflow-hidden',
+						'modal:zoom-in modal:fade-in duration-300',
+						className
 					)}
-				/>
-				<Dialog.Popup
-					className={twMerge(
-						'fixed top-1/4 left-1/2 -translate-x-1/2 z-50 w-full max-w-3xl bg-surface-raised rounded-xl border border-border shadow-xl flex flex-col overflow-hidden',
-						'data-[state=open]:animate-in data-[state=closed]:animate-out',
-						'data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=open]:slide-in-from-left-1/2'
-					)}
+					onClick={(e) => e.stopPropagation()}
 				>
 					<DeviceDetailHeader
 						tag={device.tag}
@@ -66,7 +68,7 @@ export function DeviceDetail({ device, onClose, className, ...props }: DeviceDet
 						onClose={onClose}
 					/>
 					<DeviceTabs tabs={tabs} activeId="geral" onTabChange={() => {}} />
-					<div className="flex-1 overflow-y-auto p-6">
+					<div className="flex-1 overflow-y-auto p-6 sm:p-8">
 						{/* Conteúdo padrão: Histórico do Dispositivo */}
 						<DeviceTimeline />
 
@@ -102,8 +104,8 @@ export function DeviceDetail({ device, onClose, className, ...props }: DeviceDet
 						</div>
 					</div>
 					<DeviceDetailFooter createdAt={null} onClose={onClose} />
-				</Dialog.Popup>
-			</Dialog.Portal>
-		</Dialog.Root>
+				</div>
+			</div>
+		</div>
 	)
 }
