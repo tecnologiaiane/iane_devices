@@ -140,32 +140,6 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Super Usuário Oficial da TI IANE com Senha Criptografada (bcrypt)
--- Senha padrão inicial: Iane@2026
--- ON CONFLICT DO NOTHING: jamais redefine a senha de um usuário já existente a cada inicialização.
-INSERT INTO system_users (id, username, password_hash, full_name, email, role, permissions)
-VALUES (
-    'user-iane-super-1',
-    'tecnologia@iane.ind.br',
-    '$2b$10$fngkbVvcbicIlBm.BPw7TOEYDiwJEb7qyC.qFTgTxLDKMGEDm8bIW',
-    'TI IANE - Super Usuário',
-    'tecnologia@iane.ind.br',
-    'admin',
-    ARRAY['all', 'dashboard', 'dispositivos', 'dispositivos_edit', 'linhas', 'linhas_edit', 'colaboradores', 'colaboradores_edit', 'movimentacoes', 'termos', 'relatorios', 'configuracoes', 'manage_users']::TEXT[]
-)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO system_users (id, username, password_hash, full_name, email, role, permissions)
-VALUES (
-    'user-iane-super-2',
-    'tecnologia',
-    '$2b$10$fngkbVvcbicIlBm.BPw7TOEYDiwJEb7qyC.qFTgTxLDKMGEDm8bIW',
-    'TI IANE - Super Usuário',
-    'tecnologia@iane.ind.br',
-    'admin',
-    ARRAY['all', 'dashboard', 'dispositivos', 'dispositivos_edit', 'linhas', 'linhas_edit', 'colaboradores', 'colaboradores_edit', 'movimentacoes', 'termos', 'relatorios', 'configuracoes', 'manage_users']::TEXT[]
-)
-ON CONFLICT DO NOTHING;
 
 
 

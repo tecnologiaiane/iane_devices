@@ -3278,22 +3278,47 @@ app.post('/api/terms', jsonParserLarge, jsonBodyValidator('terms'), requirePermi
 }));
 
 // Download/visualização do PDF anexado ao termo (protegido pelo middleware global de /api)
+// Acesso permitido apenas ao administrador ou ao colaborador dono do termo (match por e-mail).
 app.get('/api/terms/:id/file', requireReadAccess, route(async (req, res) => {
   const { id } = req.params;
+  const authenticatedUser = (req as any)?.user;
+  const isAdmin = authenticatedUser?.role === 'admin'
+    || (Array.isArray(authenticatedUser?.permissions) && authenticatedUser.permissions.includes('all'));
+  const userEmail = authenticatedUser?.email;
+
   let fileName = 'termo.pdf';
   let fileData: string | null = null;
 
   if (pool && isDbConnected) {
-    const result = await pool.query(
-      'SELECT file_name, file_data FROM terms_documents WHERE id = $1',
-      [id]
-    );
-    if (result.rows.length === 0) throw new HttpError(404, 'Termo não encontrado.');
-    fileName = str(result.rows[0].file_name) || fileName;
-    fileData = result.rows[0].file_data;
+    if (isAdmin) {
+      const result = await pool.query(
+        'SELECT file_name, file_data FROM terms_documents WHERE id = $1',
+        [id]
+      );
+      if (result.rows.length === 0) throw new HttpError(404, 'Termo não encontrado.');
+      fileName = str(result.rows[0].file_name) || fileName;
+      fileData = result.rows[0].file_data;
+    } else {
+      const result = await pool.query(
+        `SELECT t.file_name, t.file_data
+         FROM terms_documents t
+         LEFT JOIN collaborators c ON t.collaborator_id = c.id
+         WHERE t.id = $1 AND c.email = $2`,
+        [id, userEmail || '']
+      );
+      if (result.rows.length === 0) throw new HttpError(404, 'Termo não encontrado ou sem permissão.');
+      fileName = str(result.rows[0].file_name) || fileName;
+      fileData = result.rows[0].file_data;
+    }
   } else {
     const term = memoryStore.terms.find((t: any) => t.id === id);
     if (!term) throw new HttpError(404, 'Termo não encontrado.');
+    if (!isAdmin && userEmail) {
+      const collab = memoryStore.collaborators?.find((c: any) => c.id === term.collaboratorId);
+      if (!collab || collab.email !== userEmail) {
+        throw new HttpError(403, 'Acesso negado a este termo.');
+      }
+    }
     fileName = str(term.fileName) || fileName;
     fileData = term.fileData || null;
   }
