@@ -8,31 +8,34 @@
  */
 
 interface QrCodeProps {
-  /** Texto ou URL a ser codificado no QR Code. */
-  value: string;
-  /** Tamanho da imagem em pixels (quadrado). Padrão 256. */
-  size?: number;
-  /** Texto alternativo de acessibilidade. */
-  alt?: string;
+	/** Texto ou URL a ser codificado no QR Code. */
+	value: string
+	/** Tamanho da imagem em pixels (quadrado). Padrão 256. */
+	size?: number
+	/** Texto alternativo de acessibilidade. */
+	alt?: string
 }
 
-export const QrCode: React.FC<QrCodeProps> = ({ value, size = 256, alt = 'QR Code' }) => {
-  const encoded = encodeURIComponent(value);
-  const src = `https://chart.googleapis.com/chart?chs=${size}x${size}&cht=qr&chl=${encoded}&choe=UTF-8`;
+export function QrCode({ value, size = 200, alt = 'QR Code' }: QrCodeProps) {
+	const encoded = encodeURIComponent(value)
+	const src = `https://chart.googleapis.com/chart?chs=${size}x${size}&cht=qr&chl=${encoded}&choe=UTF-8`
 
-  return (
-    <img
-      src={src}
-      alt={alt}
-      width={size}
-      height={size}
-      loading="eager"
-      decoding="async"
-      style={{
-        imageRendering: 'pixelated',
-        background: '#fff',
-        display: 'block',
-      }}
-    />
-  );
-};
+	return (
+		<img
+			src={src}
+			alt={alt}
+			width={size}
+			height={size}
+			loading="eager"
+			decoding="async"
+			className="rounded border border-border bg-white p-1"
+			style={{
+				imageRendering: 'pixelated',
+				display: 'block',
+			}}
+			onError={(e) => {
+				e.currentTarget.style.display = 'none'
+			}}
+		/>
+	)
+}

@@ -1,4 +1,4 @@
-import { Smartphone, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import { twMerge } from 'tailwind-merge'
 import type { ComponentProps } from 'react'
 import { Badge } from './badge'
@@ -32,7 +32,7 @@ export function DeviceDetailHeader({
 			{...props}
 		>
 			<div className="w-10 h-10 rounded-lg bg-primary text-primary-foreground flex items-center justify-center shadow-sm">
-				<Smartphone className="w-5 h-5" />
+				<span className="font-mono font-bold text-[11px]">{tag.split('-')[0]}</span>
 			</div>
 			<div className="flex-1 min-w-0">
 				<div className="flex items-center gap-2">

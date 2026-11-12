@@ -13,7 +13,7 @@ export function DeviceTimeline({ className, ...props }: DeviceTimelineProps) {
 			origin: 'Estoque',
 			destination: 'Ricardo Luis Barbosa de Lima',
 			documentCode: 'MOV-2026-005-PDF',
-			reason: '"Carga inicial"',
+			reason: 'Carga inicial',
 		},
 	]
 
@@ -24,7 +24,7 @@ export function DeviceTimeline({ className, ...props }: DeviceTimelineProps) {
 			{...props}
 		>
 			<div className="p-3 bg-primary/5 border border-primary/20 rounded-lg text-xs text-primary-800">
-				<p className="font-semibold mb-0.5">Rastreabilidade Patrimonial de Estoque:</p>
+				<p className="font-semibold mb-0.5">Histórico do Dispositivo:</p>
 				<p className="text-[11px] leading-relaxed">
 					Apresenta formalmente cada período de utilização por colaborador e a devolução e conferência
 					intermediária no Estoque.

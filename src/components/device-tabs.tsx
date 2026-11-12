@@ -24,7 +24,7 @@ export function DeviceTabs({
 		<div
 			data-slot="device-tabs"
 			className={twMerge(
-				'border-b border-border flex gap-4 overflow-x-auto px-5 pb-1 text-xs font-medium',
+				'border-b border-border flex gap-4 px-5 pb-1 text-xs font-medium',
 				className
 			)}
 			{...props}

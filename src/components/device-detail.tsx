@@ -5,33 +5,41 @@ import { DeviceDetailHeader } from './device-detail-header'
 import { DeviceTabs } from './device-tabs'
 import { DeviceTimeline } from './device-timeline'
 import { DeviceDetailFooter } from './device-detail-footer'
+import { DeviceGeneralInfo } from './device-general-info'
+import { QrCode } from './QrCode'
+import { Badge } from './badge'
 
 export interface DeviceDetailProps extends ComponentProps<typeof Dialog.Root> {
+	className?: string
 	device: {
 		tag: string
 		model: string
 		status: string
 		serialNumber: string
 		custodian: string
+		brand: string
+		imei: string
+		condition: string
+		department: string
+		line: string | null
+		responsible: string | null
+		observations: string | null
 	}
 	onClose: () => void
 }
 
-export function DeviceDetail({ device, onClose, ...props }: DeviceDetailProps) {
+export function DeviceDetail({ device, onClose, className, ...props }: DeviceDetailProps) {
 	const tabs = [
-		{ id: 'historico', label: 'Linha do Tempo & Passagens por Estoque', count: 1 },
+		{ id: 'historico', label: 'Histórico do Dispositivo', count: 1 },
 		{ id: 'geral', label: 'Informações Gerais' },
-		{ id: 'linha', label: 'Linha Associada' },
-		{ id: 'responsavel', label: 'Custódia Atual' },
 		{ id: 'termos', label: 'Termos', count: 1 },
-		{ id: 'observacoes', label: 'Observações' },
 	]
 
 	return (
 		<Dialog.Root
 			open
 			onOpenChange={onClose}
-			className={twMerge('w-full max-w-2xl')}
+			className={twMerge('w-full max-w-3xl', className)}
 			{...props}
 		>
 			<Dialog.Portal>
@@ -44,7 +52,7 @@ export function DeviceDetail({ device, onClose, ...props }: DeviceDetailProps) {
 				/>
 				<Dialog.Popup
 					className={twMerge(
-						'fixed top-1/4 left-1/2 -translate-x-1/2 z-50 w-full max-w-2xl bg-surface-raised rounded-xl border border-border shadow-xl flex flex-col overflow-hidden',
+						'fixed top-1/4 left-1/2 -translate-x-1/2 z-50 w-full max-w-3xl bg-surface-raised rounded-xl border border-border shadow-xl flex flex-col overflow-hidden',
 						'data-[state=open]:animate-in data-[state=closed]:animate-out',
 						'data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=open]:slide-in-from-left-1/2'
 					)}
@@ -57,9 +65,41 @@ export function DeviceDetail({ device, onClose, ...props }: DeviceDetailProps) {
 						custodian={device.custodian}
 						onClose={onClose}
 					/>
-					<DeviceTabs tabs={tabs} activeId="historico" onTabChange={() => {}} />
+					<DeviceTabs tabs={tabs} activeId="geral" onTabChange={() => {}} />
 					<div className="flex-1 overflow-y-auto p-6">
+						{/* Conteúdo padrão: Histórico do Dispositivo */}
 						<DeviceTimeline />
+
+						{/* Informações Gerais */}
+						<DeviceGeneralInfo
+							brand={device.brand}
+							model={device.model}
+							imei={device.imei}
+							serialNumber={device.serialNumber}
+							condition={device.condition}
+							department={device.department}
+							line={device.line}
+							responsible={device.responsible}
+							observations={device.observations}
+						/>
+
+						{/* QR Code para impressão de etiqueta */}
+						<div className="mt-6 p-4 bg-surface border border-border rounded-lg">
+							<div className="flex items-center gap-2 mb-2">
+								<span className="text-[10px] font-medium text-foreground-subtle uppercase tracking-wider">
+									Etiqueta QR
+								</span>
+								<Badge variant="secondary" size="sm">
+									Imprimir
+								</Badge>
+							</div>
+							<div className="flex flex-col items-center gap-2">
+								<QrCode value={`http://app.telefonia.local/report/device/${device.tag}`} size={160} />
+								<p className="text-[10px] font-mono text-foreground-subtle break-all max-w-xs">
+									http://app.telefonia.local/report/device/{device.tag}
+								</p>
+							</div>
+						</div>
 					</div>
 					<DeviceDetailFooter createdAt={null} onClose={onClose} />
 				</Dialog.Popup>
