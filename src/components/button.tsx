@@ -10,10 +10,10 @@ export const buttonVariants = tv({
 	],
 	variants: {
 		variant: {
-			primary: 'border-primary bg-primary text-primary-foreground hover:bg-primary-hover',
-			secondary: 'border-border bg-secondary text-secondary-foreground hover:bg-muted',
-			ghost: 'border-transparent bg-transparent text-foreground-subtle hover:text-foreground hover:bg-muted',
-			destructive: 'border-destructive bg-destructive text-destructive-foreground hover:bg-destructive/90',
+			primary: 'border-iane-600 bg-iane-600 text-white hover:bg-iane-700',
+			secondary: 'border-ink-200 bg-ink-100 text-ink-700 hover:bg-ink-100',
+			ghost: 'border-transparent bg-transparent text-ink-500 hover:text-ink-900 hover:bg-ink-100',
+			destructive: 'border-rose-600 bg-rose-600 text-white hover:bg-rose-700',
 		},
 		size: {
 			sm: 'h-6 px-2 gap-1.5 text-xs [&_svg]:size-3',

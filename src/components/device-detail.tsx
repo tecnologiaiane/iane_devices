@@ -37,23 +37,22 @@ export function DeviceDetail({ device, onClose, className, ...props }: DeviceDet
 	return (
 		<div
 			data-slot="device-detail-root"
-			className={twMerge(
-				'fixed inset-0 z-50 overflow-y-auto',
-				className
-			)}
+			className={twMerge('fixed inset-0 z-50 overflow-y-auto', className)}
+			role="dialog"
+			aria-modal="true"
 			{...props}
 		>
 			<div
 				data-slot="device-detail-backdrop"
-				className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300"
+				className="fixed inset-0 bg-ink-900/60 backdrop-blur-xs transition-opacity"
 				onClick={onClose}
 				aria-hidden="true"
 			/>
-			<div className="flex min-h-full items-center justify-center p-4 sm:p-6">
+			<div className="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
 				<div
 					data-slot="device-detail-popup"
 					className={twMerge(
-						'relative w-full max-w-3xl bg-surface-raised rounded-xl border border-border shadow-xl flex flex-col overflow-hidden',
+						'relative transform overflow-hidden rounded-xl bg-white text-left shadow-xl transition-all w-full my-8 border border-ink-200',
 						'modal:zoom-in modal:fade-in duration-300',
 						className
 					)}
@@ -68,7 +67,7 @@ export function DeviceDetail({ device, onClose, className, ...props }: DeviceDet
 						onClose={onClose}
 					/>
 					<DeviceTabs tabs={tabs} activeId="geral" onTabChange={() => {}} />
-					<div className="flex-1 overflow-y-auto p-6 sm:p-8">
+					<div className="px-6 py-5 max-h-[calc(85vh-120px)] overflow-y-auto">
 						{/* Conteúdo padrão: Histórico do Dispositivo */}
 						<DeviceTimeline />
 
@@ -86,9 +85,9 @@ export function DeviceDetail({ device, onClose, className, ...props }: DeviceDet
 						/>
 
 						{/* QR Code para impressão de etiqueta */}
-						<div className="mt-6 p-4 bg-surface border border-border rounded-lg">
+						<div className="mt-6 p-4 bg-ink-50 border border-ink-200 rounded-lg">
 							<div className="flex items-center gap-2 mb-2">
-								<span className="text-[10px] font-medium text-foreground-subtle uppercase tracking-wider">
+								<span className="text-[10px] font-medium text-ink-500 uppercase tracking-wider">
 									Etiqueta QR
 								</span>
 								<Badge variant="secondary" size="sm">
@@ -97,7 +96,7 @@ export function DeviceDetail({ device, onClose, className, ...props }: DeviceDet
 							</div>
 							<div className="flex flex-col items-center gap-2">
 								<QrCode value={`http://app.telefonia.local/report/device/${device.tag}`} size={160} />
-								<p className="text-[10px] font-mono text-foreground-subtle break-all max-w-xs">
+								<p className="text-[10px] font-mono text-ink-600 break-all max-w-xs">
 									http://app.telefonia.local/report/device/{device.tag}
 								</p>
 							</div>

@@ -17,13 +17,13 @@ export function DeviceDetailFooter({
 		<div
 			data-slot="device-detail-footer"
 			className={twMerge(
-				'px-6 py-3 border-t border-border bg-surface/50 flex items-center justify-between gap-4',
+				'px-6 py-3 border-t border-ink-200 bg-ink-50/50 flex items-center justify-between gap-4',
 				className
 			)}
 			{...props}
 		>
-			<div className="text-[11px] text-foreground-subtle flex items-center gap-1">
-				Cadastrado em <span className="font-medium text-foreground">{createdAt ?? '-'}</span>
+			<div className="text-[11px] text-ink-500 flex items-center gap-1">
+				Cadastrado em <span className="font-medium text-ink-900">{createdAt ?? '-'}</span>
 			</div>
 			<Button variant="ghost" size="sm" onClick={onClose}>
 				Fechar

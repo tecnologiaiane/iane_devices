@@ -6,10 +6,10 @@ export const badgeVariants = tv({
 	base: 'inline-flex items-center gap-2 rounded-md border font-medium tracking-tight whitespace-nowrap',
 	variants: {
 		variant: {
-			default: 'border-border bg-surface text-foreground-subtle',
-			primary: 'border-primary bg-primary text-primary-foreground',
-			secondary: 'border-border bg-secondary text-secondary-foreground',
-			destructive: 'border-destructive bg-destructive text-destructive-foreground',
+			default: 'border-ink-200 bg-ink-50 text-ink-500',
+			primary: 'border-iane-600 bg-iane-600 text-white',
+			secondary: 'border-ink-200 bg-ink-100 text-ink-700',
+			destructive: 'border-rose-600 bg-rose-600 text-white',
 			success: 'border-emerald-200 bg-emerald-50 text-emerald-800',
 			warning: 'border-sun-300 bg-sun-50 text-gold-700',
 			info: 'border-iane-200 bg-iane-50 text-iane-800',

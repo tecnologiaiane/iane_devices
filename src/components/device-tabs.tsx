@@ -24,7 +24,7 @@ export function DeviceTabs({
 		<div
 			data-slot="device-tabs"
 			className={twMerge(
-				'border-b border-border flex gap-4 px-5 pb-1 text-xs font-medium',
+				'border-b border-ink-200 flex gap-4 px-5 pb-1 text-xs font-medium',
 				className
 			)}
 			{...props}
@@ -40,14 +40,14 @@ export function DeviceTabs({
 						className={twMerge(
 							'flex items-center gap-1.5 py-3 border-b-2 whitespace-nowrap transition-colors',
 							isActive
-								? 'border-primary text-primary-700 font-semibold'
-								: 'border-transparent text-foreground-subtle hover:text-foreground hover:bg-muted/50',
+								? 'border-iane-600 text-iane-700 font-semibold'
+								: 'border-transparent text-ink-500 hover:text-ink-900 hover:bg-ink-100/50',
 							className
 						)}
 					>
 						{tab.label}
 						{tab.count !== undefined && (
-							<span className="text-foreground-subtle">({tab.count})</span>
+							<span className="text-ink-500">({tab.count})</span>
 						)}
 					</button>
 				)

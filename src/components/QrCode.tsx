@@ -28,7 +28,7 @@ export function QrCode({ value, size = 200, alt = 'QR Code' }: QrCodeProps) {
 			height={size}
 			loading="eager"
 			decoding="async"
-			className="rounded border border-border bg-white p-1"
+			className="rounded border border-ink-200 bg-white p-1"
 			style={{
 				imageRendering: 'pixelated',
 				display: 'block',
