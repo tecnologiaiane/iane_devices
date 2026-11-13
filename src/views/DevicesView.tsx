@@ -173,23 +173,23 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
   return (
     <div className="space-y-5">
       {/* Search and Filters Bar */}
-      <div className="bg-surface p-4 rounded-xl border border-line shadow-xs space-y-3">
+      <div className="bg-white p-4 rounded-xl border border-ink-200 shadow-xs space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="relative flex-1 max-w-md">
-            <Search className="w-4 h-4 text-muted absolute left-3 top-2.5" />
+            <Search className="w-4 h-4 text-ink-400 absolute left-3 top-2.5" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar por IMEI, Tag, Modelo, S/N ou Colaborador..."
-              className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-line-strong bg-surface placeholder:text-muted text-text focus:outline-none focus:ring-2 focus:ring-focus/40"
+              className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-ink-300 bg-white placeholder-ink-400 text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500"
             />
           </div>
 
           <div className="flex items-center gap-2">
             <button
               onClick={() => onOpenDeviceModal()}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold text-on-accent bg-accent hover:bg-accent/90 shadow-xs transition-colors shrink-0"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold text-white bg-iane-600 hover:bg-iane-700 shadow-xs transition-colors shrink-0"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Novo Aparelho</span>
@@ -198,9 +198,9 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
         </div>
 
         {/* Filter chips / selects */}
-        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-line text-xs">
-          <span className="text-muted font-medium flex items-center gap-1 mr-1">
-            <Filter className="w-3 h-3 text-muted" />
+        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-ink-100 text-xs">
+          <span className="text-ink-500 font-medium flex items-center gap-1 mr-1">
+            <Filter className="w-3 h-3 text-ink-400" />
             Filtros:
           </span>
 
@@ -208,7 +208,7 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
           <select
             value={stockFilter}
             onChange={(e) => setStockFilter(e.target.value as any)}
-            className="rounded-md border border-line-strong bg-surface px-2.5 py-1 text-text font-medium"
+            className="rounded-md border border-ink-300 bg-white px-2.5 py-1 text-ink-700 font-medium"
           >
             <option value="todos">Custódia: Todas</option>
             <option value="em_estoque">No Estoque</option>
@@ -219,7 +219,7 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="rounded-md border border-line-strong bg-surface px-2.5 py-1 text-text font-medium"
+            className="rounded-md border border-ink-300 bg-white px-2.5 py-1 text-ink-700 font-medium"
           >
             <option value="todos">Status: Todos</option>
             {catalogs.deviceStatuses.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}
@@ -229,7 +229,7 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
           <select
             value={departmentFilter}
             onChange={(e) => setDepartmentFilter(e.target.value)}
-            className="rounded-md border border-line-strong bg-surface px-2.5 py-1 text-text font-medium"
+            className="rounded-md border border-ink-300 bg-white px-2.5 py-1 text-ink-700 font-medium"
           >
             <option value="todos">Departamento: Todos</option>
             {uniqueDepartments.map((dept) => (
@@ -241,7 +241,7 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
           <select
             value={brandFilter}
             onChange={(e) => setBrandFilter(e.target.value)}
-            className="rounded-md border border-line-strong bg-surface px-2.5 py-1 text-text font-medium"
+            className="rounded-md border border-ink-300 bg-white px-2.5 py-1 text-ink-700 font-medium"
           >
             <option value="todos">Marca: Todas</option>
             {uniqueBrands.map((b) => (
@@ -257,23 +257,23 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
                 setDepartmentFilter('todos');
                 setBrandFilter('todos');
               }}
-              className="text-xs text-accent hover:text-accent font-medium ml-2"
+              className="text-xs text-iane-600 hover:text-iane-800 font-medium ml-2"
             >
               Resetar Filtros
             </button>
           )}
 
-          <div className="ml-auto text-[11px] text-muted tabular-nums">
+          <div className="ml-auto text-[11px] text-ink-500 tabular-nums">
             Exibindo <strong>{filteredDevices.length}</strong> de <strong>{devices.length}</strong> aparelhos
           </div>
         </div>
       </div>
 
       {/* Main Table */}
-      <div className="bg-surface rounded-xl border border-line shadow-xs overflow-hidden">
+      <div className="bg-white rounded-xl border border-ink-200 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="ds-table">
-            <thead className="bg-subtle border-b border-line text-muted uppercase font-semibold tracking-wider text-[11px]">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead className="bg-ink-50 border-b border-ink-200 text-ink-600 uppercase font-semibold tracking-wider text-[11px]">
               <tr>
                 <th className="py-3 px-4">Tag do Ativo</th>
                 <th className="py-3 px-4">Marca & Modelo</th>
@@ -284,46 +284,46 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
                 <th className="py-3 px-4 text-right">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-line">
+            <tbody className="divide-y divide-ink-100">
               {filteredDevices.map((device) => (
                 <tr 
                   key={device.id} 
-                  className="hover:bg-subtle/80 transition-colors group cursor-pointer"
+                  className="hover:bg-ink-50/80 transition-colors group cursor-pointer"
                   onClick={() => setDetailDevice(device)}
                 >
                   {/* Tag */}
-                  <td data-label="Tag do Ativo" className="py-3 px-4 font-mono font-bold text-text whitespace-nowrap">
+                  <td className="py-3 px-4 font-mono font-bold text-ink-900 whitespace-nowrap">
                     {device.assetTag}
                   </td>
 
                   {/* Brand & Model */}
-                  <td data-label="Marca & Modelo" className="py-3 px-4 font-medium text-text">
+                  <td className="py-3 px-4 font-medium text-ink-900">
                     <div>{device.model}</div>
-                    <span className="text-[11px] text-muted font-mono">S/N: {device.serialNumber}</span>
-                    <span className="block text-[11px] text-muted">Setor: {device.sector || 'Não informado'}</span>
+                    <span className="text-[11px] text-ink-400 font-mono">S/N: {device.serialNumber}</span>
+                    <span className="block text-[11px] text-ink-500">Setor: {device.sector || 'Não informado'}</span>
                   </td>
 
                   {/* IMEI */}
-                  <td data-label="IMEI" className="py-3 px-4 font-mono text-muted whitespace-nowrap tabular-nums">
+                  <td className="py-3 px-4 font-mono text-ink-600 whitespace-nowrap tabular-nums">
                     {formatImei(device.imei1)}
                   </td>
 
                   {/* Status */}
-                  <td data-label="Status Operacional" className="py-3 px-4">
+                  <td className="py-3 px-4">
                     <StatusBadge status={device.status} type="device" />
                   </td>
 
                   {/* Custódia / Responsável */}
-                  <td data-label="Responsável" className="py-3 px-4">
+                  <td className="py-3 px-4">
                     {device.status === inUseStatus && device.currentCollaboratorName ? (
                       <div>
-                        <span className="font-semibold text-text">{device.currentCollaboratorName}</span>
+                        <span className="font-semibold text-ink-900">{device.currentCollaboratorName}</span>
                         {device.currentDepartment && (
-                          <span className="block text-[11px] text-muted">{device.currentDepartment}</span>
+                          <span className="block text-[11px] text-ink-500">{device.currentDepartment}</span>
                         )}
                       </div>
                     ) : (
-                      <span className="font-semibold text-info-fg bg-info-bg px-2 py-0.5 rounded border border-info-bd text-[11px] inline-flex items-center gap-1">
+                      <span className="font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200 text-[11px] inline-flex items-center gap-1">
                         <Package className="w-3 h-3" />
                         Estoque
                       </span>
@@ -331,18 +331,18 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
                   </td>
 
                   {/* Linha */}
-                  <td data-label="Linha Associada" className="py-3 px-4 font-mono text-text whitespace-nowrap tabular-nums">
+                  <td className="py-3 px-4 font-mono text-ink-700 whitespace-nowrap tabular-nums">
                     {device.associatedPhoneNumber || (
-                      <span className="text-muted italic font-sans">Sem linha</span>
+                      <span className="text-ink-400 italic font-sans">Sem linha</span>
                     )}
                   </td>
 
                   {/* Actions */}
-                  <td data-label="Ações" className="py-3 px-4 text-right space-x-1 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                  <td className="py-3 px-4 text-right space-x-1 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                     <button
                       title="Ver Linha do Tempo e Detalhes"
                       onClick={() => setDetailDevice(device)}
-                      className="p-1.5 text-muted hover:text-accent hover:bg-info-bg rounded-md transition-colors"
+                      className="p-1.5 text-ink-500 hover:text-iane-600 hover:bg-iane-50 rounded-md transition-colors"
                     >
                       <Eye className="w-3.5 h-3.5" />
                     </button>
@@ -352,7 +352,7 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
                       <button
                         title="Conferir e Liberar Ativo para Estoque Disponível"
                         onClick={() => setReleasingDevice(device)}
-                        className="px-2 py-1 text-warn-fg bg-warn-bg hover:bg-warn-bg border border-warn-bd rounded-md transition-colors font-semibold text-xs flex items-center gap-1 inline-flex"
+                        className="px-2 py-1 text-gold-700 bg-sun-50 hover:bg-sun-100 border border-sun-300 rounded-md transition-colors font-semibold text-xs flex items-center gap-1 inline-flex"
                       >
                         <PackageCheck className="w-3 h-3" />
                         Liberar
@@ -362,7 +362,7 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
                     <button
                       title="Editar"
                       onClick={() => onOpenDeviceModal(device)}
-                      className="p-1.5 text-muted hover:text-text hover:bg-subtle rounded-md transition-colors"
+                      className="p-1.5 text-ink-500 hover:text-ink-800 hover:bg-ink-100 rounded-md transition-colors"
                     >
                       <Edit2 className="w-3.5 h-3.5" />
                     </button>
@@ -371,7 +371,7 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
                       <button
                         title="Remover"
                         onClick={() => handleDelete(device.id, device.assetTag)}
-                        className="p-1.5 text-muted hover:text-danger-fg hover:bg-danger-bg rounded-md transition-colors"
+                        className="p-1.5 text-ink-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -383,10 +383,10 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
           </table>
 
           {filteredDevices.length === 0 && (
-            <div className="p-10 text-center text-muted">
-              <Smartphone className="w-10 h-10 text-muted mx-auto mb-2" />
-              <p className="font-semibold text-text">Nenhum aparelho encontrado</p>
-              <p className="text-xs text-muted mt-1">Ajuste os filtros de pesquisa para visualizar outros registros.</p>
+            <div className="p-10 text-center text-ink-500">
+              <Smartphone className="w-10 h-10 text-ink-300 mx-auto mb-2" />
+              <p className="font-semibold text-ink-700">Nenhum aparelho encontrado</p>
+              <p className="text-xs text-ink-500 mt-1">Ajuste os filtros de pesquisa para visualizar outros registros.</p>
             </div>
           )}
         </div>
@@ -395,27 +395,27 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
       {/* QUICK RELEASE MODAL (Aprovação de Estoque após avaliação) */}
       {releasingDevice && (
         <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
-          <div className="fixed inset-0 bg-[var(--overlay)] backdrop-blur-xs" onClick={() => setReleasingDevice(null)} />
+          <div className="fixed inset-0 bg-ink-900/60 backdrop-blur-xs" onClick={() => setReleasingDevice(null)} />
           <div className="flex min-h-full items-center justify-center p-4">
-            <div className="relative bg-surface rounded-xl shadow-xl border border-line w-full max-w-md p-6 space-y-4">
-              <div className="flex items-center gap-2.5 border-b border-line pb-3">
-                <PackageCheck className="w-5 h-5 text-ok-fg" />
-                <h3 className="text-sm font-bold text-text">
+            <div className="relative bg-white rounded-xl shadow-xl border border-ink-200 w-full max-w-md p-6 space-y-4">
+              <div className="flex items-center gap-2.5 border-b border-ink-100 pb-3">
+                <PackageCheck className="w-5 h-5 text-emerald-600" />
+                <h3 className="text-sm font-bold text-ink-900">
                   Liberar Aparelho {releasingDevice.assetTag} para Estoque Disponível
                 </h3>
               </div>
-              <p className="text-xs text-muted leading-relaxed">
+              <p className="text-xs text-ink-600 leading-relaxed">
                 Após vistoria e higienização técnica pelo Gestor de Telefonia, confirme a liberação do ativo para constar como <strong>"Disponível"</strong> no estoque, habilitando novas entregas.
               </p>
 
               <div>
-                <label className="block text-xs font-semibold text-text mb-1">
+                <label className="block text-xs font-semibold text-ink-700 mb-1">
                   Estado de Conservação Aferido
                 </label>
                 <select
                   value={releaseCondition}
                   onChange={(e) => setReleaseCondition(e.target.value as DeviceCondition)}
-                  className="w-full text-xs rounded-lg border border-line-strong bg-surface px-3 py-2 text-text"
+                  className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
                 >
                   <option value="Excelente">Excelente (Sem marcas)</option>
                   <option value="Bom">Bom (Sinais leves)</option>
@@ -424,29 +424,29 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-text mb-1">
+                <label className="block text-xs font-medium text-ink-700 mb-1">
                   Anotações da Conferência
                 </label>
                 <input
                   type="text"
                   value={releaseNotes}
                   onChange={(e) => setReleaseNotes(e.target.value)}
-                  className="w-full text-xs rounded-lg border border-line-strong bg-surface px-3 py-2 text-text"
+                  className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-line">
+              <div className="flex justify-end gap-2 pt-2 border-t border-ink-100">
                 <button
                   type="button"
                   onClick={() => setReleasingDevice(null)}
-                  className="px-4 py-2 text-xs font-medium text-text bg-subtle hover:bg-line rounded-lg"
+                  className="px-4 py-2 text-xs font-medium text-ink-700 bg-ink-100 hover:bg-ink-200 rounded-lg"
                 >
                   Cancelar
                 </button>
                 <button
                   type="button"
                   onClick={handleConfirmRelease}
-                  className="px-4 py-2 text-xs font-semibold text-ok-bg bg-ok-fg hover:opacity-90 rounded-lg shadow-xs"
+                  className="px-4 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-xs"
                 >
                   Confirmar Liberação em Estoque
                 </button>
@@ -475,39 +475,6 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
             line: detailDevice.associatedPhoneNumber ?? null,
             responsible: detailDevice.currentCollaboratorName ?? null,
             observations: detailDevice.notes ?? null,
-            createdAt: detailDevice.createdAt ? formatDate(detailDevice.createdAt) : null,
-          }}
-          history={dataService
-            .getMovements()
-            .filter((movement) => movement.deviceId === detailDevice.id)
-            .slice()
-            .sort((a, b) => a.date.localeCompare(b.date))
-            .map((movement) => ({
-              type: movement.type,
-              code: movement.code ?? null,
-              date: formatDate(movement.date),
-              origin: stockDisplayName(movement.originCollaboratorName),
-              destination: stockDisplayName(movement.destinationCollaboratorName),
-              documentCode: movement.documentCode ?? null,
-              reason: movement.reason ?? null,
-            }))}
-          terms={dataService
-            .getTerms()
-            .filter(
-              (term) =>
-                term.deviceId === detailDevice.id || term.deviceTag === detailDevice.assetTag
-            )
-            .map((term) => ({
-              id: term.id,
-              code: term.code,
-              type: term.type,
-              date: formatDate(term.date),
-              status: term.status,
-            }))}
-          qrUrl={qrUrl}
-          onOpenTerm={(termId) => {
-            const term = dataService.getTermById(termId);
-            if (term) onViewTerm(term);
           }}
           onClose={() => setDetailDevice(null)}
         />

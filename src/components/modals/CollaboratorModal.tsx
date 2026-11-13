@@ -128,15 +128,15 @@ export const CollaboratorModal: React.FC<CollaboratorModalProps> = ({
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {errorMessage && (
-          <div className="p-3 bg-danger-bg border border-danger-bd rounded-lg text-xs text-danger-fg flex items-start gap-2">
-            <AlertTriangle className="w-4 h-4 text-danger-fg shrink-0 mt-0.5" />
+          <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-800 flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
             <span>{errorMessage}</span>
           </div>
         )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-semibold text-text mb-1">
+            <label className="block text-xs font-semibold text-ink-700 mb-1">
               Nome Completo *
             </label>
             <input
@@ -144,13 +144,13 @@ export const CollaboratorModal: React.FC<CollaboratorModalProps> = ({
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               placeholder="Ex: Carlos Eduardo Mendes"
-              className="w-full text-xs rounded-lg border border-line-strong bg-surface px-3 py-2 text-text focus:outline-none focus:ring-2 focus:ring-focus/40"
+              className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500"
               required
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-text mb-1">
+            <label className="block text-xs font-semibold text-ink-700 mb-1">
               Matrícula
             </label>
             <input
@@ -158,21 +158,21 @@ export const CollaboratorModal: React.FC<CollaboratorModalProps> = ({
               value={registrationNumber}
               onChange={(e) => setRegistrationNumber(e.target.value.toUpperCase())}
               placeholder="Ex: MAT-1024"
-              className="w-full text-xs rounded-lg border border-line-strong bg-surface px-3 py-2 text-text font-mono focus:outline-none focus:ring-2 focus:ring-focus/40 uppercase"
+              className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 font-mono focus:outline-none focus:ring-2 focus:ring-iane-500 uppercase"
             />
           </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-semibold text-text mb-1">
+            <label className="block text-xs font-semibold text-ink-700 mb-1">
               Departamento / Área *
             </label>
             <SearchableSelect value={department} onChange={setDepartment} options={catalogOptions(catalogs.departments, department)} placeholder="Selecione o departamento" />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-text mb-1">
+            <label className="block text-xs font-semibold text-ink-700 mb-1">
               Setor *
             </label>
             <SearchableSelect value={sector} onChange={setSector} options={catalogOptions(catalogs.sectors, sector)} placeholder="Selecione o setor" />
@@ -181,15 +181,15 @@ export const CollaboratorModal: React.FC<CollaboratorModalProps> = ({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-medium text-text mb-1">Unidade</label>
+            <label className="block text-xs font-medium text-ink-700 mb-1">Unidade</label>
             <SearchableSelect value={unit} onChange={setUnit} options={catalogOptions(catalogs.units, unit)} placeholder="Selecione a unidade (opcional)" />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-text mb-1">Status do Colaborador *</label>
+            <label className="block text-xs font-semibold text-ink-700 mb-1">Status do Colaborador *</label>
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value as CollaboratorStatus)}
-              className="w-full text-xs rounded-lg border border-line-strong bg-surface px-3 py-2 text-text focus:outline-none focus:ring-2 focus:ring-focus/40"
+              className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500"
             >
               <option value="Ativo">Ativo (Em atividade regular)</option>
               <option value="Férias">Férias</option>
@@ -201,7 +201,7 @@ export const CollaboratorModal: React.FC<CollaboratorModalProps> = ({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-semibold text-text mb-1">
+            <label className="block text-xs font-semibold text-ink-700 mb-1">
               Cargo / Função
             </label>
             <input
@@ -209,12 +209,12 @@ export const CollaboratorModal: React.FC<CollaboratorModalProps> = ({
               value={position}
               onChange={(e) => setPosition(e.target.value)}
               placeholder="Ex: Gerente Regional de Vendas"
-              className="w-full text-xs rounded-lg border border-line-strong bg-surface px-3 py-2 text-text focus:outline-none focus:ring-2 focus:ring-focus/40"
+              className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-text mb-1">
+            <label className="block text-xs font-semibold text-ink-700 mb-1">
               E-mail
             </label>
             <input
@@ -222,14 +222,14 @@ export const CollaboratorModal: React.FC<CollaboratorModalProps> = ({
               value={corporateEmail}
               onChange={(e) => setCorporateEmail(e.target.value)}
               placeholder="nome.sobrenome@empresa.com.br"
-              className="w-full text-xs rounded-lg border border-line-strong bg-surface px-3 py-2 text-text focus:outline-none focus:ring-2 focus:ring-focus/40"
+              className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500"
             />
           </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-medium text-text mb-1">
+            <label className="block text-xs font-medium text-ink-700 mb-1">
               Telefone de Contato Alternativo
             </label>
             <input
@@ -237,12 +237,12 @@ export const CollaboratorModal: React.FC<CollaboratorModalProps> = ({
               value={contactPhone}
               onChange={(e) => setContactPhone(e.target.value)}
               placeholder="(11) 99999-0000"
-              className="w-full text-xs rounded-lg border border-line-strong bg-surface px-3 py-2 text-text font-mono focus:outline-none focus:ring-2 focus:ring-focus/40"
+              className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 font-mono focus:outline-none focus:ring-2 focus:ring-iane-500"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-text mb-1">
+            <label className="block text-xs font-medium text-ink-700 mb-1">
               CPF
             </label>
             <input
@@ -251,13 +251,13 @@ export const CollaboratorModal: React.FC<CollaboratorModalProps> = ({
               onChange={(e) => setCpf(e.target.value)}
               placeholder="000.000.000-00"
               maxLength={14}
-              className="w-full text-xs rounded-lg border border-line-strong bg-surface px-3 py-2 text-text font-mono focus:outline-none focus:ring-2 focus:ring-focus/40"
+              className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 font-mono focus:outline-none focus:ring-2 focus:ring-iane-500"
             />
           </div>
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-text mb-1">
+          <label className="block text-xs font-medium text-ink-700 mb-1">
             Observações
           </label>
           <textarea
@@ -265,21 +265,21 @@ export const CollaboratorModal: React.FC<CollaboratorModalProps> = ({
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Informações adicionais de lotação ou histórico..."
-            className="w-full text-xs rounded-lg border border-line-strong bg-surface px-3 py-2 text-text focus:outline-none focus:ring-2 focus:ring-focus/40 resize-none"
+            className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500 resize-none"
           />
         </div>
 
-        <div className="flex items-center justify-end gap-2 pt-3 border-t border-line">
+        <div className="flex items-center justify-end gap-2 pt-3 border-t border-ink-200">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-xs font-medium text-text bg-subtle hover:bg-line rounded-lg transition-colors"
+            className="px-4 py-2 text-xs font-medium text-ink-700 bg-ink-100 hover:bg-ink-200 rounded-lg transition-colors"
           >
             Cancelar
           </button>
           <button
             type="submit"
-            className="px-5 py-2 text-xs font-semibold text-on-accent bg-accent hover:bg-accent/90 rounded-lg shadow-xs transition-colors flex items-center gap-1.5"
+            className="px-5 py-2 text-xs font-semibold text-white bg-iane-600 hover:bg-iane-700 rounded-lg shadow-xs transition-colors flex items-center gap-1.5"
           >
             <UserPlus className="w-3.5 h-3.5" />
             <span>{collaboratorToEdit ? 'Salvar Alterações' : 'Cadastrar Colaborador'}</span>

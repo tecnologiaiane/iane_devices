@@ -1,43 +1,44 @@
-import { twMerge } from 'tailwind-merge';
-import type { ComponentProps } from 'react';
-import { History } from 'lucide-react';
-import { TimelineEvent, type TimelineEventProps } from './timeline-event';
-import { EmptyState } from './empty-state';
+import { twMerge } from 'tailwind-merge'
+import type { ComponentProps } from 'react'
+import { TimelineEvent } from './timeline-event'
 
-export interface TimelineEventData
-	extends Pick<
-		TimelineEventProps,
-		'type' | 'code' | 'date' | 'origin' | 'destination' | 'documentCode' | 'reason'
-	> {}
+export interface DeviceTimelineProps extends ComponentProps<'div'> {}
 
-export interface DeviceTimelineProps extends ComponentProps<'div'> {
-	events?: TimelineEventData[];
-}
+export function DeviceTimeline({ className, ...props }: DeviceTimelineProps) {
+	const events = [
+		{
+			type: 'Entrega',
+			code: 'MOV-2026-005',
+			date: '01/01/2026',
+			origin: 'Estoque',
+			destination: 'Ricardo Luis Barbosa de Lima',
+			documentCode: 'MOV-2026-005-PDF',
+			reason: 'Carga inicial',
+		},
+	]
 
-export function DeviceTimeline({ events = [], className, ...props }: DeviceTimelineProps) {
 	return (
-		<div data-slot="device-timeline" className={twMerge('space-y-3', className)} {...props}>
-			<div className="rounded-lg border border-info-bd bg-info-bg p-3 text-xs text-info-fg">
-				<p className="mb-0.5 font-semibold">Histórico do dispositivo</p>
+		<div
+			data-slot="device-timeline"
+			className={twMerge('space-y-4', className)}
+			{...props}
+		>
+			<div className="p-3 bg-iane-50 border border-iane-200 rounded-lg text-xs text-iane-800">
+				<p className="font-semibold mb-0.5">Histórico do Dispositivo:</p>
 				<p className="text-[11px] leading-relaxed">
-					Cada período de utilização por colaborador, devolução e conferência intermediária no
-					estoque.
+					Apresenta formalmente cada período de utilização por colaborador e a devolução e conferência
+					intermediária no Estoque.
 				</p>
 			</div>
 
-			{events.length > 0 ? (
-				<ol className="relative space-y-3 before:absolute before:bottom-3 before:left-0 before:top-3 before:w-px before:bg-line">
-					{events.map((event, index) => (
-						<TimelineEvent key={`${event.code ?? event.type}-${index}`} {...event} />
-					))}
-				</ol>
-			) : (
-				<EmptyState
-					icon={History}
-					title="Nenhuma movimentação registrada"
-					description="As passagens por estoque e as entregas aparecem aqui quando ocorrerem."
-				/>
-			)}
+			<div className="relative pl-6 space-y-4 before:content-[''] before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-ink-200">
+				{events.map((evt, idx) => (
+					<TimelineEvent key={evt.code ?? idx} {...evt} />
+				))}
+				{events.length === 0 && (
+					<p className="text-ink-500 text-center py-4">Sem movimentações registradas.</p>
+				)}
+			</div>
 		</div>
-	);
+	)
 }

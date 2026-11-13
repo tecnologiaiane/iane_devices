@@ -144,12 +144,12 @@ export const TermViewerModal: React.FC<TermViewerModalProps> = ({
     >
       <div className="space-y-4">
         {/* Actions bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-subtle border border-line rounded-lg no-print">
+        <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-ink-50 border border-ink-200 rounded-lg no-print">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-text">Situação jurídica:</span>
+            <span className="text-xs font-semibold text-ink-700">Situação jurídica:</span>
             <StatusBadge status={currentStatus} type="term" />
             {currentStatus === 'Assinado' && term.signedAt && (
-              <span className="text-[11px] text-muted">
+              <span className="text-[11px] text-ink-500">
                 (Assinado em {term.signedAt})
               </span>
             )}
@@ -160,8 +160,8 @@ export const TermViewerModal: React.FC<TermViewerModalProps> = ({
               onClick={handleToggleSign}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
                 currentStatus === 'Assinado'
-                  ? 'bg-warn-bg text-warn-fg hover:bg-sun-300'
-                  : 'bg-ok-fg text-ok-bg hover:opacity-90 shadow-xs'
+                  ? 'bg-sun-100 text-gold-700 hover:bg-sun-300'
+                  : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs'
               }`}
             >
               <CheckCircle className="w-3.5 h-3.5" />
@@ -174,17 +174,17 @@ export const TermViewerModal: React.FC<TermViewerModalProps> = ({
               <>
                 <button
                   onClick={handleOpenInNewTab}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-text bg-surface border border-line-strong hover:bg-subtle transition-colors flex items-center gap-1.5"
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-ink-700 bg-white border border-ink-300 hover:bg-ink-100 transition-colors flex items-center gap-1.5"
                 >
-                  <ExternalLink className="w-3.5 h-3.5 text-muted" />
+                  <ExternalLink className="w-3.5 h-3.5 text-ink-600" />
                   <span>Abrir em nova aba</span>
                 </button>
 
                 <button
                   onClick={handleDownload}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-text bg-surface border border-line-strong hover:bg-subtle transition-colors flex items-center gap-1.5"
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-ink-700 bg-white border border-ink-300 hover:bg-ink-100 transition-colors flex items-center gap-1.5"
                 >
-                  <Download className="w-3.5 h-3.5 text-muted" />
+                  <Download className="w-3.5 h-3.5 text-ink-600" />
                   <span>Baixar PDF</span>
                 </button>
               </>
@@ -192,7 +192,7 @@ export const TermViewerModal: React.FC<TermViewerModalProps> = ({
 
             <button
               onClick={handlePrint}
-              className="px-3 py-1.5 rounded-lg text-xs font-semibold text-on-accent bg-accent hover:bg-accent/90 transition-colors flex items-center gap-1.5"
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-iane-600 hover:bg-iane-700 transition-colors flex items-center gap-1.5"
             >
               <Printer className="w-3.5 h-3.5" />
               <span>Imprimir</span>
@@ -202,21 +202,21 @@ export const TermViewerModal: React.FC<TermViewerModalProps> = ({
 
         {hasPdf ? (
           <div className="space-y-2">
-            <div className="flex items-center gap-2 text-[11px] text-muted">
-              <Paperclip className="w-3.5 h-3.5 text-accent" />
+            <div className="flex items-center gap-2 text-[11px] text-ink-500">
+              <Paperclip className="w-3.5 h-3.5 text-iane-600" />
               <span className="font-mono truncate">{term.fileName || `${term.code}.pdf`}</span>
             </div>
 
             {isLoadingPdf && (
-              <div className="flex flex-col items-center justify-center gap-2 py-16 bg-subtle border border-line rounded-xl text-muted">
-                <Loader2 className="w-6 h-6 animate-spin text-accent" />
+              <div className="flex flex-col items-center justify-center gap-2 py-16 bg-ink-50 border border-ink-200 rounded-xl text-ink-500">
+                <Loader2 className="w-6 h-6 animate-spin text-iane-600" />
                 <p className="text-xs font-medium">Carregando PDF do termo...</p>
               </div>
             )}
 
             {!isLoadingPdf && pdfError && (
-              <div className="flex items-start gap-2 p-3 bg-danger-bg border border-danger-bd rounded-xl text-xs text-danger-fg">
-                <AlertTriangle className="w-4 h-4 text-danger-fg shrink-0 mt-0.5" />
+              <div className="flex items-start gap-2 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800">
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
                 <span>{pdfError}</span>
               </div>
             )}
@@ -226,7 +226,7 @@ export const TermViewerModal: React.FC<TermViewerModalProps> = ({
                 ref={iframeRef}
                 src={pdfUrl}
                 title={`PDF do termo ${term.code}`}
-                className="w-full rounded-xl border border-line bg-surface"
+                className="w-full rounded-xl border border-ink-200 bg-white"
                 style={{ height: '70vh' }}
                 onLoad={() => {
                   if (!autoPrint || hasAutoPrintedRef.current) return;
@@ -240,7 +240,7 @@ export const TermViewerModal: React.FC<TermViewerModalProps> = ({
           /* Printable Official Document Layout (termo gerado pelo aplicativo) */
           <div 
             id="printable-term" 
-            className="p-8 sm:p-12 bg-surface border border-line-strong rounded-xl shadow-xs text-text font-sans space-y-6 print:border-none print:shadow-none print:p-0"
+            className="p-8 sm:p-12 bg-white border border-ink-300 rounded-xl shadow-xs text-ink-900 font-sans space-y-6 print:border-none print:shadow-none print:p-0"
           >
             {/* Header of Term */}
             <div className="border-b-2 border-navy-900 pb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -252,17 +252,17 @@ export const TermViewerModal: React.FC<TermViewerModalProps> = ({
                   <h2 className="text-base font-bold uppercase tracking-tight text-navy-900">
                     IANE — Gestão de Dispositivos
                   </h2>
-                  <p className="text-xs text-muted">
+                  <p className="text-xs text-ink-600">
                     IANE Indústria e Comércio — Departamento de TI
                   </p>
                 </div>
               </div>
 
               <div className="sm:text-right">
-                <span className="inline-block text-xs font-mono font-bold px-2.5 py-1 bg-subtle border border-line-strong rounded text-text">
+                <span className="inline-block text-xs font-mono font-bold px-2.5 py-1 bg-ink-100 border border-ink-300 rounded text-ink-800">
                   {term.code}
                 </span>
-                <p className="text-[11px] text-muted mt-1">
+                <p className="text-[11px] text-ink-500 mt-1">
                   Emissão: {formatDate(term.date)}
                 </p>
               </div>
@@ -273,37 +273,37 @@ export const TermViewerModal: React.FC<TermViewerModalProps> = ({
               <h1 className="text-lg font-bold text-navy-900 uppercase tracking-tight">
                 {term.title}
               </h1>
-              <p className="text-xs text-muted italic mt-0.5">
+              <p className="text-xs text-ink-500 italic mt-0.5">
                 Ref.: Atribuição e Custódia de Dispositivo Móvel Corporativo — IANE
               </p>
             </div>
 
             {/* Identification of Parties */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs bg-subtle p-4 rounded-lg border border-line">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs bg-ink-50 p-4 rounded-lg border border-ink-200">
               <div>
-                <h3 className="font-bold text-navy-900 uppercase text-[11px] mb-2 pb-1 border-b border-line">
+                <h3 className="font-bold text-navy-900 uppercase text-[11px] mb-2 pb-1 border-b border-ink-200">
                   1. Identificação do colaborador
                 </h3>
-                <div className="space-y-1 text-text">
-                  <p><span className="font-semibold text-text">Nome:</span> {term.collaboratorName || 'Não identificado'}</p>
-                  <p><span className="font-semibold text-text">Matrícula:</span> <span className="font-mono">{term.collaboratorRegistration || '-'}</span></p>
-                  <p><span className="font-semibold text-text">Departamento:</span> {term.collaboratorDepartment || '-'}</p>
+                <div className="space-y-1 text-ink-700">
+                  <p><span className="font-semibold text-ink-900">Nome:</span> {term.collaboratorName || 'Não identificado'}</p>
+                  <p><span className="font-semibold text-ink-900">Matrícula:</span> <span className="font-mono">{term.collaboratorRegistration || '-'}</span></p>
+                  <p><span className="font-semibold text-ink-900">Departamento:</span> {term.collaboratorDepartment || '-'}</p>
                   <p>
-                    <span className="font-semibold text-text">CPF:</span>{' '}
+                    <span className="font-semibold text-ink-900">CPF:</span>{' '}
                     <span className="font-mono">{term.collaboratorCpf || 'Não informado'}</span>
                   </p>
                 </div>
               </div>
 
               <div>
-                <h3 className="font-bold text-navy-900 uppercase text-[11px] mb-2 pb-1 border-b border-line">
+                <h3 className="font-bold text-navy-900 uppercase text-[11px] mb-2 pb-1 border-b border-ink-200">
                   2. Identificação do ativo e linha
                 </h3>
-                <div className="space-y-1 text-text">
-                  <p><span className="font-semibold text-text">Identificador patrimonial:</span> <span className="font-mono font-semibold">{term.deviceTag || 'N/A'}</span></p>
-                  <p><span className="font-semibold text-text">Modelo:</span> {deviceModel}</p>
-                  <p><span className="font-semibold text-text">IMEI:</span> <span className="font-mono">{term.deviceImei || 'N/A'}</span></p>
-                  <p><span className="font-semibold text-text">Linha telefônica:</span> <span className="font-mono font-semibold">{term.phoneNumber || 'Não associada'}</span></p>
+                <div className="space-y-1 text-ink-700">
+                  <p><span className="font-semibold text-ink-900">Identificador patrimonial:</span> <span className="font-mono font-semibold">{term.deviceTag || 'N/A'}</span></p>
+                  <p><span className="font-semibold text-ink-900">Modelo:</span> {deviceModel}</p>
+                  <p><span className="font-semibold text-ink-900">IMEI:</span> <span className="font-mono">{term.deviceImei || 'N/A'}</span></p>
+                  <p><span className="font-semibold text-ink-900">Linha telefônica:</span> <span className="font-mono font-semibold">{term.phoneNumber || 'Não associada'}</span></p>
                 </div>
               </div>
             </div>
@@ -316,7 +316,7 @@ export const TermViewerModal: React.FC<TermViewerModalProps> = ({
                 </h3>
                 <div className="flex flex-wrap gap-2">
                   {term.accessoriesList.map((acc, idx) => (
-                    <span key={idx} className="px-2.5 py-1 bg-subtle border border-line rounded text-text text-xs">
+                    <span key={idx} className="px-2.5 py-1 bg-ink-100 border border-ink-200 rounded text-ink-700 text-xs">
                       ✓ {acc}
                     </span>
                   ))}
@@ -325,7 +325,7 @@ export const TermViewerModal: React.FC<TermViewerModalProps> = ({
             )}
 
             {/* Legal Clauses */}
-            <div className="text-xs text-text space-y-2">
+            <div className="text-xs text-ink-700 space-y-2">
               <h3 className="font-bold text-navy-900 uppercase text-[11px] mb-1">
                 4. Cláusulas e condições de uso
               </h3>
@@ -337,7 +337,7 @@ export const TermViewerModal: React.FC<TermViewerModalProps> = ({
             </div>
 
             {term.notes && (
-              <div className="text-xs bg-warn-bg p-3 rounded border border-warn-bd text-warn-fg">
+              <div className="text-xs bg-sun-50 p-3 rounded border border-sun-300 text-gold-700">
                 <span className="font-semibold">Observações registradas:</span> {term.notes}
               </div>
             )}
@@ -347,15 +347,15 @@ export const TermViewerModal: React.FC<TermViewerModalProps> = ({
               <div className="flex flex-col items-center">
                 <div className="w-64 border-b border-ink-800 mb-2"></div>
                 <p className="font-bold text-navy-900">{term.collaboratorName || 'Assinatura do colaborador'}</p>
-                <p className="text-[11px] text-muted">
+                <p className="text-[11px] text-ink-500">
                   {term.collaboratorRegistration ? `Matrícula: ${term.collaboratorRegistration}` : 'Colaborador responsável'}
                 </p>
                 {currentStatus === 'Assinado' ? (
-                  <span className="mt-2 text-[10px] text-ok-fg font-medium bg-ok-bg px-2 py-0.5 rounded border border-ok-bd">
+                  <span className="mt-2 text-[10px] text-emerald-700 font-medium bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                     Assinado digitalmente
                   </span>
                 ) : (
-                  <span className="mt-2 text-[10px] text-warn-fg font-medium bg-warn-bg px-2 py-0.5 rounded border border-warn-bd">
+                  <span className="mt-2 text-[10px] text-gold-700 font-medium bg-sun-50 px-2 py-0.5 rounded border border-sun-300">
                     Aguardando assinatura
                   </span>
                 )}
@@ -364,15 +364,15 @@ export const TermViewerModal: React.FC<TermViewerModalProps> = ({
               <div className="flex flex-col items-center">
                 <div className="w-64 border-b border-ink-800 mb-2"></div>
                 <p className="font-bold text-navy-900">Gestão de TI & Telecomunicações</p>
-                <p className="text-[11px] text-muted">Patrimônio corporativo</p>
-                <span className="mt-2 text-[10px] text-muted font-mono">
+                <p className="text-[11px] text-ink-500">Patrimônio corporativo</p>
+                <span className="mt-2 text-[10px] text-ink-600 font-mono">
                   Data: {formatDate(term.date)}
                 </span>
               </div>
             </div>
 
             {!term.hasFile && (
-              <div className="flex items-center justify-center gap-1.5 text-[10px] text-muted no-print">
+              <div className="flex items-center justify-center gap-1.5 text-[10px] text-ink-400 no-print">
                 <FileText className="w-3 h-3" />
                 Documento gerado pelo aplicativo. Nenhum PDF foi anexado a este termo.
               </div>

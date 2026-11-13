@@ -3,7 +3,6 @@ import { dataService } from '../services/dataStorage';
 import { authService } from '../services/authService';
 import { apiClient } from '../services/apiClient';
 import { User, UserRole, SystemUserFormData, CatalogItem, Catalogs, CatalogType } from '../types';
-import { Modal } from '../components/Modal';
 import { todayISO } from '../utils/dates';
 import {
   Download,
@@ -79,19 +78,19 @@ const SettingsSection: React.FC<SettingsSectionProps> = ({
   tone = 'default',
   children,
 }) => (
-  <section className="bg-surface rounded-xl border border-line shadow-xs overflow-hidden">
+  <section className="bg-white rounded-xl border border-ink-200 shadow-xs overflow-hidden">
     <button
       type="button"
       onClick={() => onToggle(id)}
       aria-expanded={isOpen}
       aria-controls={`settings-section-${id}`}
-      className="w-full flex items-center gap-3 p-4 text-left hover:bg-subtle/60 transition-colors cursor-pointer"
+      className="w-full flex items-center gap-3 p-4 text-left hover:bg-ink-50/60 transition-colors cursor-pointer"
     >
       <div
         className={`w-9 h-9 rounded-lg border flex items-center justify-center shrink-0 ${
           tone === 'danger'
-            ? 'bg-danger-bg border-danger-bd text-danger-fg'
-            : 'bg-info-bg border-info-bd text-accent'
+            ? 'bg-rose-50 border-rose-200 text-rose-600'
+            : 'bg-iane-50 border-iane-200 text-iane-600'
         }`}
       >
         <Icon className="w-5 h-5" />
@@ -99,25 +98,25 @@ const SettingsSection: React.FC<SettingsSectionProps> = ({
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 min-w-0">
-          <h3 className="text-sm font-bold text-text truncate">{title}</h3>
+          <h3 className="text-sm font-bold text-ink-900 truncate">{title}</h3>
           {badge && (
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-subtle text-muted border border-line shrink-0">
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-ink-100 text-ink-600 border border-ink-200 shrink-0">
               {badge}
             </span>
           )}
         </div>
-        <p className="text-xs text-muted truncate mt-0.5">{description}</p>
+        <p className="text-xs text-ink-500 truncate mt-0.5">{description}</p>
       </div>
 
       <ChevronDown
-        className={`w-4 h-4 text-muted shrink-0 transition-transform duration-200 ${
+        className={`w-4 h-4 text-ink-400 shrink-0 transition-transform duration-200 ${
           isOpen ? 'rotate-180' : ''
         }`}
       />
     </button>
 
     {isOpen && (
-      <div id={`settings-section-${id}`} className="border-t border-line">
+      <div id={`settings-section-${id}`} className="border-t border-ink-100">
         {children}
       </div>
     )}
@@ -666,24 +665,24 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     <div className="space-y-5">
       {/* Mensagens de Feedback */}
       {successMessage && (
-        <div className="p-4 bg-ok-bg border border-ok-bd rounded-xl text-xs text-ok-fg flex items-center justify-between gap-2 shadow-xs">
+        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-900 flex items-center justify-between gap-2 shadow-xs">
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-ok-fg shrink-0" />
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             <span className="font-medium">{successMessage}</span>
           </div>
-          <button onClick={() => setSuccessMessage('')} className="text-ok-fg hover:text-ok-fg cursor-pointer" aria-label="Fechar mensagem">
+          <button onClick={() => setSuccessMessage('')} className="text-emerald-700 hover:text-emerald-900 cursor-pointer" aria-label="Fechar mensagem">
             <X className="w-4 h-4" />
           </button>
         </div>
       )}
 
       {errorMessage && (
-        <div className="p-4 bg-danger-bg border border-danger-bd rounded-xl text-xs text-danger-fg flex items-center justify-between gap-2 shadow-xs">
+        <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-900 flex items-center justify-between gap-2 shadow-xs">
           <div className="flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-danger-fg shrink-0" />
+            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
             <span className="font-medium">{errorMessage}</span>
           </div>
-          <button onClick={() => setErrorMessage('')} className="text-danger-fg hover:text-danger-fg cursor-pointer" aria-label="Fechar mensagem">
+          <button onClick={() => setErrorMessage('')} className="text-rose-700 hover:text-rose-900 cursor-pointer" aria-label="Fechar mensagem">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -692,8 +691,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       {/* Cabeçalho da tela + status do banco em dropdown */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-base font-bold text-text">Configurações e administração</h2>
-          <p className="text-xs text-muted mt-0.5">
+          <h2 className="text-base font-bold text-ink-900">Configurações e administração</h2>
+          <p className="text-xs text-ink-500 mt-0.5">
             Cadastros, backup, usuários e auditoria organizados em seções recolhíveis.
           </p>
         </div>
@@ -704,16 +703,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             onClick={() => setIsDbDropdownOpen((open) => !open)}
             aria-haspopup="menu"
             aria-expanded={isDbDropdownOpen}
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-surface border border-line text-xs font-semibold text-text shadow-xs hover:bg-subtle transition-colors cursor-pointer"
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-ink-200 text-xs font-semibold text-ink-700 shadow-xs hover:bg-ink-50 transition-colors cursor-pointer"
           >
             <span
               className={`w-2 h-2 rounded-full ${
-                dbConnected ? 'bg-ok-fg' : dbUnreachable ? 'bg-danger-fg' : 'bg-amber-500'
+                dbConnected ? 'bg-emerald-500' : dbUnreachable ? 'bg-rose-500' : 'bg-amber-500'
               }`}
             />
             <span>{dbLabel}</span>
             <ChevronDown
-              className={`w-3.5 h-3.5 text-muted transition-transform ${
+              className={`w-3.5 h-3.5 text-ink-400 transition-transform ${
                 isDbDropdownOpen ? 'rotate-180' : ''
               }`}
             />
@@ -723,25 +722,25 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <div
               role="menu"
               aria-label="Status da conexão com o banco"
-              className="absolute right-0 mt-2 w-72 bg-surface rounded-xl border border-line shadow-xl z-50 overflow-hidden"
+              className="absolute right-0 mt-2 w-72 bg-white rounded-xl border border-ink-200 shadow-xl z-50 overflow-hidden"
             >
               <div className="flex items-start gap-2.5 p-3.5">
                 <div
                   className={`w-8 h-8 rounded-lg border flex items-center justify-center shrink-0 ${
                     dbConnected
-                      ? 'bg-ok-bg border-ok-bd text-ok-fg'
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-600'
                       : dbUnreachable
-                      ? 'bg-danger-bg border-danger-bd text-danger-fg'
+                      ? 'bg-rose-50 border-rose-200 text-rose-600'
                       : 'bg-amber-50 border-amber-200 text-amber-600'
                   }`}
                 >
                   {dbConnected ? <Server className="w-4 h-4" /> : <ServerOff className="w-4 h-4" />}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs font-bold text-text">
+                  <p className="text-xs font-bold text-ink-900">
                     {dbConnected ? 'PostgreSQL conectado' : dbUnreachable ? 'Servidor sem resposta' : 'PostgreSQL desconectado'}
                   </p>
-                  <p className="text-[11px] text-muted leading-snug mt-0.5">
+                  <p className="text-[11px] text-ink-500 leading-snug mt-0.5">
                     {dbConnected
                       ? 'Leitura e gravação na base corporativa.'
                       : 'O sistema mantém os dados no cache local até reconectar.'}
@@ -749,27 +748,27 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </div>
               </div>
 
-              <div className="px-3.5 py-2.5 border-t border-line space-y-1.5 text-[11px]">
+              <div className="px-3.5 py-2.5 border-t border-ink-100 space-y-1.5 text-[11px]">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-muted">Ambiente</span>
-                  <span className="font-semibold text-text">
+                  <span className="text-ink-500">Ambiente</span>
+                  <span className="font-semibold text-ink-800">
                     {serverHealth?.environment === 'production' ? 'Produção' : 'Desenvolvimento'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-muted">Última verificação</span>
-                  <span className="font-mono text-text">
+                  <span className="text-ink-500">Última verificação</span>
+                  <span className="font-mono text-ink-700">
                     {lastHealthCheck ? lastHealthCheck.toLocaleTimeString('pt-BR') : '—'}
                   </span>
                 </div>
               </div>
 
-              <div className="p-2 border-t border-line flex items-center gap-1.5">
+              <div className="p-2 border-t border-ink-100 flex items-center gap-1.5">
                 <button
                   type="button"
                   onClick={() => void checkHealth()}
                   disabled={isCheckingHealth}
-                  className="flex-1 inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-semibold text-text hover:bg-subtle transition-colors disabled:opacity-50 cursor-pointer"
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-semibold text-ink-700 hover:bg-ink-100 transition-colors disabled:opacity-50 cursor-pointer"
                 >
                   <RefreshCw className={`w-3 h-3 ${isCheckingHealth ? 'animate-spin' : ''}`} />
                   Verificar
@@ -779,7 +778,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   onClick={() => void handleForceSyncWithDatabase()}
                   disabled={isSyncingWithDb || !dbConnected}
                   title="Grava os dados locais no PostgreSQL"
-                  className="flex-1 inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-semibold text-accent hover:bg-info-bg transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-semibold text-iane-700 hover:bg-iane-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                 >
                   <Database className={`w-3 h-3 ${isSyncingWithDb ? 'animate-spin' : ''}`} />
                   Sincronizar
@@ -807,35 +806,35 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               const editing = editingCatalogItem?.type === type;
               const editingItem = editing ? catalogs[type].find((item) => item.id === editingCatalogItem?.id) : undefined;
               return (
-                <section key={type} className="rounded-lg border border-line p-3 space-y-3">
+                <section key={type} className="rounded-lg border border-ink-200 p-3 space-y-3">
                   <div className="flex items-center justify-between gap-2">
-                    <h3 className="text-xs font-bold text-text">{catalogLabels[type]}</h3>
-                    <span className="text-[10px] text-muted tabular-nums">{catalogs[type]?.length || 0} itens</span>
+                    <h3 className="text-xs font-bold text-ink-900">{catalogLabels[type]}</h3>
+                    <span className="text-[10px] text-ink-400 tabular-nums">{catalogs[type]?.length || 0} itens</span>
                   </div>
                   <div className="relative">
-                    <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted" />
-                    <input value={catalogSearch[type]} onChange={(event) => setCatalogSearch((current) => ({ ...current, [type]: event.target.value }))} placeholder={`Buscar em ${catalogLabels[type].toLowerCase()}...`} className="w-full rounded-lg border border-line-strong bg-surface py-2 pl-8 pr-3 text-xs text-text focus:outline-none focus:ring-2 focus:ring-focus/40" />
+                    <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-ink-400" />
+                    <input value={catalogSearch[type]} onChange={(event) => setCatalogSearch((current) => ({ ...current, [type]: event.target.value }))} placeholder={`Buscar em ${catalogLabels[type].toLowerCase()}...`} className="w-full rounded-lg border border-ink-300 bg-white py-2 pl-8 pr-3 text-xs text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500" />
                   </div>
                   {editingItem ? (
                     <form onSubmit={(event) => { event.preventDefault(); handleCatalogSubmit(type, editingItem); }} className="flex gap-2">
-                      <input autoFocus value={catalogDraft[type]} onChange={(event) => setCatalogDraft((current) => ({ ...current, [type]: event.target.value }))} aria-label="Nome" placeholder="Nome" className="min-w-0 flex-1 rounded-lg border border-line-strong bg-surface px-3 py-2 text-xs text-text focus:outline-none focus:ring-2 focus:ring-focus/40" />
-                      <button type="submit" disabled={savingCatalog === type} className="inline-flex items-center gap-1 rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-on-accent hover:bg-accent/90 disabled:opacity-50"><Save className="h-3.5 w-3.5" />Salvar</button>
-                      <button type="button" onClick={() => { setEditingCatalogItem(null); setCatalogDraft((current) => ({ ...current, [type]: '' })); }} className="rounded-lg bg-subtle px-3 py-2 text-xs font-medium text-text hover:bg-line">Cancelar</button>
+                      <input autoFocus value={catalogDraft[type]} onChange={(event) => setCatalogDraft((current) => ({ ...current, [type]: event.target.value }))} aria-label="Nome" placeholder="Nome" className="min-w-0 flex-1 rounded-lg border border-ink-300 bg-white px-3 py-2 text-xs text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500" />
+                      <button type="submit" disabled={savingCatalog === type} className="inline-flex items-center gap-1 rounded-lg bg-iane-600 px-3 py-2 text-xs font-semibold text-white hover:bg-iane-700 disabled:opacity-50"><Save className="h-3.5 w-3.5" />Salvar</button>
+                      <button type="button" onClick={() => { setEditingCatalogItem(null); setCatalogDraft((current) => ({ ...current, [type]: '' })); }} className="rounded-lg bg-ink-100 px-3 py-2 text-xs font-medium text-ink-700 hover:bg-ink-200">Cancelar</button>
                     </form>
                   ) : (
                     <form onSubmit={(event) => { event.preventDefault(); handleCatalogSubmit(type); }} className="flex gap-2">
-                      <input value={catalogDraft[type]} onChange={(event) => setCatalogDraft((current) => ({ ...current, [type]: event.target.value }))} aria-label="Nome" placeholder="Nome" className="min-w-0 flex-1 rounded-lg border border-line-strong bg-surface px-3 py-2 text-xs text-text focus:outline-none focus:ring-2 focus:ring-focus/40" />
-                      <button type="submit" disabled={savingCatalog === type} className="inline-flex items-center gap-1 rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-on-accent hover:bg-accent/90 disabled:opacity-50"><Plus className="h-3.5 w-3.5" />Adicionar</button>
+                      <input value={catalogDraft[type]} onChange={(event) => setCatalogDraft((current) => ({ ...current, [type]: event.target.value }))} aria-label="Nome" placeholder="Nome" className="min-w-0 flex-1 rounded-lg border border-ink-300 bg-white px-3 py-2 text-xs text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500" />
+                      <button type="submit" disabled={savingCatalog === type} className="inline-flex items-center gap-1 rounded-lg bg-iane-600 px-3 py-2 text-xs font-semibold text-white hover:bg-iane-700 disabled:opacity-50"><Plus className="h-3.5 w-3.5" />Adicionar</button>
                     </form>
                   )}
-                  <ul className="max-h-48 divide-y divide-line overflow-y-auto rounded-md border border-line">
+                  <ul className="max-h-48 divide-y divide-ink-100 overflow-y-auto rounded-md border border-ink-100">
                     {visibleItems.length ? visibleItems.map((item) => (
-                      <li key={item.id} className="flex items-center gap-2 px-2.5 py-2 hover:bg-subtle/70">
-                        <span className="min-w-0 flex-1 truncate text-xs text-text">{item.name}</span>
-                        <button type="button" title="Editar" onClick={() => { setEditingCatalogItem({ type, id: item.id }); setCatalogDraft((current) => ({ ...current, [type]: item.name })); setErrorMessage(''); }} className="rounded p-1 text-muted hover:bg-info-bg hover:text-accent"><Edit2 className="h-3.5 w-3.5" /></button>
-                        <button type="button" title="Excluir" onClick={() => handleCatalogDelete(type, item)} className="rounded p-1 text-muted hover:bg-danger-bg hover:text-danger-fg"><Trash2 className="h-3.5 w-3.5" /></button>
+                      <li key={item.id} className="flex items-center gap-2 px-2.5 py-2 hover:bg-ink-50/70">
+                        <span className="min-w-0 flex-1 truncate text-xs text-ink-700">{item.name}</span>
+                        <button type="button" title="Editar" onClick={() => { setEditingCatalogItem({ type, id: item.id }); setCatalogDraft((current) => ({ ...current, [type]: item.name })); setErrorMessage(''); }} className="rounded p-1 text-ink-400 hover:bg-iane-50 hover:text-iane-700"><Edit2 className="h-3.5 w-3.5" /></button>
+                        <button type="button" title="Excluir" onClick={() => handleCatalogDelete(type, item)} className="rounded p-1 text-ink-400 hover:bg-rose-50 hover:text-rose-600"><Trash2 className="h-3.5 w-3.5" /></button>
                       </li>
-                    )) : <li className="px-3 py-4 text-center text-[11px] text-muted">{query ? 'Nenhum resultado.' : 'Nenhum item cadastrado.'}</li>}
+                    )) : <li className="px-3 py-4 text-center text-[11px] text-ink-400">{query ? 'Nenhum resultado.' : 'Nenhum item cadastrado.'}</li>}
                   </ul>
                 </section>
               );
@@ -857,21 +856,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         >
           <div className="p-4 sm:p-5 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <p className="text-xs text-muted">
+              <p className="text-xs text-ink-500">
                 Controle de acesso baseado em perfis (RBAC). Apenas administradores e gestores autorizados podem alterar usuários.
               </p>
               <button
                 onClick={handleOpenCreateUser}
-                className="py-2 px-3.5 bg-accent hover:bg-accent/90 text-on-accent rounded-lg text-xs font-semibold shadow-xs transition-colors flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
+                className="py-2 px-3.5 bg-iane-600 hover:bg-iane-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
               >
                 <UserPlus className="w-4 h-4" />
                 <span>Novo Usuário</span>
               </button>
             </div>
 
-            <div className="overflow-x-auto border border-line rounded-lg">
-              <table className="ds-table">
-                <thead className="bg-subtle text-muted font-semibold border-b border-line text-[11px]">
+            <div className="overflow-x-auto border border-ink-200 rounded-lg">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-ink-50 text-ink-600 font-semibold border-b border-ink-200 text-[11px]">
                   <tr>
                     <th className="py-3 px-4">Nome & Login</th>
                     <th className="py-3 px-4">E-mail Corporativo</th>
@@ -881,16 +880,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     <th className="py-3 px-4 text-right">Ações</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-line">
+                <tbody className="divide-y divide-ink-100">
                   {loadingUsers ? (
                     <tr>
-                      <td colSpan={6} className="py-6 text-center text-muted">
+                      <td colSpan={6} className="py-6 text-center text-ink-400">
                         Carregando usuários do sistema...
                       </td>
                     </tr>
                   ) : users.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="py-6 text-center text-muted">
+                      <td colSpan={6} className="py-6 text-center text-ink-400">
                         Nenhum usuário cadastrado.
                       </td>
                     </tr>
@@ -901,11 +900,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       const isMyself = u.id === activeUser?.id;
 
                       const roleBadgeClass = {
-                        admin: 'bg-info-bg text-info-fg border-info-bd',
-                        gestor: 'bg-subtle text-accent border-info-bd',
-                        operador: 'bg-ok-bg text-ok-fg border-ok-bd',
-                        visualizador: 'bg-subtle text-text border-line',
-                      }[u.role] || 'bg-subtle text-text';
+                        admin: 'bg-purple-100 text-purple-800 border-purple-200',
+                        gestor: 'bg-iane-100 text-iane-800 border-iane-200',
+                        operador: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+                        visualizador: 'bg-ink-100 text-ink-700 border-ink-200',
+                      }[u.role] || 'bg-ink-100 text-ink-700';
 
                       const roleLabel = {
                         admin: 'Super Administrador',
@@ -918,52 +917,52 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       const countPerms = hasAll ? AVAILABLE_PERMISSIONS.length : (u.permissions?.length || 0);
 
                       return (
-                        <tr key={u.id} className="hover:bg-subtle/60 transition-colors">
-                          <td data-label="Nome & Login" className="py-3 px-4">
-                            <div className="font-semibold text-text flex items-center gap-1.5">
+                        <tr key={u.id} className="hover:bg-ink-50/60 transition-colors">
+                          <td className="py-3 px-4">
+                            <div className="font-semibold text-ink-900 flex items-center gap-1.5">
                               <span>{u.fullName}</span>
                               {isMyself && (
-                                <span className="text-[10px] px-1.5 py-0.2 bg-info-bg text-accent border border-info-bd rounded font-normal">
+                                <span className="text-[10px] px-1.5 py-0.2 bg-iane-50 text-iane-700 border border-iane-200 rounded font-normal">
                                   Você
                                 </span>
                               )}
                             </div>
-                            <div className="text-[11px] text-muted font-mono">@{u.username}</div>
+                            <div className="text-[11px] text-ink-400 font-mono">@{u.username}</div>
                           </td>
 
-                          <td data-label="E-mail Corporativo" className="py-3 px-4 text-muted">
-                            {u.email || <span className="text-muted italic">Não informado</span>}
+                          <td className="py-3 px-4 text-ink-600">
+                            {u.email || <span className="text-ink-400 italic">Não informado</span>}
                           </td>
 
-                          <td data-label="Papel (Perfil)" className="py-3 px-4">
+                          <td className="py-3 px-4">
                             <span className={`px-2.5 py-1 rounded-full text-[10px] font-semibold border ${roleBadgeClass}`}>
                               {roleLabel}
                             </span>
                           </td>
 
-                          <td data-label="Módulos Autorizados" className="py-3 px-4">
-                            <span className="text-text font-medium">
+                          <td className="py-3 px-4">
+                            <span className="text-ink-700 font-medium">
                               {hasAll ? (
-                                <span className="text-ok-fg font-semibold">Acesso Total ({AVAILABLE_PERMISSIONS.length} módulos)</span>
+                                <span className="text-emerald-700 font-semibold">Acesso Total ({AVAILABLE_PERMISSIONS.length} módulos)</span>
                               ) : (
                                 `${countPerms} de ${AVAILABLE_PERMISSIONS.length} módulos`
                               )}
                             </span>
                           </td>
 
-                          <td data-label="Status" className="py-3 px-4">
-                            <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${u.active !== false ? 'text-ok-fg' : 'text-muted'}`}>
-                              <span className={`w-2 h-2 rounded-full ${u.active !== false ? 'bg-ok-fg' : 'bg-line-strong'}`} />
+                          <td className="py-3 px-4">
+                            <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${u.active !== false ? 'text-emerald-700' : 'text-ink-400'}`}>
+                              <span className={`w-2 h-2 rounded-full ${u.active !== false ? 'bg-emerald-500' : 'bg-ink-300'}`} />
                               {u.active !== false ? 'Ativo' : 'Inativo'}
                             </span>
                           </td>
 
-                          <td data-label="Ações" className="py-3 px-4 text-right">
+                          <td className="py-3 px-4 text-right">
                             <div className="flex items-center justify-end gap-1">
                               <button
                                 onClick={() => handleOpenEditUser(u)}
                                 title="Editar Usuário e Permissões"
-                                className="p-1.5 text-muted hover:text-accent hover:bg-info-bg rounded-md transition-colors cursor-pointer"
+                                className="p-1.5 text-ink-500 hover:text-iane-600 hover:bg-iane-50 rounded-md transition-colors cursor-pointer"
                               >
                                 <Edit2 className="w-3.5 h-3.5" />
                               </button>
@@ -974,8 +973,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                                 title={isCurrentSuper ? 'Super Admin principal não pode ser excluído' : isMyself ? 'Você não pode excluir seu próprio login' : 'Excluir Usuário'}
                                 className={`p-1.5 rounded-md transition-colors ${
                                   isCurrentSuper || isMyself
-                                    ? 'text-muted cursor-not-allowed'
-                                    : 'text-muted hover:text-danger-fg hover:bg-danger-bg cursor-pointer'
+                                    ? 'text-ink-300 cursor-not-allowed'
+                                    : 'text-ink-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer'
                                 }`}
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -1011,12 +1010,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-start gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-ok-bg border border-ok-bd text-ok-fg flex items-center justify-center shrink-0">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center shrink-0">
                     <Clock className="w-4 h-4" />
                   </div>
                   <div>
-                    <p className="text-xs font-semibold text-text">Backup automático do PostgreSQL</p>
-                    <p className="text-[11px] text-muted leading-snug mt-0.5">
+                    <p className="text-xs font-semibold text-ink-900">Backup automático do PostgreSQL</p>
+                    <p className="text-[11px] text-ink-500 leading-snug mt-0.5">
                       Rotina no servidor, executada a cada {backupConfig.intervalHours} horas. Inclui os PDFs dos termos.
                     </p>
                   </div>
@@ -1026,43 +1025,43 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   onClick={() => void handleCreateBackup()}
                   disabled={isCreatingBackup || !dbConnected}
                   title={!dbConnected ? 'Conecte o PostgreSQL para gerar o backup' : 'Gerar uma cópia completa agora'}
-                  className="py-2 px-3.5 bg-accent hover:bg-accent/90 text-on-accent rounded-lg text-xs font-semibold shadow-xs transition-colors flex items-center justify-center gap-1.5 self-start sm:self-auto disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  className="py-2 px-3.5 bg-iane-600 hover:bg-iane-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors flex items-center justify-center gap-1.5 self-start sm:self-auto disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
                   {isCreatingBackup ? <Loader2 className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
                   <span>{isCreatingBackup ? 'Gerando backup...' : 'Fazer backup agora'}</span>
                 </button>
               </div>
 
-              <div className="border border-line rounded-lg overflow-hidden">
-                <div className="px-3 py-2 bg-subtle border-b border-line flex items-center justify-between">
-                  <span className="text-[11px] font-semibold text-muted uppercase tracking-wider">
+              <div className="border border-ink-200 rounded-lg overflow-hidden">
+                <div className="px-3 py-2 bg-ink-50 border-b border-ink-200 flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-ink-600 uppercase tracking-wider">
                     Cópias no servidor
                   </span>
                   <button
                     onClick={() => void loadBackups()}
                     disabled={loadingBackups}
                     title="Atualizar lista"
-                    className="p-1 text-muted hover:text-accent rounded transition-colors cursor-pointer"
+                    className="p-1 text-ink-500 hover:text-iane-600 rounded transition-colors cursor-pointer"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${loadingBackups ? 'animate-spin' : ''}`} />
                   </button>
                 </div>
 
                 {loadingBackups && backups.length === 0 ? (
-                  <p className="px-3 py-5 text-center text-[11px] text-muted">Carregando backups...</p>
+                  <p className="px-3 py-5 text-center text-[11px] text-ink-400">Carregando backups...</p>
                 ) : backups.length === 0 ? (
-                  <p className="px-3 py-5 text-center text-[11px] text-muted">
+                  <p className="px-3 py-5 text-center text-[11px] text-ink-400">
                     Nenhum backup ainda. A primeira cópia automática é criada após o servidor conectar ao banco.
                   </p>
                 ) : (
-                  <ul className="divide-y divide-line max-h-56 overflow-y-auto">
+                  <ul className="divide-y divide-ink-100 max-h-56 overflow-y-auto">
                     {backups.map((backup) => (
-                      <li key={backup.fileName} className="flex items-center gap-3 px-3 py-2 hover:bg-subtle/60">
+                      <li key={backup.fileName} className="flex items-center gap-3 px-3 py-2 hover:bg-ink-50/60">
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs font-semibold text-text truncate">
+                          <p className="text-xs font-semibold text-ink-800 truncate">
                             {backup.origin === 'scheduled' ? 'Automático' : 'Manual'} · {formatBackupDate(backup.createdAt)}
                           </p>
-                          <p className="text-[10px] font-mono text-muted truncate">
+                          <p className="text-[10px] font-mono text-ink-400 truncate">
                             {backup.fileName} · {formatFileSize(backup.size)}
                           </p>
                         </div>
@@ -1070,7 +1069,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                           onClick={() => void handleDownloadServerBackup(backup.fileName)}
                           disabled={downloadingBackup === backup.fileName}
                           title="Baixar este backup"
-                          className="p-1.5 text-muted hover:text-accent hover:bg-info-bg rounded-md transition-colors disabled:opacity-50 cursor-pointer"
+                          className="p-1.5 text-ink-500 hover:text-iane-600 hover:bg-iane-50 rounded-md transition-colors disabled:opacity-50 cursor-pointer"
                         >
                           {downloadingBackup === backup.fileName ? (
                             <Loader2 className="w-4 h-4 animate-spin" />
@@ -1085,34 +1084,34 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
             </>
           ) : (
-            <div className="flex items-start gap-2.5 p-3 rounded-lg bg-subtle border border-line">
-              <ShieldAlert className="w-4 h-4 text-muted shrink-0 mt-0.5" />
-              <p className="text-[11px] text-muted leading-relaxed">
+            <div className="flex items-start gap-2.5 p-3 rounded-lg bg-ink-50 border border-ink-200">
+              <ShieldAlert className="w-4 h-4 text-ink-500 shrink-0 mt-0.5" />
+              <p className="text-[11px] text-ink-600 leading-relaxed">
                 O backup completo do servidor é exclusivo para administradores. Use a cópia local em JSON abaixo.
               </p>
             </div>
           )}
 
-          <div className="pt-4 border-t border-line">
-            <p className="text-[11px] font-semibold text-muted uppercase tracking-wider mb-2">
+          <div className="pt-4 border-t border-ink-100">
+            <p className="text-[11px] font-semibold text-ink-600 uppercase tracking-wider mb-2">
               Cópia local em JSON
             </p>
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={handleDownloadLocalBackup}
-                className="py-2 px-3 bg-subtle hover:bg-line text-text rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                className="py-2 px-3 bg-ink-100 hover:bg-ink-200 text-ink-800 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
               >
-                <Download className="w-3.5 h-3.5 text-muted" />
+                <Download className="w-3.5 h-3.5 text-ink-600" />
                 <span>Baixar JSON</span>
               </button>
 
-              <label className="py-2 px-3 bg-subtle hover:bg-line text-text rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer">
-                <Upload className="w-3.5 h-3.5 text-muted" />
+              <label className="py-2 px-3 bg-ink-100 hover:bg-ink-200 text-ink-800 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer">
+                <Upload className="w-3.5 h-3.5 text-ink-600" />
                 <span>Restaurar JSON</span>
                 <input type="file" accept=".json" onChange={handleImportBackup} className="hidden" />
               </label>
             </div>
-            <p className="text-[10px] text-muted leading-snug mt-2">
+            <p className="text-[10px] text-ink-400 leading-snug mt-2">
               O JSON local contém cadastros e movimentações, mas não os PDFs dos termos. Para recuperação completa, use as cópias do servidor.
             </p>
           </div>
@@ -1130,8 +1129,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         onToggle={handleToggleSection}
       >
         <div className="max-h-80 overflow-y-auto">
-          <table className="ds-table">
-            <thead className="bg-subtle border-b border-line text-muted font-semibold text-[11px] sticky top-0">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead className="bg-ink-50 border-b border-ink-200 text-ink-600 font-semibold text-[11px] sticky top-0">
               <tr>
                 <th className="py-2.5 px-3">Data / Hora</th>
                 <th className="py-2.5 px-3">Entidade</th>
@@ -1140,21 +1139,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <th className="py-2.5 px-3">Usuário</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-line">
+            <tbody className="divide-y divide-ink-100">
               {auditLogs.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-6 text-center text-muted">
+                  <td colSpan={5} className="py-6 text-center text-ink-400">
                     Nenhum evento registrado.
                   </td>
                 </tr>
               ) : (
                 auditLogs.map((log) => (
-                  <tr key={log.id} className="hover:bg-subtle/50">
-                    <td data-label="Data / Hora" className="py-2 px-3 font-mono text-muted whitespace-nowrap">{log.timestamp}</td>
-                    <td data-label="Entidade" className="py-2 px-3 font-semibold text-text">{log.entityType}</td>
-                    <td data-label="Identificador" className="py-2 px-3 font-mono text-accent">{log.entityLabel}</td>
-                    <td data-label="Operação / Detalhes" className="py-2 px-3 text-text">{log.details}</td>
-                    <td data-label="Usuário" className="py-2 px-3 text-muted">{log.user}</td>
+                  <tr key={log.id} className="hover:bg-ink-50/50">
+                    <td className="py-2 px-3 font-mono text-ink-500 whitespace-nowrap">{log.timestamp}</td>
+                    <td className="py-2 px-3 font-semibold text-ink-800">{log.entityType}</td>
+                    <td className="py-2 px-3 font-mono text-iane-700">{log.entityLabel}</td>
+                    <td className="py-2 px-3 text-ink-700">{log.details}</td>
+                    <td className="py-2 px-3 text-ink-500">{log.user}</td>
                   </tr>
                 ))
               )}
@@ -1175,12 +1174,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           onToggle={handleToggleSection}
         >
           <div className="p-4 sm:p-5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-lg border border-danger-bd bg-danger-bg/60">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-lg border border-rose-200 bg-rose-50/60">
               <div className="flex items-start gap-2.5">
-                <RotateCcw className="w-4 h-4 text-danger-fg shrink-0 mt-0.5" />
+                <RotateCcw className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-xs font-bold text-danger-fg">Zerar todos os dados</p>
-                  <p className="text-[11px] text-danger-fg leading-snug mt-0.5">
+                  <p className="text-xs font-bold text-rose-900">Zerar todos os dados</p>
+                  <p className="text-[11px] text-rose-700 leading-snug mt-0.5">
                     Remove aparelhos, linhas, colaboradores, movimentações, termos e auditoria do PostgreSQL e deste navegador.
                   </p>
                 </div>
@@ -1191,7 +1190,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   setResetAcknowledged(false);
                   setIsResetModalOpen(true);
                 }}
-                className="px-3.5 py-1.5 text-xs font-semibold text-danger-fg bg-surface hover:bg-danger-bg border border-danger-bd rounded-lg transition-colors cursor-pointer self-start sm:self-auto shrink-0"
+                className="px-3.5 py-1.5 text-xs font-semibold text-rose-700 bg-white hover:bg-rose-100 border border-rose-300 rounded-lg transition-colors cursor-pointer self-start sm:self-auto shrink-0"
               >
                 Zerar dados...
               </button>
@@ -1203,18 +1202,29 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       {/* =========================================================================
           MODAL DE CADASTRO / EDIÇÃO DE USUÁRIO (RBAC)
           ========================================================================= */}
-      <Modal
-        isOpen={isUserModalOpen}
-        onClose={() => setIsUserModalOpen(false)}
-        title={userToEdit ? 'Editar Usuário e Permissões' : 'Cadastrar Novo Operador'}
-        subtitle="Defina os dados de acesso e as permissões por módulo."
-        maxWidth="2xl"
-      >
-        <form onSubmit={handleSaveUser} className="space-y-5">
+      {isUserModalOpen && (
+        <div className="fixed inset-0 z-50 bg-ink-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden border border-ink-200 my-8">
+            <div className="px-6 py-4 bg-ink-900 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <ShieldCheck className="w-5 h-5 text-iane-400" />
+                <h3 className="font-bold text-sm">
+                  {userToEdit ? 'Editar Usuário e Permissões' : 'Cadastrar Novo Operador'}
+                </h3>
+              </div>
+              <button
+                onClick={() => setIsUserModalOpen(false)}
+                className="text-ink-400 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveUser} className="p-6 space-y-5">
               {/* Dados Básicos */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-text mb-1">
+                  <label className="block text-xs font-semibold text-ink-700 mb-1">
                     Nome Completo *
                   </label>
                   <input
@@ -1223,12 +1233,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     value={formFullName}
                     onChange={(e) => setFormFullName(e.target.value)}
                     placeholder="Ex: Carlos Eduardo Silva"
-                    className="w-full text-xs px-3 py-2 border border-line-strong rounded-lg focus:outline-none focus:ring-2 focus:ring-focus/40"
+                    className="w-full text-xs px-3 py-2 border border-ink-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-iane-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-text mb-1">
+                  <label className="block text-xs font-semibold text-ink-700 mb-1">
                     Nome de Usuário (Login) *
                   </label>
                   <input
@@ -1238,9 +1248,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     value={formUsername}
                     onChange={(e) => setFormUsername(e.target.value)}
                     placeholder="Ex: carlos.silva"
-                    className="w-full text-xs px-3 py-2 border border-line-strong rounded-lg focus:outline-none focus:ring-2 focus:ring-focus/40 disabled:bg-subtle disabled:text-muted disabled:cursor-not-allowed"
+                    className="w-full text-xs px-3 py-2 border border-ink-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-iane-500 disabled:bg-ink-100 disabled:text-ink-500 disabled:cursor-not-allowed"
                   />
-                  <p className="mt-1 text-[11px] text-muted">
+                  <p className="mt-1 text-[11px] text-ink-500">
                     {!isAdmin
                       ? 'Somente o Super Admin pode alterar o nome de login.'
                       : userToEdit
@@ -1250,7 +1260,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-text mb-1">
+                  <label className="block text-xs font-semibold text-ink-700 mb-1">
                     E-mail Corporativo
                   </label>
                   <input
@@ -1258,12 +1268,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     value={formEmail}
                     onChange={(e) => setFormEmail(e.target.value)}
                     placeholder="Ex: carlos.silva@iane.ind.br"
-                    className="w-full text-xs px-3 py-2 border border-line-strong rounded-lg focus:outline-none focus:ring-2 focus:ring-focus/40"
+                    className="w-full text-xs px-3 py-2 border border-ink-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-iane-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-text mb-1">
+                  <label className="block text-xs font-semibold text-ink-700 mb-1">
                     {userToEdit ? 'Nova Senha (deixe em branco p/ manter)' : 'Senha de Acesso (Mín. 6 chars) *'}
                   </label>
                   <div className="relative">
@@ -1273,12 +1283,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       value={formPassword}
                       onChange={(e) => setFormPassword(e.target.value)}
                       placeholder={userToEdit ? '••••••••' : 'Defina a senha'}
-                      className="w-full text-xs px-3 py-2 pr-9 border border-line-strong rounded-lg focus:outline-none focus:ring-2 focus:ring-focus/40"
+                      className="w-full text-xs px-3 py-2 pr-9 border border-ink-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-iane-500"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-muted"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-600"
                       aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -1288,12 +1298,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
 
               {/* Papel do Usuário */}
-              <div className="p-4 bg-subtle border border-line rounded-xl space-y-3">
+              <div className="p-4 bg-ink-50 border border-ink-200 rounded-xl space-y-3">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-text">
+                  <label className="text-xs font-bold text-ink-800">
                     Papel / Perfil de Acesso
                   </label>
-                  <span className="text-[11px] text-muted">
+                  <span className="text-[11px] text-ink-500">
                     Determina o nível padrão de privilégios
                   </span>
                 </div>
@@ -1314,8 +1324,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         onClick={() => handleRoleChange(roleKey)}
                         className={`p-2.5 rounded-lg border text-xs font-semibold text-center transition-all cursor-pointer ${
                           isSelected
-                            ? 'bg-accent text-on-accent border-accent shadow-xs'
-                            : 'bg-surface text-text border-line hover:bg-subtle'
+                            ? 'bg-iane-600 text-white border-iane-600 shadow-xs'
+                            : 'bg-white text-ink-700 border-ink-200 hover:bg-ink-100'
                         }`}
                       >
                         {labels[roleKey]}
@@ -1329,10 +1339,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h4 className="text-xs font-bold text-text">
+                    <h4 className="text-xs font-bold text-ink-900">
                       Permissões por Módulo do Sistema
                     </h4>
-                    <p className="text-[11px] text-muted">
+                    <p className="text-[11px] text-ink-500">
                       Marque exatamente o que este usuário tem autorização para visualizar ou modificar
                     </p>
                   </div>
@@ -1340,22 +1350,22 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     <button
                       type="button"
                       onClick={handleSelectAllPerms}
-                      className="text-accent hover:underline font-medium cursor-pointer"
+                      className="text-iane-600 hover:underline font-medium cursor-pointer"
                     >
                       Marcar todos
                     </button>
-                    <span className="text-muted">|</span>
+                    <span className="text-ink-300">|</span>
                     <button
                       type="button"
                       onClick={handleClearAllPerms}
-                      className="text-muted hover:underline font-medium cursor-pointer"
+                      className="text-ink-500 hover:underline font-medium cursor-pointer"
                     >
                       Desmarcar todos
                     </button>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto p-1 border border-line rounded-xl bg-subtle/50">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto p-1 border border-ink-200 rounded-xl bg-ink-50/50">
                   {AVAILABLE_PERMISSIONS.map((perm) => {
                     const isChecked = formRole === 'admin' || formPermissions.includes(perm.id) || formPermissions.includes('all');
                     return (
@@ -1364,24 +1374,24 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         onClick={() => formRole !== 'admin' && handleTogglePermission(perm.id)}
                         className={`p-2.5 rounded-lg border flex items-start gap-2.5 transition-colors ${
                           formRole === 'admin'
-                            ? 'bg-info-bg/40 border-info-bd cursor-not-allowed opacity-90'
+                            ? 'bg-purple-50/40 border-purple-200 cursor-not-allowed opacity-90'
                             : isChecked
-                            ? 'bg-info-bg/60 border-info-bd cursor-pointer'
-                            : 'bg-surface border-line hover:bg-subtle cursor-pointer'
+                            ? 'bg-iane-50/60 border-iane-200 cursor-pointer'
+                            : 'bg-white border-ink-200 hover:bg-ink-50 cursor-pointer'
                         }`}
                       >
-                        <div className="pt-0.5 shrink-0 text-accent">
+                        <div className="pt-0.5 shrink-0 text-iane-600">
                           {isChecked ? (
-                            <CheckSquare className="w-4 h-4 text-accent" />
+                            <CheckSquare className="w-4 h-4 text-iane-600" />
                           ) : (
-                            <Square className="w-4 h-4 text-muted" />
+                            <Square className="w-4 h-4 text-ink-300" />
                           )}
                         </div>
                         <div className="min-w-0">
-                          <div className="text-xs font-semibold text-text leading-tight">
+                          <div className="text-xs font-semibold text-ink-900 leading-tight">
                             {perm.label}
                           </div>
-                          <div className="text-[10px] text-muted leading-tight mt-0.5">
+                          <div className="text-[10px] text-ink-500 leading-tight mt-0.5">
                             {perm.description}
                           </div>
                         </div>
@@ -1398,45 +1408,56 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   id="userActiveCheck"
                   checked={formActive}
                   onChange={(e) => setFormActive(e.target.checked)}
-                  className="w-4 h-4 text-accent rounded border-line-strong focus:ring-focus/40"
+                  className="w-4 h-4 text-iane-600 rounded border-ink-300 focus:ring-iane-500"
                 />
-                <label htmlFor="userActiveCheck" className="text-xs font-semibold text-text cursor-pointer">
+                <label htmlFor="userActiveCheck" className="text-xs font-semibold text-ink-700 cursor-pointer">
                   Usuário Ativo (permite realizar login no sistema)
                 </label>
               </div>
 
               {/* Footer Buttons */}
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-line">
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-ink-100">
                 <button
                   type="button"
                   onClick={() => setIsUserModalOpen(false)}
-                  className="px-4 py-2 border border-line-strong rounded-lg text-xs font-semibold text-text hover:bg-subtle transition-colors cursor-pointer"
+                  className="px-4 py-2 border border-ink-300 rounded-lg text-xs font-semibold text-ink-700 hover:bg-ink-50 transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingUser}
-                  className="px-5 py-2 bg-accent hover:bg-accent/90 disabled:opacity-50 text-on-accent rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                  className="px-5 py-2 bg-iane-600 hover:bg-iane-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
                 >
                   {isSubmittingUser ? 'Salvando...' : userToEdit ? 'Atualizar Usuário' : 'Criar Usuário'}
                 </button>
               </div>
-        </form>
-      </Modal>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Modal de confirmação reforçada para zerar dados */}
-      <Modal
-        isOpen={isResetModalOpen}
-        onClose={() => {
-          if (!isResetting) setIsResetModalOpen(false);
-        }}
-        title="Confirmar limpeza total"
-        subtitle="Esta ação não pode ser desfeita."
-        maxWidth="lg"
-      >
-        <div className="space-y-4">
-              <div className="p-3 rounded-lg bg-danger-bg border border-danger-bd text-[11px] text-danger-fg leading-relaxed">
+      {isResetModalOpen && (
+        <div className="fixed inset-0 z-50 bg-ink-900/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-rose-200">
+            <div className="px-5 py-4 bg-rose-700 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <ShieldAlert className="w-5 h-5" />
+                <h3 className="font-bold text-sm">Confirmar limpeza total</h3>
+              </div>
+              <button
+                onClick={() => setIsResetModalOpen(false)}
+                disabled={isResetting}
+                className="text-rose-100 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
+                aria-label="Fechar"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-[11px] text-rose-800 leading-relaxed">
                 Esta ação remove permanentemente todos os aparelhos, linhas, colaboradores, movimentações, termos e registros de auditoria.
                 Ela não pode ser desfeita. Gere e baixe um backup antes de continuar.
               </div>
@@ -1446,16 +1467,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   type="checkbox"
                   checked={resetAcknowledged}
                   onChange={(e) => setResetAcknowledged(e.target.checked)}
-                  className="mt-0.5 w-4 h-4 rounded border-line-strong text-danger-fg focus:ring-danger-fg"
+                  className="mt-0.5 w-4 h-4 rounded border-ink-300 text-rose-600 focus:ring-rose-500"
                 />
-                <span className="text-xs text-text leading-snug">
+                <span className="text-xs text-ink-700 leading-snug">
                   Entendo que todos os dados serão apagados definitivamente.
                 </span>
               </label>
 
               <div>
-                <label className="block text-xs font-semibold text-text mb-1">
-                  Digite <span className="font-mono text-danger-fg">ZERAR</span> para confirmar
+                <label className="block text-xs font-semibold text-ink-700 mb-1">
+                  Digite <span className="font-mono text-rose-700">ZERAR</span> para confirmar
                 </label>
                 <input
                   type="text"
@@ -1463,16 +1484,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   onChange={(e) => setResetConfirmText(e.target.value)}
                   placeholder="ZERAR"
                   autoComplete="off"
-                  className="w-full text-xs px-3 py-2 border border-line-strong bg-surface text-text rounded-md focus:outline-none focus:ring-2 focus:ring-danger-fg font-mono uppercase"
+                  className="w-full text-xs px-3 py-2 border border-ink-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500 font-mono uppercase"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-2 border-t border-line">
+              <div className="flex items-center justify-end gap-3 pt-2 border-t border-ink-100">
                 <button
                   type="button"
                   onClick={() => setIsResetModalOpen(false)}
                   disabled={isResetting}
-                  className="px-4 py-2 border border-line-strong rounded-lg text-xs font-semibold text-text hover:bg-subtle transition-colors cursor-pointer"
+                  className="px-4 py-2 border border-ink-300 rounded-lg text-xs font-semibold text-ink-700 hover:bg-ink-50 transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
@@ -1484,14 +1505,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     !resetAcknowledged ||
                     resetConfirmText.trim().toUpperCase() !== 'ZERAR'
                   }
-                  className="px-5 py-2 bg-danger-fg hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed text-danger-bg rounded-md text-xs font-semibold shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                  className="px-5 py-2 bg-rose-700 hover:bg-rose-800 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg text-xs font-semibold shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
                 >
                   {isResetting ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
                   <span>{isResetting ? 'Zerando...' : 'Zerar todos os dados'}</span>
                 </button>
               </div>
-              </div>
-      </Modal>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

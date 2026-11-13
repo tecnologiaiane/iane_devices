@@ -5,12 +5,9 @@ import { Sidebar, NavTab } from './components/Sidebar';
 import { Device, PhoneLine, Collaborator, DocumentTerm, MovementType, RequestRecord, User } from './types';
 import { dataService } from './services/dataStorage';
 import { authService } from './services/authService';
-import { apiClient } from './services/apiClient';
+import { apiClient, ApiNotification } from './services/apiClient';
 import { LoginView } from './views/LoginView';
 import { canAccessRequests } from './config/requestAccess';
-import { Modal } from './components/Modal';
-import { Button } from './components/button';
-import { useToast } from './design-system/toast-provider';
 
 // Views e modais são carregados sob demanda (React.lazy): o bundle inicial fica
 // pequeno e cada tela baixa seu próprio chunk somente quando é aberta.
@@ -59,7 +56,7 @@ const TermViewerModal = React.lazy(() =>
 );
 
 const ViewFallback: React.FC = () => (
-  <div className="flex items-center justify-center gap-3 py-24 text-muted" role="status">
+  <div className="flex items-center justify-center gap-3 py-24 text-ink-400" role="status">
     <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
     <span className="text-sm font-medium">Carregando…</span>
   </div>
@@ -127,8 +124,8 @@ export default function App() {
   };
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(readSidebarCollapsed);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [apiNotifications, setApiNotifications] = useState<ApiNotification[]>([]);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const { toast } = useToast();
 
   const handleToggleSidebarCollapse = () => {
     setIsSidebarCollapsed((prev) => {
@@ -179,18 +176,12 @@ export default function App() {
         setCurrentUser(null);
         return;
       }
-      toast({
-        title: notif.title,
-        description: notif.status ? `${notif.message} (HTTP ${notif.status})` : notif.message,
-        tone: 'error',
-        duration: null,
-        action:
-          notif.status === undefined
-            ? { label: 'Tentar novamente', onClick: () => window.location.reload() }
-            : undefined,
-      });
+      setApiNotifications((prev) => [notif, ...prev.slice(0, 2)]);
+      setTimeout(() => {
+        setApiNotifications((prev) => prev.filter((n) => n.id !== notif.id));
+      }, 7000);
     });
-  }, [toast]);
+  }, []);
 
   // Sincronização inicial com o banco PostgreSQL (somente com sessão autenticada)
   React.useEffect(() => {
@@ -374,7 +365,7 @@ export default function App() {
   const metrics = dataService.getDashboardMetrics();
 
   return (
-    <div className="flex min-h-screen bg-bg text-text">
+    <div className="min-h-screen bg-ink-50 text-ink-900 flex">
       {/* Sidebar Navigation */}
       <Sidebar
         activeTab={activeTab}
@@ -394,7 +385,9 @@ export default function App() {
         }`}
       >
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
-          <h1 className="ds-page-title mb-5">{PAGE_TITLES[activeTab]}</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-ink-900 tracking-tight mb-5">
+            {PAGE_TITLES[activeTab]}
+          </h1>
           <React.Suspense fallback={<ViewFallback />}>
           {activeTab === 'dashboard' && (
             <DashboardView
@@ -523,27 +516,72 @@ export default function App() {
         )}
       </React.Suspense>
 
+      {/* Notificações Flutuantes Globais do ApiClient (401, 403, 500, Servidor Indisponível) */}
+      <aside aria-label="Notificações do Sistema" className="fixed bottom-5 right-5 z-50 flex flex-col gap-2.5 max-w-sm w-full pointer-events-none">
+        {apiNotifications.map((notif) => (
+          <div
+            key={notif.id}
+            role="alert"
+            className={`pointer-events-auto p-4 rounded-xl shadow-xl border backdrop-blur-md flex items-start justify-between gap-3 transition-all duration-300 ${
+              notif.type === 'error'
+                ? 'bg-rose-950/95 border-rose-700 text-rose-100 shadow-rose-950/40'
+                : 'bg-navy-950/95 border-gold-700 text-sun-100 shadow-navy-950/40'
+            }`}
+          >
+            <div className="flex items-start gap-2.5">
+              <span className="text-base select-none mt-0.5">⚠️</span>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-xs font-bold leading-tight">{notif.title}</p>
+                  {notif.status ? (
+                    <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-black/40 text-rose-300">
+                      HTTP {notif.status}
+                    </span>
+                  ) : null}
+                </div>
+                <p className="text-[11px] opacity-90 mt-1 leading-snug">{notif.message}</p>
+                <span className="text-[9px] opacity-60 block mt-1">{notif.timestamp}</span>
+              </div>
+            </div>
+            <button
+              onClick={() => setApiNotifications((prev) => prev.filter((n) => n.id !== notif.id))}
+              className="text-white/60 hover:text-white shrink-0 cursor-pointer p-1 rounded hover:bg-white/10"
+              title="Fechar notificação"
+            >
+              ✕
+            </button>
+          </div>
+        ))}
+      </aside>
+
       {/* Modal de confirmação de logout */}
-      <Modal
-        isOpen={showLogoutConfirm}
-        onClose={() => setShowLogoutConfirm(false)}
-        title="Tem certeza que deseja sair?"
-        maxWidth="sm"
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setShowLogoutConfirm(false)}>
-              Cancelar
-            </Button>
-            <Button variant="destructive" onClick={confirmLogout}>
-              Sair
-            </Button>
-          </>
-        }
-      >
-        <p className="text-sm text-muted">
-          Sua sessão será encerrada e você será redirecionado para a tela de login.
-        </p>
-      </Modal>
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center" role="dialog" aria-modal="true" aria-label="Confirmar saída">
+          <div className="absolute inset-0 bg-black/60 transition-opacity backdrop-blur-sm" onClick={() => setShowLogoutConfirm(false)} />
+          <div className="relative bg-white rounded-lg p-6 shadow-2xl max-w-sm w-full mx-4 border border-ink-100">
+            <h3 className="text-lg font-semibold text-ink-900 mb-2">Tem certeza que deseja sair?</h3>
+            <p className="text-ink-600 text-sm mb-6">
+              Sua sessão será encerrada e você será redirecionado para a tela de login.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowLogoutConfirm(false)}
+                className="px-4 py-2 text-sm font-medium text-ink-700 bg-ink-100 hover:bg-ink-200 rounded-lg transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={confirmLogout}
+                className="px-4 py-2 text-sm font-medium text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition-colors"
+              >
+                Sair
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

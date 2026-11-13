@@ -238,9 +238,9 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm, onPrintTerm })
     <div className="space-y-5">
       {/* Pending status banner */}
       {pendingCount > 0 && (
-        <div className="bg-warn-bg border border-warn-bd rounded-xl p-4 flex items-center justify-between gap-3 text-xs text-warn-fg shadow-xs">
+        <div className="bg-sun-50 border border-sun-300 rounded-xl p-4 flex items-center justify-between gap-3 text-xs text-gold-700 shadow-xs">
           <div className="flex items-center gap-2.5">
-            <Clock className="w-5 h-5 text-warn-fg shrink-0" />
+            <Clock className="w-5 h-5 text-gold-700 shrink-0" />
             <div>
               <span className="font-bold">Atenção ao compliance: </span>
               <span>Há <strong>{pendingCount} documento(s)</strong> pendente(s) de colheita de assinatura formal do colaborador.</span>
@@ -248,7 +248,7 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm, onPrintTerm })
           </div>
           <button
             onClick={() => setStatusFilter('Pendente de Assinatura')}
-            className="px-3 py-1.5 bg-warn-fg hover:bg-warn-fg text-navy-900 rounded-lg font-semibold transition-colors shrink-0"
+            className="px-3 py-1.5 bg-sun-400 hover:bg-sun-500 text-navy-900 rounded-lg font-semibold transition-colors shrink-0"
           >
             Filtrar pendentes
           </button>
@@ -256,27 +256,27 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm, onPrintTerm })
       )}
 
       {/* Search and Filters */}
-      <div className="bg-surface p-4 rounded-xl border border-line shadow-xs space-y-3">
+      <div className="bg-white p-4 rounded-xl border border-ink-200 shadow-xs space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="relative flex-1 max-w-md">
-            <Search className="w-4 h-4 text-muted absolute left-3 top-2.5" />
+            <Search className="w-4 h-4 text-ink-400 absolute left-3 top-2.5" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar termo por código, colaborador, tag do aparelho ou linha..."
-              className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-line-strong bg-surface placeholder:text-muted text-text focus:outline-none focus:ring-2 focus:ring-focus/40"
+              className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-ink-300 bg-white placeholder-ink-400 text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500"
             />
           </div>
 
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-2 text-[11px]">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-ok-bg border border-ok-bd text-ok-fg rounded-lg font-semibold">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg font-semibold">
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 <span className="tabular-nums">{signedCount}</span>
                 <span>assinados</span>
               </span>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-warn-bg border border-warn-bd text-warn-fg rounded-lg font-semibold">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-sun-50 border border-sun-300 text-gold-700 rounded-lg font-semibold">
                 <Clock className="w-3.5 h-3.5" />
                 <span className="tabular-nums">{pendingCount}</span>
                 <span>pendentes</span>
@@ -284,7 +284,7 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm, onPrintTerm })
             </div>
             <button
               onClick={openManualTermModal}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold text-on-accent bg-accent hover:bg-accent/90 shadow-xs transition-colors shrink-0"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold text-white bg-iane-600 hover:bg-iane-700 shadow-xs transition-colors shrink-0"
             >
               <Upload className="w-3.5 h-3.5" />
               <span>Anexar termo em PDF</span>
@@ -292,16 +292,16 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm, onPrintTerm })
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-line text-xs">
-          <span className="text-muted font-medium flex items-center gap-1 mr-1">
-            <Filter className="w-3 h-3 text-muted" />
+        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-ink-100 text-xs">
+          <span className="text-ink-500 font-medium flex items-center gap-1 mr-1">
+            <Filter className="w-3 h-3 text-ink-400" />
             Filtros:
           </span>
 
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="rounded-md border border-line-strong bg-surface px-2.5 py-1 text-text font-medium"
+            className="rounded-md border border-ink-300 bg-white px-2.5 py-1 text-ink-700 font-medium"
           >
             <option value="todos">Status: Todos</option>
             <option value="Assinado">Assinado</option>
@@ -312,7 +312,7 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm, onPrintTerm })
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
-            className="rounded-md border border-line-strong bg-surface px-2.5 py-1 text-text font-medium"
+            className="rounded-md border border-ink-300 bg-white px-2.5 py-1 text-ink-700 font-medium"
           >
             <option value="todos">Tipo de documento: Todos</option>
             <option value="Termo de Entrega">Termo de Entrega</option>
@@ -326,23 +326,23 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm, onPrintTerm })
                 setStatusFilter('todos');
                 setTypeFilter('todos');
               }}
-              className="text-xs text-accent hover:text-accent font-medium ml-2"
+              className="text-xs text-iane-700 hover:text-iane-800 font-medium ml-2"
             >
               Limpar filtros
             </button>
           )}
 
-          <div className="ml-auto text-[11px] text-muted tabular-nums">
+          <div className="ml-auto text-[11px] text-ink-500 tabular-nums">
             Exibindo <strong>{filteredTerms.length}</strong> de <strong>{terms.length}</strong> documentos
           </div>
         </div>
       </div>
 
       {/* Main Table */}
-      <div className="bg-surface rounded-xl border border-line shadow-xs overflow-hidden">
+      <div className="bg-white rounded-xl border border-ink-200 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="ds-table">
-            <thead className="bg-subtle border-b border-line text-muted uppercase font-semibold tracking-wider text-[11px]">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead className="bg-ink-50 border-b border-ink-200 text-ink-600 uppercase font-semibold tracking-wider text-[11px]">
               <tr>
                 <th className="py-3 px-4">Código do termo</th>
                 <th className="py-3 px-4">Tipo</th>
@@ -353,68 +353,68 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm, onPrintTerm })
                 <th className="py-3 px-4 text-right">Ação</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-line">
+            <tbody className="divide-y divide-ink-100">
               {filteredTerms.map((term) => (
                 <tr 
                   key={term.id} 
-                  className="hover:bg-info-bg/60 transition-colors group cursor-pointer"
+                  className="hover:bg-iane-50/60 transition-colors group cursor-pointer"
                   onClick={() => onViewTerm(term)}
                 >
-                  <td data-label="Código do termo" className="py-3 px-4 font-mono font-bold text-text whitespace-nowrap">
+                  <td className="py-3 px-4 font-mono font-bold text-ink-900 whitespace-nowrap">
                     <span className="flex items-center gap-1.5">
                       {term.code}
                       {term.hasFile && (
-                        <Paperclip className="w-3.5 h-3.5 text-accent" aria-label="PDF anexado" />
+                        <Paperclip className="w-3.5 h-3.5 text-iane-600" aria-label="PDF anexado" />
                       )}
                     </span>
                   </td>
 
-                  <td data-label="Tipo" className="py-3 px-4 font-medium text-text">
+                  <td className="py-3 px-4 font-medium text-ink-800">
                     {term.type}
                   </td>
 
-                  <td data-label="Colaborador titular" className="py-3 px-4">
-                    <span className="font-semibold text-text block">{term.collaboratorName || 'Não especificado'}</span>
+                  <td className="py-3 px-4">
+                    <span className="font-semibold text-ink-900 block">{term.collaboratorName || 'Não especificado'}</span>
                     {term.collaboratorRegistration && (
-                      <span className="text-[11px] text-muted font-mono">Mat.: {term.collaboratorRegistration}</span>
+                      <span className="text-[11px] text-ink-500 font-mono">Mat.: {term.collaboratorRegistration}</span>
                     )}
                   </td>
 
-                  <td data-label="Ativo / linha" className="py-3 px-4">
+                  <td className="py-3 px-4">
                     {term.deviceTag && (
-                      <span className="font-mono text-accent font-semibold block">{term.deviceTag}</span>
+                      <span className="font-mono text-iane-700 font-semibold block">{term.deviceTag}</span>
                     )}
                     {term.phoneNumber && (
-                      <span className="text-[11px] text-muted font-mono">{term.phoneNumber}</span>
+                      <span className="text-[11px] text-ink-600 font-mono">{term.phoneNumber}</span>
                     )}
                     {!term.deviceTag && !term.phoneNumber && (
-                      <span className="text-muted italic">Geral</span>
+                      <span className="text-ink-400 italic">Geral</span>
                     )}
                   </td>
 
-                  <td data-label="Data de emissão" className="py-3 px-4 font-mono text-muted whitespace-nowrap">
+                  <td className="py-3 px-4 font-mono text-ink-600 whitespace-nowrap">
                     {formatDate(term.date)}
                   </td>
 
-                  <td data-label="Situação" className="py-3 px-4">
+                  <td className="py-3 px-4">
                     <StatusBadge status={term.status} type="term" />
                   </td>
 
-                  <td data-label="Ação" className="py-3 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                  <td className="py-3 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                     <div className="inline-flex items-center gap-1.5">
                       <button
                         onClick={() => onViewTerm(term)}
                         title="Visualizar termo"
                         aria-label={`Visualizar termo ${term.code}`}
-                        className="inline-flex items-center justify-center p-2 bg-info-bg hover:bg-subtle text-accent rounded-lg transition-colors border border-info-bd"
+                        className="inline-flex items-center justify-center p-2 bg-iane-50 hover:bg-iane-100 text-iane-700 rounded-lg transition-colors border border-iane-200"
                       >
-                        <Eye className="w-3.5 h-3.5 text-accent" />
+                        <Eye className="w-3.5 h-3.5 text-iane-600" />
                       </button>
                       <button
                         onClick={() => onPrintTerm(term)}
                         title="Imprimir termo"
                         aria-label={`Imprimir termo ${term.code}`}
-                        className="inline-flex items-center justify-center p-2 bg-surface hover:bg-subtle text-text rounded-lg transition-colors border border-line-strong"
+                        className="inline-flex items-center justify-center p-2 bg-white hover:bg-ink-100 text-ink-700 rounded-lg transition-colors border border-ink-300"
                       >
                         <Printer className="w-3.5 h-3.5" />
                       </button>
@@ -426,10 +426,10 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm, onPrintTerm })
           </table>
 
           {filteredTerms.length === 0 && (
-            <div className="p-10 text-center text-muted">
-              <FileText className="w-10 h-10 text-muted mx-auto mb-2" />
-              <p className="font-semibold text-text">Nenhum termo encontrado</p>
-              <p className="text-xs text-muted mt-1">Nenhum documento atende aos filtros atuais.</p>
+            <div className="p-10 text-center text-ink-500">
+              <FileText className="w-10 h-10 text-ink-300 mx-auto mb-2" />
+              <p className="font-semibold text-ink-700">Nenhum termo encontrado</p>
+              <p className="text-xs text-ink-500 mt-1">Nenhum documento atende aos filtros atuais.</p>
             </div>
           )}
         </div>
@@ -445,14 +445,14 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm, onPrintTerm })
       >
         <div className="space-y-4">
           {manualError && (
-            <div className="p-2.5 bg-danger-bg border border-danger-bd rounded-lg text-xs text-danger-fg">
+            <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-800">
               {manualError}
             </div>
           )}
 
           {/* Upload do PDF */}
           <div>
-            <label className="block text-xs font-semibold text-text mb-1.5">
+            <label className="block text-xs font-semibold text-ink-700 mb-1.5">
               Arquivo PDF do termo *
             </label>
             {!manualFile ? (
@@ -467,33 +467,33 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm, onPrintTerm })
                 onClick={() => fileInputRef.current?.click()}
                 className={`flex flex-col items-center justify-center gap-2 p-8 rounded-xl border-2 border-dashed cursor-pointer transition-colors text-center ${
                   isDragging
-                    ? 'border-accent bg-info-bg'
-                    : 'border-line-strong bg-subtle/60 hover:border-accent hover:bg-info-bg/50'
+                    ? 'border-iane-500 bg-iane-50'
+                    : 'border-ink-300 bg-ink-50/60 hover:border-iane-400 hover:bg-iane-50/50'
                 }`}
               >
-                <Upload className="w-7 h-7 text-accent" />
+                <Upload className="w-7 h-7 text-iane-600" />
                 <div>
-                  <p className="text-xs font-semibold text-text">
+                  <p className="text-xs font-semibold text-ink-800">
                     Clique para selecionar ou arraste o PDF aqui
                   </p>
-                  <p className="text-[11px] text-muted mt-0.5">
+                  <p className="text-[11px] text-ink-500 mt-0.5">
                     Somente arquivos .pdf, até 10 MB
                   </p>
                 </div>
               </div>
             ) : (
-              <div className="flex items-center gap-3 p-3 bg-info-bg/60 border border-info-bd rounded-xl">
-                <div className="w-9 h-9 rounded-lg bg-surface border border-info-bd flex items-center justify-center shrink-0">
-                  <FileText className="w-5 h-5 text-accent" />
+              <div className="flex items-center gap-3 p-3 bg-iane-50/60 border border-iane-200 rounded-xl">
+                <div className="w-9 h-9 rounded-lg bg-white border border-iane-200 flex items-center justify-center shrink-0">
+                  <FileText className="w-5 h-5 text-iane-600" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-semibold text-text truncate">{manualFile.name}</p>
-                  <p className="text-[11px] text-muted">{formatFileSize(manualFile.size)} · PDF</p>
+                  <p className="text-xs font-semibold text-ink-900 truncate">{manualFile.name}</p>
+                  <p className="text-[11px] text-ink-500">{formatFileSize(manualFile.size)} · PDF</p>
                 </div>
                 <button
                   type="button"
                   onClick={handleRemoveFile}
-                  className="p-1.5 rounded-lg text-muted hover:text-danger-fg hover:bg-danger-bg transition-colors shrink-0"
+                  className="p-1.5 rounded-lg text-ink-500 hover:text-rose-700 hover:bg-rose-50 transition-colors shrink-0"
                   title="Remover arquivo"
                 >
                   <X className="w-4 h-4" />
@@ -511,24 +511,24 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm, onPrintTerm })
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-text mb-1">Código do termo *</label>
+              <label className="block text-xs font-medium text-ink-700 mb-1">Código do termo *</label>
               <input
                 type="text"
                 value={manualTerm.code || ''}
                 onChange={(e) => setManualTerm({ ...manualTerm, code: e.target.value })}
-                className="w-full text-xs rounded-lg border border-line-strong px-2.5 py-2"
+                className="w-full text-xs rounded-lg border border-ink-300 px-2.5 py-2"
                 placeholder="TERMO-ENT-2024-001"
               />
-              <p className="text-[10px] text-muted mt-1">
+              <p className="text-[10px] text-ink-500 mt-1">
                 Preenchido pelo nome do arquivo. Ajuste se necessário.
               </p>
             </div>
             <div>
-              <label className="block text-xs font-medium text-text mb-1">Tipo *</label>
+              <label className="block text-xs font-medium text-ink-700 mb-1">Tipo *</label>
               <select
                 value={manualTerm.type || 'Termo de Entrega'}
                 onChange={(e) => setManualTerm({ ...manualTerm, type: e.target.value as TermType })}
-                className="w-full text-xs rounded-lg border border-line-strong px-2.5 py-2"
+                className="w-full text-xs rounded-lg border border-ink-300 px-2.5 py-2"
               >
                 <option value="Termo de Entrega">Termo de Entrega</option>
                 <option value="Termo de Devolução">Termo de Devolução</option>
@@ -539,20 +539,20 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm, onPrintTerm })
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-text mb-1">Data de emissão *</label>
+              <label className="block text-xs font-medium text-ink-700 mb-1">Data de emissão *</label>
               <input
                 type="date"
                 value={manualTerm.date || ''}
                 onChange={(e) => setManualTerm({ ...manualTerm, date: e.target.value })}
-                className="w-full text-xs rounded-lg border border-line-strong px-2.5 py-2"
+                className="w-full text-xs rounded-lg border border-ink-300 px-2.5 py-2"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-text mb-1">Situação</label>
+              <label className="block text-xs font-medium text-ink-700 mb-1">Situação</label>
               <select
                 value={manualTerm.status || 'Assinado'}
                 onChange={(e) => setManualTerm({ ...manualTerm, status: e.target.value as TermStatus })}
-                className="w-full text-xs rounded-lg border border-line-strong px-2.5 py-2"
+                className="w-full text-xs rounded-lg border border-ink-300 px-2.5 py-2"
               >
                 <option value="Assinado">Assinado</option>
                 <option value="Pendente de Assinatura">Pendente de Assinatura</option>
@@ -561,17 +561,17 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm, onPrintTerm })
             </div>
           </div>
 
-          <div className="p-3 bg-subtle border border-line rounded-xl space-y-2">
-            <p className="text-[11px] font-semibold text-text">
+          <div className="p-3 bg-ink-50 border border-ink-200 rounded-xl space-y-2">
+            <p className="text-[11px] font-semibold text-ink-700">
               Vincular a registros já cadastrados (opcional)
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div>
-                <label className="block text-[11px] font-medium text-muted mb-1">Aparelho cadastrado</label>
+                <label className="block text-[11px] font-medium text-ink-600 mb-1">Aparelho cadastrado</label>
                 <select
                   value={manualTerm.deviceId || ''}
                   onChange={(e) => handleSelectDevice(e.target.value)}
-                  className="w-full text-xs rounded-lg border border-line-strong px-2 py-1.5 bg-surface"
+                  className="w-full text-xs rounded-lg border border-ink-300 px-2 py-1.5 bg-white"
                 >
                   <option value="">-- Nenhum / não cadastrado --</option>
                   {devices.map((d) => (
@@ -582,11 +582,11 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm, onPrintTerm })
                 </select>
               </div>
               <div>
-                <label className="block text-[11px] font-medium text-muted mb-1">Colaborador cadastrado</label>
+                <label className="block text-[11px] font-medium text-ink-600 mb-1">Colaborador cadastrado</label>
                 <select
                   value={manualTerm.collaboratorId || ''}
                   onChange={(e) => handleSelectCollaborator(e.target.value)}
-                  className="w-full text-xs rounded-lg border border-line-strong px-2 py-1.5 bg-surface"
+                  className="w-full text-xs rounded-lg border border-ink-300 px-2 py-1.5 bg-white"
                 >
                   <option value="">-- Nenhum / não cadastrado --</option>
                   {collaborators.map((c) => (
@@ -599,42 +599,42 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm, onPrintTerm })
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <div>
-                <label className="block text-[11px] font-medium text-muted mb-1">Colaborador (texto)</label>
+                <label className="block text-[11px] font-medium text-ink-600 mb-1">Colaborador (texto)</label>
                 <input
                   type="text"
                   value={manualTerm.collaboratorName || ''}
                   onChange={(e) => setManualTerm({ ...manualTerm, collaboratorName: e.target.value })}
-                  className="w-full text-xs rounded-lg border border-line-strong px-2 py-1.5"
+                  className="w-full text-xs rounded-lg border border-ink-300 px-2 py-1.5"
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-medium text-muted mb-1">TAG do aparelho</label>
+                <label className="block text-[11px] font-medium text-ink-600 mb-1">TAG do aparelho</label>
                 <input
                   type="text"
                   value={manualTerm.deviceTag || ''}
                   onChange={(e) => setManualTerm({ ...manualTerm, deviceTag: e.target.value })}
-                  className="w-full text-xs rounded-lg border border-line-strong px-2 py-1.5 font-mono"
+                  className="w-full text-xs rounded-lg border border-ink-300 px-2 py-1.5 font-mono"
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-medium text-muted mb-1">Linha telefônica</label>
+                <label className="block text-[11px] font-medium text-ink-600 mb-1">Linha telefônica</label>
                 <input
                   type="text"
                   value={manualTerm.phoneNumber || ''}
                   onChange={(e) => setManualTerm({ ...manualTerm, phoneNumber: e.target.value })}
-                  className="w-full text-xs rounded-lg border border-line-strong px-2 py-1.5 font-mono"
+                  className="w-full text-xs rounded-lg border border-ink-300 px-2 py-1.5 font-mono"
                 />
               </div>
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-text mb-1">Observações</label>
+            <label className="block text-xs font-medium text-ink-700 mb-1">Observações</label>
             <textarea
               rows={2}
               value={manualTerm.notes || ''}
               onChange={(e) => setManualTerm({ ...manualTerm, notes: e.target.value })}
-              className="w-full text-xs rounded-lg border border-line-strong px-2.5 py-2"
+              className="w-full text-xs rounded-lg border border-ink-300 px-2.5 py-2"
             />
           </div>
 
@@ -643,7 +643,7 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm, onPrintTerm })
               type="button"
               onClick={() => setIsManualTermModalOpen(false)}
               disabled={isSaving}
-              className="px-3.5 py-2 text-xs font-medium bg-surface border border-line-strong hover:bg-subtle text-text rounded-lg disabled:opacity-60"
+              className="px-3.5 py-2 text-xs font-medium bg-white border border-ink-300 hover:bg-ink-50 text-ink-700 rounded-lg disabled:opacity-60"
             >
               Cancelar
             </button>
@@ -651,7 +651,7 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm, onPrintTerm })
               type="button"
               onClick={() => void handleSaveTerm()}
               disabled={isSaving}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold bg-accent hover:bg-accent/90 text-on-accent rounded-lg disabled:opacity-60 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold bg-iane-600 hover:bg-iane-700 text-white rounded-lg disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {isSaving ? (
                 <>

@@ -1,126 +1,96 @@
-import { useEffect, useId, useRef, type MouseEvent, type ReactNode } from 'react';
+import React, { useEffect } from 'react';
 import { X } from 'lucide-react';
-import { twMerge } from 'tailwind-merge';
 
-export interface ModalProps {
-	isOpen: boolean;
-	onClose: () => void;
-	title: string;
-	subtitle?: string;
-	children: ReactNode;
-	footer?: ReactNode;
-	maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '4xl';
-	disableEscapeClose?: boolean;
-	bodyClassName?: string;
+let openModalCount = 0;
+
+interface ModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '4xl';
+  disableEscapeClose?: boolean;
 }
 
-const MAX_WIDTH: Record<NonNullable<ModalProps['maxWidth']>, string> = {
-	sm: 'max-w-sm',
-	md: 'max-w-md',
-	lg: 'max-w-lg',
-	xl: 'max-w-xl',
-	'2xl': 'max-w-2xl',
-	'4xl': 'max-w-4xl',
+export const Modal: React.FC<ModalProps> = ({
+  isOpen,
+  onClose,
+  title,
+  subtitle,
+  children,
+  maxWidth = 'xl',
+  disableEscapeClose = false,
+}) => {
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen && !disableEscapeClose) {
+        onClose();
+      }
+    };
+    openModalCount += 1;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      openModalCount = Math.max(0, openModalCount - 1);
+      if (openModalCount === 0) document.body.style.overflow = 'unset';
+    };
+  }, [isOpen, onClose, disableEscapeClose]);
+
+  if (!isOpen) return null;
+
+  const maxWidthClass = {
+    sm: 'max-w-sm',
+    md: 'max-w-md',
+    lg: 'max-w-lg',
+    xl: 'max-w-xl',
+    '2xl': 'max-w-2xl',
+    '4xl': 'max-w-4xl',
+  }[maxWidth];
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
+      {/* Backdrop */}
+      <div 
+        className="fixed inset-0 bg-ink-900/60 backdrop-blur-xs transition-opacity" 
+        onClick={onClose} 
+      />
+
+      <div className="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
+        <div 
+          className={`relative transform overflow-hidden rounded-xl bg-white text-left shadow-xl transition-all w-full my-8 border border-ink-200 ${maxWidthClass}`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-start justify-between px-6 py-4 border-b border-ink-100 bg-ink-50/50">
+            <div>
+              <h3 className="text-base font-semibold text-ink-900 leading-6">
+                {title}
+              </h3>
+              {subtitle && (
+                <p className="text-xs text-ink-500 mt-0.5">
+                  {subtitle}
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-ink-400 hover:text-ink-600 rounded-lg p-1.5 transition-colors"
+              aria-label="Fechar"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Body */}
+          <div className="px-6 py-5 max-h-[calc(85vh-120px)] overflow-y-auto">
+            {children}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 };
-
-/**
- * Modal do Design System: usa o elemento nativo <dialog>, que já prende o foco,
- * fecha com Esc e devolve o foco ao elemento de origem.
- */
-export function Modal({
-	isOpen,
-	onClose,
-	title,
-	subtitle,
-	children,
-	footer,
-	maxWidth = 'xl',
-	disableEscapeClose = false,
-	bodyClassName,
-}: ModalProps) {
-	const dialogRef = useRef<HTMLDialogElement>(null);
-	const previousFocusRef = useRef<HTMLElement | null>(null);
-	const titleId = useId();
-	const descriptionId = useId();
-
-	useEffect(() => {
-		const dialog = dialogRef.current;
-		if (!dialog) return;
-
-		if (isOpen) {
-			if (!dialog.open) {
-				previousFocusRef.current =
-					document.activeElement instanceof HTMLElement ? document.activeElement : null;
-				dialog.showModal();
-			}
-			document.body.style.overflow = 'hidden';
-		} else {
-			if (dialog.open) dialog.close();
-			document.body.style.overflow = '';
-		}
-	}, [isOpen]);
-
-	useEffect(
-		() => () => {
-			document.body.style.overflow = '';
-			previousFocusRef.current?.focus?.();
-		},
-		[]
-	);
-
-	if (!isOpen) return null;
-
-	const handleBackdropClick = (event: MouseEvent<HTMLDialogElement>) => {
-		if (event.target === event.currentTarget) onClose();
-	};
-
-	return (
-		<dialog
-			ref={dialogRef}
-			data-slot="modal"
-			aria-labelledby={titleId}
-			aria-describedby={subtitle ? descriptionId : undefined}
-			onCancel={(event) => {
-				event.preventDefault();
-				if (!disableEscapeClose) onClose();
-			}}
-			onClick={handleBackdropClick}
-			className={twMerge(
-				'm-auto w-[calc(100%-2rem)] overflow-hidden rounded-lg border border-line bg-surface p-0 text-text shadow-xl',
-				'open:animate-[modal-in_200ms_ease-out]',
-				MAX_WIDTH[maxWidth]
-			)}
-		>
-			<div className="flex max-h-[calc(100dvh-2rem)] flex-col">
-				<header className="flex items-start justify-between gap-4 border-b border-line bg-subtle/60 px-5 py-4">
-					<div className="min-w-0">
-						<h2 id={titleId} className="text-subtitle font-strong leading-snug text-text">
-							{title}
-						</h2>
-						{subtitle && (
-							<p id={descriptionId} className="mt-0.5 text-xs text-muted">
-								{subtitle}
-							</p>
-						)}
-					</div>
-					<button
-						type="button"
-						onClick={onClose}
-						aria-label="Fechar"
-						className="shrink-0 rounded-md p-1.5 text-muted transition-colors hover:bg-subtle hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-					>
-						<X className="h-4 w-4" aria-hidden="true" />
-					</button>
-				</header>
-
-				<div className={twMerge('overflow-y-auto px-5 py-4', bodyClassName)}>{children}</div>
-
-				{footer && (
-					<footer className="flex items-center justify-end gap-2 border-t border-line bg-subtle/60 px-5 py-3">
-						{footer}
-					</footer>
-				)}
-			</div>
-		</dialog>
-	);
-}

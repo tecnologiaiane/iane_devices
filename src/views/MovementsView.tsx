@@ -156,17 +156,17 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
   return (
     <div className="space-y-5">
       {canApprove && (
-        <section className="bg-surface rounded-xl border border-line shadow-xs overflow-hidden">
-          <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
+        <section className="bg-white rounded-xl border border-ink-200 shadow-xs overflow-hidden">
+          <div className="flex items-center justify-between gap-3 border-b border-ink-100 px-4 py-3">
             <div className="flex items-center gap-2">
-              <h2 className="text-sm font-bold text-text">Solicitações pendentes</h2>
-              <span className="inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-warn-fg px-1.5 text-[10px] font-bold text-navy-900">{pendingRequests.length}</span>
+              <h2 className="text-sm font-bold text-ink-900">Solicitações pendentes</h2>
+              <span className="inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-sun-400 px-1.5 text-[10px] font-bold text-navy-900">{pendingRequests.length}</span>
             </div>
           </div>
           {pendingRequests.length > 0 ? (
             <div className="overflow-x-auto">
-              <table className="ds-table">
-                <thead className="bg-subtle border-b border-line text-muted uppercase font-semibold tracking-wider text-[11px]">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-ink-50 border-b border-ink-200 text-ink-600 uppercase font-semibold tracking-wider text-[11px]">
                   <tr>
                     <th className="py-3 px-4">Data da solicitação</th>
                     <th className="py-3 px-4">Tipo</th>
@@ -175,38 +175,38 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
                     <th className="py-3 px-4 text-right">Ação</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-line">
+                <tbody className="divide-y divide-ink-100">
                   {pendingRequests.map((request) => (
-                    <tr key={request.id} className="hover:bg-subtle/80 transition-colors">
-                      <td data-label="Data da solicitação" className="py-3 px-4 whitespace-nowrap">{formatDateTime(request.createdAt)}</td>
-                      <td data-label="Tipo" className="py-3 px-4 font-semibold">{request.type}</td>
-                      <td data-label="Solicitante" className="py-3 px-4">{request.requesterName}</td>
-                      <td data-label="Colaborador/funcionário" className="py-3 px-4">{requestCollaborator(request)}</td>
-                      <td data-label="Ação" className="py-3 px-4 text-right whitespace-nowrap">
-                        <button type="button" onClick={() => setRequestToView(request)} className="inline-flex items-center gap-1 px-2 py-1 text-muted hover:text-accent rounded-md hover:bg-info-bg"><Eye className="h-3.5 w-3.5" />Visualizar</button>
-                        <button type="button" onClick={() => onApproveRequest(request)} className="ml-1 inline-flex items-center gap-1 px-2 py-1 text-ok-fg hover:bg-ok-bg rounded-md"><CheckCircle2 className="h-3.5 w-3.5" />Aprovar</button>
-                        <button type="button" onClick={() => { setRequestError(''); setRejectionReason(''); setRequestToReject(request); }} className="ml-1 inline-flex items-center gap-1 px-2 py-1 text-danger-fg hover:bg-danger-bg rounded-md">Recusar</button>
+                    <tr key={request.id} className="hover:bg-ink-50/80 transition-colors">
+                      <td className="py-3 px-4 whitespace-nowrap">{formatDateTime(request.createdAt)}</td>
+                      <td className="py-3 px-4 font-semibold">{request.type}</td>
+                      <td className="py-3 px-4">{request.requesterName}</td>
+                      <td className="py-3 px-4">{requestCollaborator(request)}</td>
+                      <td className="py-3 px-4 text-right whitespace-nowrap">
+                        <button type="button" onClick={() => setRequestToView(request)} className="inline-flex items-center gap-1 px-2 py-1 text-ink-600 hover:text-iane-700 rounded-md hover:bg-iane-50"><Eye className="h-3.5 w-3.5" />Visualizar</button>
+                        <button type="button" onClick={() => onApproveRequest(request)} className="ml-1 inline-flex items-center gap-1 px-2 py-1 text-emerald-700 hover:bg-emerald-50 rounded-md"><CheckCircle2 className="h-3.5 w-3.5" />Aprovar</button>
+                        <button type="button" onClick={() => { setRequestError(''); setRejectionReason(''); setRequestToReject(request); }} className="ml-1 inline-flex items-center gap-1 px-2 py-1 text-rose-700 hover:bg-rose-50 rounded-md">Recusar</button>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          ) : <p className="px-4 py-5 text-center text-xs text-muted">Não há solicitações pendentes.</p>}
+          ) : <p className="px-4 py-5 text-center text-xs text-ink-500">Não há solicitações pendentes.</p>}
         </section>
       )}
 
       {/* Search and Filters */}
-      <div className="bg-surface p-4 rounded-xl border border-line shadow-xs space-y-3">
+      <div className="bg-white p-4 rounded-xl border border-ink-200 shadow-xs space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="relative flex-1 max-w-md">
-            <Search className="w-4 h-4 text-muted absolute left-3 top-2.5" />
+            <Search className="w-4 h-4 text-ink-400 absolute left-3 top-2.5" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar por código (MOV-... ou TRF-...), aparelho, linha ou colaborador..."
-              className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-line-strong bg-surface placeholder:text-muted text-text focus:outline-none focus:ring-2 focus:ring-focus/40"
+              className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-ink-300 bg-white placeholder-ink-400 text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500"
             />
           </div>
 
@@ -216,7 +216,7 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
               onClick={() => setIsMovementMenuOpen((open) => !open)}
               aria-haspopup="menu"
               aria-expanded={isMovementMenuOpen}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-accent bg-info-bg hover:bg-subtle border border-info-bd transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-iane-700 bg-iane-50 hover:bg-iane-100 border border-iane-200 transition-colors"
             >
               <ArrowLeftRight className="w-3.5 h-3.5" />
               <span>Movimentação</span>
@@ -225,13 +225,13 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
             {isMovementMenuOpen && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setIsMovementMenuOpen(false)} />
-                <div className="absolute right-0 mt-1 w-44 bg-surface border border-line rounded-lg shadow-lg z-20 py-1 text-left">
+                <div className="absolute right-0 mt-1 w-44 bg-white border border-ink-200 rounded-lg shadow-lg z-20 py-1 text-left">
                   {MOVEMENT_FLOWS.map((option) => (
                     <button
                       key={option.flow}
                       type="button"
                       onClick={() => { setIsMovementMenuOpen(false); onOpenMovementModal(option.flow); }}
-                      className="w-full px-3 py-2 text-xs font-medium text-text hover:bg-subtle hover:text-accent transition-colors text-left"
+                      className="w-full px-3 py-2 text-xs font-medium text-ink-700 hover:bg-ink-50 hover:text-iane-700 transition-colors text-left"
                     >
                       {option.label}
                     </button>
@@ -243,16 +243,16 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
         </div>
 
         {/* Filters */}
-        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-line text-xs">
-          <span className="text-muted font-medium flex items-center gap-1 mr-1">
-            <Filter className="w-3 h-3 text-muted" />
+        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-ink-100 text-xs">
+          <span className="text-ink-500 font-medium flex items-center gap-1 mr-1">
+            <Filter className="w-3 h-3 text-ink-400" />
             Filtros:
           </span>
 
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
-            className="rounded-md border border-line-strong bg-surface px-2.5 py-1 text-text font-medium"
+            className="rounded-md border border-ink-300 bg-white px-2.5 py-1 text-ink-700 font-medium"
           >
             <option value="todos">Tipo: Todos</option>
             <option value="Entrega">Entrega (Estoque → Colaborador)</option>
@@ -263,23 +263,23 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
             <option value="Manutenção">Manutenção</option>
           </select>
 
-          <div className="flex items-center gap-1 text-muted">
+          <div className="flex items-center gap-1 text-ink-600">
             <span className="text-[11px]">De:</span>
             <input
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="rounded-md border border-line-strong bg-surface px-2 py-0.5 text-xs text-text font-mono"
+              className="rounded-md border border-ink-300 bg-white px-2 py-0.5 text-xs text-ink-700 font-mono"
             />
           </div>
 
-          <div className="flex items-center gap-1 text-muted">
+          <div className="flex items-center gap-1 text-ink-600">
             <span className="text-[11px]">Até:</span>
             <input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="rounded-md border border-line-strong bg-surface px-2 py-0.5 text-xs text-text font-mono"
+              className="rounded-md border border-ink-300 bg-white px-2 py-0.5 text-xs text-ink-700 font-mono"
             />
           </div>
 
@@ -290,23 +290,23 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
                 setStartDate('');
                 setEndDate('');
               }}
-              className="text-xs text-accent hover:text-accent font-medium ml-2"
+              className="text-xs text-iane-600 hover:text-iane-800 font-medium ml-2"
             >
               Limpar Filtros
             </button>
           )}
 
-          <div className="ml-auto text-[11px] text-muted tabular-nums">
+          <div className="ml-auto text-[11px] text-ink-500 tabular-nums">
             Exibindo <strong>{filteredMovements.length}</strong> de <strong>{historyMovements.length}</strong> movimentações
           </div>
         </div>
       </div>
 
       {/* Main Table */}
-      <div className="bg-surface rounded-xl border border-line shadow-xs overflow-hidden">
+      <div className="bg-white rounded-xl border border-ink-200 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="ds-table">
-            <thead className="bg-subtle border-b border-line text-muted uppercase font-semibold tracking-wider text-[11px]">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead className="bg-ink-50 border-b border-ink-200 text-ink-600 uppercase font-semibold tracking-wider text-[11px]">
               <tr>
                 <th className="py-3 px-4">Código / Data</th>
                 <th className="py-3 px-4">Operação Oficial</th>
@@ -317,29 +317,29 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
                 <th className="py-3 px-4 text-right">Ação</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-line">
+            <tbody className="divide-y divide-ink-100">
               {filteredMovements.map((mov) => (
                 <tr 
                   key={mov.id} 
-                  className="hover:bg-subtle/80 transition-colors group cursor-pointer"
+                  className="hover:bg-ink-50/80 transition-colors group cursor-pointer"
                   onClick={() => setDetailMovement(mov)}
                 >
                   {/* Code & Date */}
-                  <td data-label="Código / Data" className="py-3 px-4 whitespace-nowrap">
-                    <span className="font-mono font-bold text-text block">{mov.code}</span>
-                    <span className="text-[11px] font-mono text-muted">{formatDate(mov.date)}</span>
+                  <td className="py-3 px-4 whitespace-nowrap">
+                    <span className="font-mono font-bold text-ink-900 block">{mov.code}</span>
+                    <span className="text-[11px] font-mono text-ink-500">{formatDate(mov.date)}</span>
                     {mov.batchOperationId && (
-                      <span className="text-[10px] font-mono text-info-fg bg-info-bg px-1.5 py-0.2 rounded border border-info-bd mt-0.5 inline-block">
+                      <span className="text-[10px] font-mono text-indigo-700 bg-indigo-50 px-1.5 py-0.2 rounded border border-indigo-200 mt-0.5 inline-block">
                         {mov.batchOperationId}
                       </span>
                     )}
                   </td>
 
                   {/* Type */}
-                  <td data-label="Operação Oficial" className="py-3 px-4">
-                    <span className="font-semibold text-text block">{mov.type}</span>
+                  <td className="py-3 px-4">
+                    <span className="font-semibold text-ink-900 block">{mov.type}</span>
                     {mov.stockTransit?.stage && (
-                      <span className="text-[10px] text-accent font-medium">
+                      <span className="text-[10px] text-iane-700 font-medium">
                         {mov.stockTransit.stage}
                       </span>
                     )}
@@ -349,33 +349,33 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
                   </td>
 
                   {/* Flow with stock highlight */}
-                  <td data-label="Fluxo Patrimonial" className="py-3 px-4">
+                  <td className="py-3 px-4">
                     <div className="flex items-center gap-1.5 text-xs">
-                      <span className={`px-1.5 py-0.5 rounded ${isStockCustody(mov.originCollaboratorName) ? 'bg-info-bg text-info-fg font-bold' : 'text-text font-medium'}`}>
+                      <span className={`px-1.5 py-0.5 rounded ${isStockCustody(mov.originCollaboratorName) ? 'bg-indigo-50 text-indigo-800 font-bold' : 'text-ink-800 font-medium'}`}>
                         {stockDisplayName(mov.originCollaboratorName)}
                       </span>
-                      <ArrowRight className="w-3 h-3 text-muted shrink-0" />
-                      <span className={`px-1.5 py-0.5 rounded ${isStockCustody(mov.destinationCollaboratorName) ? 'bg-info-bg text-info-fg font-bold' : 'text-text font-medium'}`}>
+                      <ArrowRight className="w-3 h-3 text-ink-400 shrink-0" />
+                      <span className={`px-1.5 py-0.5 rounded ${isStockCustody(mov.destinationCollaboratorName) ? 'bg-indigo-50 text-indigo-800 font-bold' : 'text-ink-800 font-medium'}`}>
                         {stockDisplayName(mov.destinationCollaboratorName)}
                       </span>
                     </div>
                   </td>
 
                   {/* Device */}
-                  <td data-label="Aparelho Envolvido" className="py-3 px-4">
+                  <td className="py-3 px-4">
                     {mov.deviceTag ? (
                       <div>
-                        <span className="font-mono font-bold text-accent">{mov.deviceTag}</span>
-                        <span className="block text-[11px] text-muted truncate max-w-[150px]">{movementDeviceModel(mov)}</span>
+                        <span className="font-mono font-bold text-iane-700">{mov.deviceTag}</span>
+                        <span className="block text-[11px] text-ink-500 truncate max-w-[150px]">{movementDeviceModel(mov)}</span>
                       </div>
                     ) : (
-                      <span className="text-muted italic">Nenhum</span>
+                      <span className="text-ink-400 italic">Nenhum</span>
                     )}
                   </td>
 
                   {/* Reason & Condition */}
-                  <td data-label="Motivo / Condição" className="py-3 px-4 max-w-[200px]">
-                    <p className="text-text truncate">{mov.reason || 'Movimentação patrimonial regular'}</p>
+                  <td className="py-3 px-4 max-w-[200px]">
+                    <p className="text-ink-700 truncate">{mov.reason || 'Movimentação patrimonial regular'}</p>
                     {mov.conditionAtMovement && (
                       <span className="inline-block mt-0.5">
                         <StatusBadge status={mov.conditionAtMovement} type="condition" size="sm" />
@@ -384,25 +384,25 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
                   </td>
 
                   {/* Term */}
-                  <td data-label="Termo" className="py-3 px-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                  <td className="py-3 px-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                     {mov.documentId ? (
                       <button
                         onClick={() => handleOpenLinkedTerm(mov.documentId)}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-info-bg hover:bg-subtle text-accent rounded-md font-mono text-xs font-semibold border border-info-bd transition-colors"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-iane-50 hover:bg-iane-100 text-iane-700 rounded-md font-mono text-xs font-semibold border border-iane-200 transition-colors"
                       >
-                        <FileText className="w-3 h-3 text-accent" />
+                        <FileText className="w-3 h-3 text-iane-600" />
                         <span>{mov.documentCode || 'Ver Termo'}</span>
                       </button>
                     ) : (
-                      <span className="text-muted italic text-[11px]">Sem termo anexado</span>
+                      <span className="text-ink-400 italic text-[11px]">Sem termo anexado</span>
                     )}
                   </td>
 
                   {/* Action */}
-                  <td data-label="Ação" className="py-3 px-4 text-right">
+                  <td className="py-3 px-4 text-right">
                     <button
                       onClick={() => setDetailMovement(mov)}
-                      className="p-1.5 text-muted hover:text-accent hover:bg-info-bg rounded-md"
+                      className="p-1.5 text-ink-500 hover:text-iane-600 hover:bg-iane-50 rounded-md"
                     >
                       <Eye className="w-3.5 h-3.5" />
                     </button>
@@ -413,9 +413,9 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
           </table>
 
           {filteredMovements.length === 0 && (
-            <div className="p-10 text-center text-muted">
-              <ArrowLeftRight className="w-10 h-10 text-muted mx-auto mb-2" />
-              <p className="font-semibold text-text">Nenhuma movimentação encontrada</p>
+            <div className="p-10 text-center text-ink-500">
+              <ArrowLeftRight className="w-10 h-10 text-ink-300 mx-auto mb-2" />
+              <p className="font-semibold text-ink-700">Nenhuma movimentação encontrada</p>
             </div>
           )}
         </div>
@@ -424,79 +424,79 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
       {/* DETAIL MODAL */}
       {detailMovement && (
         <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
-          <div className="fixed inset-0 bg-[var(--overlay)] backdrop-blur-xs" onClick={() => setDetailMovement(null)} />
+          <div className="fixed inset-0 bg-ink-900/60 backdrop-blur-xs" onClick={() => setDetailMovement(null)} />
           <div className="flex min-h-full items-center justify-center p-4">
             <div 
-              className="relative bg-surface rounded-xl shadow-2xl border border-line w-full max-w-2xl overflow-hidden p-6 space-y-4"
+              className="relative bg-white rounded-xl shadow-2xl border border-ink-200 w-full max-w-2xl overflow-hidden p-6 space-y-4"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between border-b border-line pb-3">
+              <div className="flex items-center justify-between border-b border-ink-200 pb-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-accent text-on-accent flex items-center justify-center font-bold">
+                  <div className="w-10 h-10 rounded-lg bg-iane-600 text-white flex items-center justify-center font-bold">
                     <ArrowLeftRight className="w-5 h-5" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <h2 className="text-base font-bold text-text font-mono">
+                      <h2 className="text-base font-bold text-ink-900 font-mono">
                         {detailMovement.code}
                       </h2>
-                      <span className="text-xs font-semibold px-2 py-0.5 rounded bg-subtle text-text border border-line">
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded bg-ink-100 text-ink-800 border border-ink-200">
                         {detailMovement.type}
                       </span>
                     </div>
-                    <p className="text-xs text-muted">
+                    <p className="text-xs text-ink-500">
                       Registrado em {formatDate(detailMovement.date)} por {detailMovement.registeredBy}
                     </p>
                   </div>
                 </div>
                 <button
                   onClick={() => setDetailMovement(null)}
-                  className="text-muted hover:text-muted p-1"
+                  className="text-ink-400 hover:text-ink-600 p-1"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
               {requestApprovalFor(detailMovement) && (
-                <div className="grid grid-cols-2 gap-3 rounded-lg border border-info-bd bg-info-bg/60 p-3 text-xs">
-                  <div><span className="block text-[11px] text-muted">Solicitação de</span><strong>{requestApprovalFor(detailMovement)?.requestType}</strong></div>
-                  <div><span className="block text-[11px] text-muted">Solicitante</span><strong>{requestApprovalFor(detailMovement)?.requesterName}</strong></div>
-                  <div><span className="block text-[11px] text-muted">Data da solicitação</span><strong>{formatDateTime(requestApprovalFor(detailMovement)?.requestedAt || '')}</strong></div>
-                  <div><span className="block text-[11px] text-muted">Aprovador</span><strong>{requestApprovalFor(detailMovement)?.approverName}</strong></div>
-                  <div><span className="block text-[11px] text-muted">Data da aprovação</span><strong>{formatDateTime(requestApprovalFor(detailMovement)?.approvedAt || '')}</strong></div>
+                <div className="grid grid-cols-2 gap-3 rounded-lg border border-iane-200 bg-iane-50/60 p-3 text-xs">
+                  <div><span className="block text-[11px] text-ink-500">Solicitação de</span><strong>{requestApprovalFor(detailMovement)?.requestType}</strong></div>
+                  <div><span className="block text-[11px] text-ink-500">Solicitante</span><strong>{requestApprovalFor(detailMovement)?.requesterName}</strong></div>
+                  <div><span className="block text-[11px] text-ink-500">Data da solicitação</span><strong>{formatDateTime(requestApprovalFor(detailMovement)?.requestedAt || '')}</strong></div>
+                  <div><span className="block text-[11px] text-ink-500">Aprovador</span><strong>{requestApprovalFor(detailMovement)?.approverName}</strong></div>
+                  <div><span className="block text-[11px] text-ink-500">Data da aprovação</span><strong>{formatDateTime(requestApprovalFor(detailMovement)?.approvedAt || '')}</strong></div>
                 </div>
               )}
 
               {/* Rota Oficial com Estoque */}
-              <div className="p-3 bg-info-bg/70 border border-info-bd rounded-lg text-xs space-y-1">
-                <span className="font-semibold text-accent block">Fluxo de Custódia Patrimonial:</span>
-                <div className="flex items-center gap-2 font-bold text-accent">
+              <div className="p-3 bg-iane-50/70 border border-iane-200 rounded-lg text-xs space-y-1">
+                <span className="font-semibold text-iane-800 block">Fluxo de Custódia Patrimonial:</span>
+                <div className="flex items-center gap-2 font-bold text-iane-800">
                   <span>{stockDisplayName(detailMovement.originCollaboratorName)}</span>
-                  <ArrowRight className="w-4 h-4 text-accent" />
+                  <ArrowRight className="w-4 h-4 text-iane-500" />
                   <span>{stockDisplayName(detailMovement.destinationCollaboratorName)}</span>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 p-4 bg-subtle rounded-lg text-xs">
+              <div className="grid grid-cols-2 gap-3 p-4 bg-ink-50 rounded-lg text-xs">
                 <div>
-                  <span className="text-muted text-[11px] block">Aparelho Envolvido</span>
-                  <span className="font-semibold text-text font-mono">
+                  <span className="text-ink-400 text-[11px] block">Aparelho Envolvido</span>
+                  <span className="font-semibold text-ink-900 font-mono">
                     {detailMovement.deviceTag || 'N/A'} {movementDeviceModel(detailMovement) ? `(${movementDeviceModel(detailMovement)})` : ''}
                   </span>
                 </div>
                 <div>
-                  <span className="text-muted text-[11px] block">Linha Telefônica</span>
-                  <span className="font-mono text-text">{detailMovement.phoneNumber || 'Nenhuma'}</span>
+                  <span className="text-ink-400 text-[11px] block">Linha Telefônica</span>
+                  <span className="font-mono text-ink-900">{detailMovement.phoneNumber || 'Nenhuma'}</span>
                 </div>
                 {detailMovement.batchOperationId && (
                   <div>
-                    <span className="text-muted text-[11px] block">Operação Conjunta</span>
-                    <span className="font-mono text-info-fg font-bold">{detailMovement.batchOperationId}</span>
+                    <span className="text-ink-400 text-[11px] block">Operação Conjunta</span>
+                    <span className="font-mono text-indigo-700 font-bold">{detailMovement.batchOperationId}</span>
                   </div>
                 )}
                 {detailMovement.conditionAtMovement && (
                   <div>
-                    <span className="text-muted text-[11px] block">Estado de Conservação</span>
+                    <span className="text-ink-400 text-[11px] block">Estado de Conservação</span>
                     <StatusBadge status={detailMovement.conditionAtMovement} type="condition" size="sm" />
                   </div>
                 )}
@@ -504,12 +504,12 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
 
               {detailMovement.accessoriesIncluded && detailMovement.accessoriesIncluded.length > 0 && (
                 <div>
-                  <span className="text-xs font-semibold text-text block mb-1">
+                  <span className="text-xs font-semibold text-ink-700 block mb-1">
                     Itens e Acessórios Concomitantes:
                   </span>
                   <div className="flex flex-wrap gap-1.5">
                     {detailMovement.accessoriesIncluded.map((acc, idx) => (
-                      <span key={idx} className="text-xs px-2.5 py-1 bg-subtle border border-line rounded text-text">
+                      <span key={idx} className="text-xs px-2.5 py-1 bg-ink-100 border border-ink-200 rounded text-ink-700">
                         ✓ {acc}
                       </span>
                     ))}
@@ -518,27 +518,27 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
               )}
 
               {detailMovement.reason && (
-                <div className="text-xs bg-subtle p-3 rounded border border-line text-text">
+                <div className="text-xs bg-ink-50 p-3 rounded border border-ink-200 text-ink-800">
                   <span className="font-semibold block mb-0.5">Motivo / Justificativa:</span>
                   {detailMovement.reason}
                 </div>
               )}
 
               {(detailMovement.linkedTerms?.length || detailMovement.documentId) && (
-                <div className="p-3 bg-info-bg border border-info-bd rounded-lg space-y-2 text-xs">
+                <div className="p-3 bg-iane-50 border border-iane-200 rounded-lg space-y-2 text-xs">
                   <div className="flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-accent" />
-                    <span className="font-bold text-accent">Documentos vinculados</span>
+                    <FileText className="w-4 h-4 text-iane-600" />
+                    <span className="font-bold text-iane-800">Documentos vinculados</span>
                   </div>
                   {(detailMovement.linkedTerms?.length ? detailMovement.linkedTerms : [{ id: detailMovement.documentId!, code: detailMovement.documentCode || 'Termo', type: detailMovement.documentType! }]).map((term) => (
-                    <div key={term.id} className="flex items-center justify-between gap-3 border-t border-info-bd pt-2">
-                      <span className="min-w-0 truncate text-accent"><strong>{term.code}</strong> · {term.type}</span>
+                    <div key={term.id} className="flex items-center justify-between gap-3 border-t border-iane-200 pt-2">
+                      <span className="min-w-0 truncate text-iane-800"><strong>{term.code}</strong> · {term.type}</span>
                       <button
                         onClick={() => {
                           setDetailMovement(null);
                           handleOpenLinkedTerm(term.id);
                         }}
-                        className="shrink-0 rounded bg-accent px-3 py-1 text-xs font-semibold text-on-accent shadow-xs hover:bg-accent/90"
+                        className="shrink-0 rounded bg-iane-600 px-3 py-1 text-xs font-semibold text-white shadow-xs hover:bg-iane-700"
                       >Abrir Termo</button>
                     </div>
                   ))}
@@ -548,7 +548,7 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
               <div className="flex justify-end pt-2">
                 <button
                   onClick={() => setDetailMovement(null)}
-                  className="px-4 py-1.5 text-xs font-semibold text-text bg-subtle hover:bg-line rounded-lg"
+                  className="px-4 py-1.5 text-xs font-semibold text-ink-700 bg-ink-100 hover:bg-ink-200 rounded-lg"
                 >
                   Fechar
                 </button>
@@ -562,14 +562,14 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
       {requestToReject && (
         <Modal isOpen onClose={() => { if (!isRejecting) setRequestToReject(null); }} title="Recusar solicitação" subtitle={`${requestToReject.type} · ${requestToReject.requesterName}`} maxWidth="md">
           <div className="space-y-4">
-            {requestError && <p role="alert" className="rounded-lg border border-danger-bd bg-danger-bg p-3 text-xs text-danger-fg">{requestError}</p>}
-            <label className="block text-xs font-medium text-text">
+            {requestError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">{requestError}</p>}
+            <label className="block text-xs font-medium text-ink-700">
               Motivo da recusa (opcional)
-              <textarea value={rejectionReason} onChange={(event) => setRejectionReason(event.target.value)} rows={3} className="mt-1 w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-xs text-text" />
+              <textarea value={rejectionReason} onChange={(event) => setRejectionReason(event.target.value)} rows={3} className="mt-1 w-full rounded-lg border border-ink-300 bg-white px-3 py-2 text-xs text-ink-800" />
             </label>
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setRequestToReject(null)} disabled={isRejecting} className="rounded-lg bg-subtle px-4 py-2 text-xs font-medium text-text hover:bg-line">Cancelar</button>
-              <button type="button" onClick={() => void confirmRejection()} disabled={isRejecting} className="rounded-lg bg-danger-fg px-4 py-2 text-xs font-semibold text-danger-bg hover:opacity-90 disabled:opacity-60">{isRejecting ? 'Recusando...' : 'Confirmar recusa'}</button>
+              <button type="button" onClick={() => setRequestToReject(null)} disabled={isRejecting} className="rounded-lg bg-ink-100 px-4 py-2 text-xs font-medium text-ink-700 hover:bg-ink-200">Cancelar</button>
+              <button type="button" onClick={() => void confirmRejection()} disabled={isRejecting} className="rounded-lg bg-rose-600 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-60">{isRejecting ? 'Recusando...' : 'Confirmar recusa'}</button>
             </div>
           </div>
         </Modal>

@@ -42,9 +42,9 @@ const ACCESSORIES = [
   'Fone de Ouvido Corporativo',
 ];
 
-const inputClass = 'w-full text-xs rounded-lg border border-line-strong bg-surface px-3 py-2 text-text focus:outline-none focus:ring-2 focus:ring-focus/40';
-const selectClass = 'w-full text-xs rounded-lg border border-line-strong bg-surface px-3 py-2 text-text';
-const disabledClass = 'w-full text-xs rounded-lg border border-line-strong bg-subtle px-3 py-2 text-muted cursor-not-allowed';
+const inputClass = 'w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500';
+const selectClass = 'w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800';
+const disabledClass = 'w-full text-xs rounded-lg border border-ink-300 bg-ink-100 px-3 py-2 text-ink-500 cursor-not-allowed';
 
 function extractLineDdd(phoneNumber: string): string {
   let digits = String(phoneNumber || '').replace(/\D/g, '');
@@ -119,7 +119,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ value, options, pla
         className={inputClass}
       />
       {open && (
-        <div role="listbox" className="absolute z-30 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-line bg-surface py-1 shadow-lg">
+        <div role="listbox" className="absolute z-30 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-ink-200 bg-white py-1 shadow-lg">
           {visibleOptions.length > 0 ? visibleOptions.map((option) => (
             <button
               type="button"
@@ -132,12 +132,12 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ value, options, pla
                 setQuery(option.label);
                 setOpen(false);
               }}
-              className={`block w-full px-3 py-2 text-left text-xs hover:bg-subtle ${option.id === value ? 'bg-info-bg font-semibold text-accent' : 'text-text'}`}
+              className={`block w-full px-3 py-2 text-left text-xs hover:bg-ink-50 ${option.id === value ? 'bg-iane-50 font-semibold text-iane-800' : 'text-ink-700'}`}
             >
               {option.label}
             </button>
           )) : (
-            <p className="px-3 py-2 text-xs text-muted">Nenhum resultado encontrado.</p>
+            <p className="px-3 py-2 text-xs text-ink-500">Nenhum resultado encontrado.</p>
           )}
         </div>
       )}
@@ -247,23 +247,23 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ currentUser }) => {
   return (
     <div className="space-y-5">
       {successMessage && (
-        <div role="status" className="flex items-center justify-between gap-3 rounded-lg border border-ok-bd bg-ok-bg p-3 text-xs text-ok-fg">
+        <div role="status" className="flex items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">
           <span className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4" />{successMessage}</span>
-          <button type="button" onClick={() => setSuccessMessage('')} aria-label="Fechar mensagem" className="rounded p-1 text-ok-fg hover:bg-ok-bg"><X className="h-3.5 w-3.5" /></button>
+          <button type="button" onClick={() => setSuccessMessage('')} aria-label="Fechar mensagem" className="rounded p-1 text-emerald-700 hover:bg-emerald-100"><X className="h-3.5 w-3.5" /></button>
         </div>
       )}
-      {loadError && <p role="alert" className="rounded-lg border border-danger-bd bg-danger-bg p-3 text-xs text-danger-fg">{loadError}</p>}
+      {loadError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">{loadError}</p>}
 
-      <div className="bg-surface p-4 rounded-xl border border-line shadow-xs space-y-3">
+      <div className="bg-white p-4 rounded-xl border border-ink-200 shadow-xs space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="relative flex-1 max-w-md">
-            <Search className="w-4 h-4 text-muted absolute left-3 top-2.5" />
+            <Search className="w-4 h-4 text-ink-400 absolute left-3 top-2.5" />
             <input
               type="search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Buscar por tipo, solicitante, colaborador ou detalhes..."
-              className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-line-strong bg-surface placeholder:text-muted text-text focus:outline-none focus:ring-2 focus:ring-focus/40"
+              className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-ink-300 bg-white placeholder-ink-400 text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500"
             />
           </div>
           <div className="relative shrink-0" ref={menuRef}>
@@ -272,19 +272,19 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ currentUser }) => {
               onClick={() => setMenuOpen((open) => !open)}
               aria-expanded={menuOpen}
               aria-haspopup="menu"
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold text-on-accent bg-accent hover:bg-accent/90 shadow-xs transition-colors"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold text-white bg-iane-600 hover:bg-iane-700 shadow-xs transition-colors"
             >
               <Plus className="w-3.5 h-3.5" /> Nova solicitação <ChevronDown className="w-3.5 h-3.5" />
             </button>
             {menuOpen && (
-              <div role="menu" className="absolute right-0 z-20 mt-1 w-56 overflow-hidden rounded-lg border border-line bg-surface py-1 shadow-xl">
+              <div role="menu" className="absolute right-0 z-20 mt-1 w-56 overflow-hidden rounded-lg border border-ink-200 bg-white py-1 shadow-xl">
                 {FLOW_OPTIONS.map((option) => (
                   <button
                     key={option.flow}
                     type="button"
                     role="menuitem"
                     onClick={() => { setMenuOpen(false); setActiveFlow(option.flow); }}
-                    className="block w-full px-3 py-2 text-left text-xs text-text hover:bg-subtle"
+                    className="block w-full px-3 py-2 text-left text-xs text-ink-700 hover:bg-ink-50"
                   >
                     {option.label}
                   </button>
@@ -294,37 +294,37 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ currentUser }) => {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-line text-xs">
-          <span className="text-muted font-medium flex items-center gap-1 mr-1"><Filter className="w-3 h-3 text-muted" />Filtros:</span>
-          <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} className="rounded-md border border-line-strong bg-surface px-2.5 py-1 text-text font-medium">
+        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-ink-100 text-xs">
+          <span className="text-ink-500 font-medium flex items-center gap-1 mr-1"><Filter className="w-3 h-3 text-ink-400" />Filtros:</span>
+          <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} className="rounded-md border border-ink-300 bg-white px-2.5 py-1 text-ink-700 font-medium">
             <option value="todos">Tipo: Todos</option>
             {FLOW_OPTIONS.map((option) => <option key={option.flow} value={option.label}>{option.label}</option>)}
           </select>
-          <div className="flex items-center gap-1 text-muted">
+          <div className="flex items-center gap-1 text-ink-600">
             <span className="text-[11px]">De:</span>
-            <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className="rounded-md border border-line-strong bg-surface px-2 py-0.5 text-xs text-text font-mono" />
+            <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className="rounded-md border border-ink-300 bg-white px-2 py-0.5 text-xs text-ink-700 font-mono" />
           </div>
-          <div className="flex items-center gap-1 text-muted">
+          <div className="flex items-center gap-1 text-ink-600">
             <span className="text-[11px]">Até:</span>
-            <input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} className="rounded-md border border-line-strong bg-surface px-2 py-0.5 text-xs text-text font-mono" />
+            <input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} className="rounded-md border border-ink-300 bg-white px-2 py-0.5 text-xs text-ink-700 font-mono" />
           </div>
-          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="rounded-md border border-line-strong bg-surface px-2.5 py-1 text-text font-medium">
+          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="rounded-md border border-ink-300 bg-white px-2.5 py-1 text-ink-700 font-medium">
             <option value="todos">Status: Todos</option>
             <option value="Pendente de aprovação">Pendente de aprovação</option>
             <option value="Aprovada">Aprovada</option>
             <option value="Recusada">Recusada</option>
           </select>
           {(typeFilter !== 'todos' || statusFilter !== 'todos' || startDate || endDate || search) && (
-            <button type="button" onClick={resetFilters} className="text-xs text-accent hover:text-accent font-medium ml-2">Limpar filtros</button>
+            <button type="button" onClick={resetFilters} className="text-xs text-iane-600 hover:text-iane-800 font-medium ml-2">Limpar filtros</button>
           )}
-          <div className="ml-auto text-[11px] text-muted tabular-nums">Exibindo <strong>{visibleRequests.length}</strong> de <strong>{requests.length}</strong> solicitações</div>
+          <div className="ml-auto text-[11px] text-ink-500 tabular-nums">Exibindo <strong>{visibleRequests.length}</strong> de <strong>{requests.length}</strong> solicitações</div>
         </div>
       </div>
 
-      <div className="bg-surface rounded-xl border border-line shadow-xs overflow-hidden">
+      <div className="bg-white rounded-xl border border-ink-200 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="ds-table">
-            <thead className="bg-subtle border-b border-line text-muted uppercase font-semibold tracking-wider text-[11px]">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead className="bg-ink-50 border-b border-ink-200 text-ink-600 uppercase font-semibold tracking-wider text-[11px]">
               <tr>
                 <th className="py-3 px-4">Data da solicitação</th>
                 <th className="py-3 px-4">Tipo</th>
@@ -334,7 +334,7 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ currentUser }) => {
                 <th className="py-3 px-4">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-line">
+            <tbody className="divide-y divide-ink-100">
               {visibleRequests.map((request) => {
                 const details = getRequestDetails(request);
                 const collaborator = request.type === 'Entrega'
@@ -343,22 +343,22 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ currentUser }) => {
                     ? `${request.data.originCollaboratorName || ''} → ${request.data.destinationCollaboratorName || ''}`
                     : request.data.collaboratorName || '—';
                 return (
-                  <tr key={request.id} onClick={() => setSelectedRequest(request)} className="hover:bg-subtle/80 transition-colors cursor-pointer">
-                    <td data-label="Data da solicitação" className="py-3 px-4 whitespace-nowrap"><span className="font-mono text-text">{formatDateTime(request.createdAt)}</span></td>
-                    <td data-label="Tipo" className="py-3 px-4"><span className="inline-flex items-center gap-1.5 font-semibold text-text"><ClipboardList className="h-3.5 w-3.5 text-accent" />{request.type}</span></td>
-                    <td data-label="Solicitante" className="py-3 px-4">{request.requesterName}</td>
-                    <td data-label="Colaborador" className="py-3 px-4">{collaborator || '—'}</td>
-                    <td data-label="Detalhes principais" className="py-3 px-4 max-w-md"><div className="space-y-0.5">{details.slice(1).filter(Boolean).map((detail, index) => <p key={index} className="text-[11px] text-muted truncate">{detail}</p>)}</div></td>
-                    <td data-label="Status" className="py-3 px-4"><StatusBadge status={request.status || 'Pendente de aprovação'} type="request" /></td>
+                  <tr key={request.id} onClick={() => setSelectedRequest(request)} className="hover:bg-ink-50/80 transition-colors cursor-pointer">
+                    <td className="py-3 px-4 whitespace-nowrap"><span className="font-mono text-ink-800">{formatDateTime(request.createdAt)}</span></td>
+                    <td className="py-3 px-4"><span className="inline-flex items-center gap-1.5 font-semibold text-ink-900"><ClipboardList className="h-3.5 w-3.5 text-iane-600" />{request.type}</span></td>
+                    <td className="py-3 px-4">{request.requesterName}</td>
+                    <td className="py-3 px-4">{collaborator || '—'}</td>
+                    <td className="py-3 px-4 max-w-md"><div className="space-y-0.5">{details.slice(1).filter(Boolean).map((detail, index) => <p key={index} className="text-[11px] text-ink-600 truncate">{detail}</p>)}</div></td>
+                    <td className="py-3 px-4"><StatusBadge status={request.status || 'Pendente de aprovação'} type="request" /></td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
           {visibleRequests.length === 0 && (
-            <div className="p-10 text-center text-muted">
-              <ClipboardList className="w-10 h-10 text-muted mx-auto mb-2" />
-              <p className="font-semibold text-text">Nenhuma solicitação encontrada</p>
+            <div className="p-10 text-center text-ink-500">
+              <ClipboardList className="w-10 h-10 text-ink-300 mx-auto mb-2" />
+              <p className="font-semibold text-ink-700">Nenhuma solicitação encontrada</p>
             </div>
           )}
         </div>
@@ -403,31 +403,31 @@ export const RequestDetailsModal: React.FC<{ request: RequestRecord; onClose: ()
   return (
     <Modal isOpen onClose={onClose} title={`Solicitação de ${request.type}`} subtitle={formatDateTime(request.createdAt)} maxWidth="2xl">
       <div className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-lg bg-subtle p-3 text-xs">
-          <div><span className="block text-[11px] text-muted">Solicitante</span><strong>{request.requesterName}</strong></div>
-          <div><span className="block text-[11px] text-muted">Status</span><StatusBadge status={request.status || 'Pendente de aprovação'} type="request" /></div>
-          {request.decidedByName && <div><span className="block text-[11px] text-muted">Decidida por</span><strong>{request.decidedByName}</strong></div>}
-          {request.decidedAt && <div><span className="block text-[11px] text-muted">Data da decisão</span><strong>{formatDateTime(request.decidedAt)}</strong></div>}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-lg bg-ink-50 p-3 text-xs">
+          <div><span className="block text-[11px] text-ink-500">Solicitante</span><strong>{request.requesterName}</strong></div>
+          <div><span className="block text-[11px] text-ink-500">Status</span><StatusBadge status={request.status || 'Pendente de aprovação'} type="request" /></div>
+          {request.decidedByName && <div><span className="block text-[11px] text-ink-500">Decidida por</span><strong>{request.decidedByName}</strong></div>}
+          {request.decidedAt && <div><span className="block text-[11px] text-ink-500">Data da decisão</span><strong>{formatDateTime(request.decidedAt)}</strong></div>}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {details.map(([key, value]) => (
-            <div key={key} className="rounded-lg border border-line p-3 text-xs">
-              <span className="mb-1 block text-[11px] text-muted">{labels[key] || key.replace(/([A-Z])/g, ' $1')}</span>
-              <span className="font-medium text-text">{key === 'deliveryDate' || key === 'plannedReturnDate' ? formatDate(String(value)) : displayValue(key, value)}</span>
+            <div key={key} className="rounded-lg border border-ink-200 p-3 text-xs">
+              <span className="mb-1 block text-[11px] text-ink-500">{labels[key] || key.replace(/([A-Z])/g, ' $1')}</span>
+              <span className="font-medium text-ink-800">{key === 'deliveryDate' || key === 'plannedReturnDate' ? formatDate(String(value)) : displayValue(key, value)}</span>
             </div>
           ))}
         </div>
         {request.status === 'Recusada' && request.rejectionReason && (
-          <div className="rounded-lg border border-danger-bd bg-danger-bg p-3 text-xs text-danger-fg">
+          <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
             <span className="mb-1 block font-semibold">Motivo da recusa</span>{request.rejectionReason}
           </div>
         )}
         {!!request.movementIds?.length && (
-          <div className="rounded-lg border border-info-bd bg-info-bg p-3 text-xs text-accent">
+          <div className="rounded-lg border border-iane-200 bg-iane-50 p-3 text-xs text-iane-800">
             Movimentação(ões) vinculada(s): {request.movementIds.join(', ')}
           </div>
         )}
-        <div className="flex justify-end"><button type="button" onClick={onClose} className="px-4 py-1.5 text-xs font-semibold text-text bg-subtle hover:bg-line rounded-lg">Fechar</button></div>
+        <div className="flex justify-end"><button type="button" onClick={onClose} className="px-4 py-1.5 text-xs font-semibold text-ink-700 bg-ink-100 hover:bg-ink-200 rounded-lg">Fechar</button></div>
       </div>
     </Modal>
   );
@@ -645,13 +645,13 @@ const RequestModal: React.FC<RequestModalProps> = ({ flow, onClose, onCreated })
     <Modal isOpen onClose={onClose} title={`Solicitação de ${title}`} subtitle="O envio registra o pedido e não executa a movimentação." maxWidth="2xl">
       <form onSubmit={onSubmit} className="space-y-4">
         {errorMessage && (
-          <div role="alert" className="p-3 bg-danger-bg border border-danger-bd rounded-lg text-xs text-danger-fg flex items-start gap-2">
-            <AlertTriangle className="w-4 h-4 text-danger-fg shrink-0 mt-0.5" /><span>{errorMessage}</span>
+          <div role="alert" className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-800 flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" /><span>{errorMessage}</span>
           </div>
         )}
 
         {(flow === 'entrega' || flow === 'devolucao') && (
-          <div className="flex items-center gap-2 rounded-lg border border-info-bd bg-info-bg/60 p-3 text-xs text-accent">
+          <div className="flex items-center gap-2 rounded-lg border border-iane-200 bg-iane-50/60 p-3 text-xs text-iane-800">
             {flow === 'entrega' ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownLeft className="h-4 w-4" />}
             <span>{flow === 'entrega' ? 'Dados do funcionário que receberá o ativo' : 'Informações do colaborador selecionado'}</span>
           </div>
@@ -696,7 +696,7 @@ const RequestModal: React.FC<RequestModalProps> = ({ flow, onClose, onCreated })
                   <span className="inline-flex items-center gap-1">
                     Data de entrega
                     <span title="Data em que o aparelho será entregue ao colaborador." aria-label="Data em que o aparelho será entregue ao colaborador.">
-                      <Info className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
+                      <Info className="h-3.5 w-3.5 text-iane-600" aria-hidden="true" />
                     </span>
                   </span>
                 )}
@@ -733,7 +733,7 @@ const RequestModal: React.FC<RequestModalProps> = ({ flow, onClose, onCreated })
 
         {flow === 'transferencia' && (
           <>
-            <FormSection icon={<UserRound className="h-4 w-4 text-accent" />} title="Origem: Colaborador A (Atual)">
+            <FormSection icon={<UserRound className="h-4 w-4 text-iane-600" />} title="Origem: Colaborador A (Atual)">
               <Field label="Colaborador de Origem *">
                 <SearchableSelect value={form.originCollaboratorId || ''} options={activeCollaborators.map((c) => ({ id: c.id, label: `${c.fullName} · ${c.registrationNumber || 'Sem matrícula'}` }))} placeholder="Pesquisar colaborador..." onChange={(value) => { setValue('originCollaboratorId', value); setValue('deviceId', ''); }} />
               </Field>
@@ -741,12 +741,12 @@ const RequestModal: React.FC<RequestModalProps> = ({ flow, onClose, onCreated })
                       <SearchableSelect value={form.deviceId || ''} options={deviceOptions(devices.filter((device) => device.status === inUseDeviceStatus && device.currentCollaboratorId === form.originCollaboratorId))} placeholder="Pesquisar aparelho..." onChange={(value) => setValue('deviceId', value)} />
               </Field>
             </FormSection>
-            <FormSection icon={<UserRound className="h-4 w-4 text-accent" />} title="Destino: Colaborador B (Novo Responsável)">
+            <FormSection icon={<UserRound className="h-4 w-4 text-iane-600" />} title="Destino: Colaborador B (Novo Responsável)">
               <Field label="Colaborador de Destino *">
                 <SearchableSelect value={form.destinationCollaboratorId || ''} options={activeCollaborators.filter((c) => c.id !== form.originCollaboratorId).map((c) => ({ id: c.id, label: `${c.fullName} · ${c.registrationNumber || 'Sem matrícula'} · ${c.department || 'Sem depto'}` }))} placeholder="Pesquisar colaborador..." onChange={(value) => setValue('destinationCollaboratorId', value)} />
               </Field>
             </FormSection>
-            <FormSection icon={<Package className="h-4 w-4 text-accent" />} title="Etapa Intermediária: Estoque">
+            <FormSection icon={<Package className="h-4 w-4 text-iane-600" />} title="Etapa Intermediária: Estoque">
               <Field label="Condição do aparelho">
                 <select value={form.condition} onChange={(event) => setValue('condition', event.target.value)} className={selectClass}><ConditionOptions /></select>
               </Field>
@@ -769,12 +769,12 @@ const RequestModal: React.FC<RequestModalProps> = ({ flow, onClose, onCreated })
 
         {flow === 'troca' && (
           <>
-            <FormSection icon={<UserRound className="h-4 w-4 text-accent" />} title="Colaborador que fará a troca">
+            <FormSection icon={<UserRound className="h-4 w-4 text-iane-600" />} title="Colaborador que fará a troca">
               <Field label="Colaborador *">
                 <SearchableSelect value={form.collaboratorId || ''} options={activeCollaborators.map((c) => ({ id: c.id, label: `${c.fullName} · ${c.registrationNumber || 'Sem matrícula'}` }))} placeholder="Pesquisar colaborador..." onChange={(value) => { setValue('collaboratorId', value); setValue('oldDeviceId', ''); }} />
               </Field>
             </FormSection>
-            <FormSection tone="sun" icon={<Smartphone className="h-4 w-4 text-warn-fg" />} title="Aparelho Antigo (será devolvido ao Estoque)">
+            <FormSection tone="sun" icon={<Smartphone className="h-4 w-4 text-gold-700" />} title="Aparelho Antigo (será devolvido ao Estoque)">
               <Field label="Aparelho Antigo *">
                   <SearchableSelect value={form.oldDeviceId || ''} options={deviceOptions(devices.filter((device) => device.status === inUseDeviceStatus && device.currentCollaboratorId === form.collaboratorId))} placeholder="Pesquisar aparelho..." onChange={(value) => setValue('oldDeviceId', value)} />
               </Field>
@@ -786,7 +786,7 @@ const RequestModal: React.FC<RequestModalProps> = ({ flow, onClose, onCreated })
               </Field>
               <AccessoryChoices selected={form.oldAccessories || []} onToggle={(item) => toggleAccessory('oldAccessories', item)} label="Acessórios do aparelho antigo" />
             </FormSection>
-            <FormSection tone="green" icon={<Package className="h-4 w-4 text-ok-fg" />} title="Novo Aparelho (será entregue do Estoque)">
+            <FormSection tone="green" icon={<Package className="h-4 w-4 text-emerald-700" />} title="Novo Aparelho (será entregue do Estoque)">
               <Field label="Novo Aparelho *">
                   <SearchableSelect value={form.newDeviceId || ''} options={deviceOptions(devices.filter((device) => device.status === availableDeviceStatus && device.id !== form.oldDeviceId))} placeholder="Pesquisar aparelho disponível..." onChange={(value) => setValue('newDeviceId', value)} />
               </Field>
@@ -808,9 +808,9 @@ const RequestModal: React.FC<RequestModalProps> = ({ flow, onClose, onCreated })
           </>
         )}
 
-        <div className="flex justify-end gap-2 border-t border-line pt-3">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-xs font-medium text-text bg-subtle hover:bg-line rounded-lg">Cancelar</button>
-          <button type="submit" disabled={isSubmitting} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold text-on-accent bg-accent hover:bg-accent/90 shadow-xs disabled:opacity-60">
+        <div className="flex justify-end gap-2 border-t border-ink-100 pt-3">
+          <button type="button" onClick={onClose} className="px-4 py-2 text-xs font-medium text-ink-700 bg-ink-100 hover:bg-ink-200 rounded-lg">Cancelar</button>
+          <button type="submit" disabled={isSubmitting} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold text-white bg-iane-600 hover:bg-iane-700 shadow-xs disabled:opacity-60">
             {titleIcon}{isSubmitting ? 'Registrando...' : 'Registrar solicitação'}
           </button>
         </div>
@@ -821,7 +821,7 @@ const RequestModal: React.FC<RequestModalProps> = ({ flow, onClose, onCreated })
 
 const Field: React.FC<{ label: React.ReactNode; children: React.ReactNode; className?: string }> = ({ label, children, className = '' }) => (
   <div className={`space-y-1 ${className}`}>
-    <label className="block text-xs font-medium text-muted">{label}</label>
+    <label className="block text-xs font-medium text-ink-600">{label}</label>
     {children}
   </div>
 );
@@ -833,10 +833,10 @@ const ReadOnlyField: React.FC<{ label: string; value: string }> = ({ label, valu
 );
 
 const FormSection: React.FC<{ title: string; icon: React.ReactNode; children: React.ReactNode; tone?: 'iane' | 'sun' | 'green' }> = ({ title, icon, children, tone = 'iane' }) => {
-  const colors = tone === 'sun' ? 'bg-warn-bg/40 border-warn-bd' : tone === 'green' ? 'bg-ok-bg/40 border-ok-bd' : 'bg-info-bg/40 border-info-bd';
+  const colors = tone === 'sun' ? 'bg-sun-50/40 border-sun-300' : tone === 'green' ? 'bg-emerald-50/40 border-emerald-200' : 'bg-iane-50/40 border-iane-200';
   return (
     <section className={`rounded-lg border p-3 ${colors}`}>
-      <h3 className="mb-3 flex items-center gap-1.5 text-xs font-semibold text-text">{icon}{title}</h3>
+      <h3 className="mb-3 flex items-center gap-1.5 text-xs font-semibold text-ink-800">{icon}{title}</h3>
       <div className="space-y-3">{children}</div>
     </section>
   );
@@ -847,13 +847,13 @@ const ConditionOptions: React.FC = () => <>
 </>;
 
 const AccessoryChoices: React.FC<{ selected: string[]; onToggle: (item: string) => void; label: string }> = ({ selected, onToggle, label }) => (
-  <div className="rounded-lg border border-line bg-subtle p-3">
-    <span className="mb-2 block text-xs font-semibold text-text">{label}</span>
+  <div className="rounded-lg border border-ink-200 bg-ink-50 p-3">
+    <span className="mb-2 block text-xs font-semibold text-ink-700">{label}</span>
     <div className="flex flex-wrap gap-x-3 gap-y-2">
       {ACCESSORIES.map((item) => (
         <label key={item} className="flex cursor-pointer items-center gap-1.5 text-xs">
-          <input type="checkbox" checked={selected.includes(item)} onChange={() => onToggle(item)} className="rounded border-line-strong text-accent focus:ring-focus/40" />
-          <span className="text-text">{item}</span>
+          <input type="checkbox" checked={selected.includes(item)} onChange={() => onToggle(item)} className="rounded border-ink-300 text-iane-600 focus:ring-iane-500" />
+          <span className="text-ink-700">{item}</span>
         </label>
       ))}
     </div>

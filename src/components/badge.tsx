@@ -1,20 +1,18 @@
-import { tv, type VariantProps } from 'tailwind-variants';
-import { twMerge } from 'tailwind-merge';
-import type { ComponentProps } from 'react';
+import { tv, type VariantProps } from 'tailwind-variants'
+import { twMerge } from 'tailwind-merge'
+import type { ComponentProps } from 'react'
 
 export const badgeVariants = tv({
-	base: 'inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border font-medium tracking-tight',
+	base: 'inline-flex items-center gap-2 rounded-md border font-medium tracking-tight whitespace-nowrap',
 	variants: {
 		variant: {
-			default: 'border-line bg-subtle text-muted',
-			primary: 'border-accent bg-accent text-on-accent',
-			secondary: 'border-line bg-subtle text-text',
-			outline: 'border-line-strong bg-transparent text-text',
-			success: 'border-ok-bd bg-ok-bg text-ok-fg',
-			warning: 'border-warn-bd bg-warn-bg text-warn-fg',
-			info: 'border-info-bd bg-info-bg text-info-fg',
-			danger: 'border-danger-bd bg-danger-bg text-danger-fg',
-			destructive: 'border-danger-bd bg-danger-bg text-danger-fg',
+			default: 'border-ink-200 bg-ink-50 text-ink-500',
+			primary: 'border-iane-600 bg-iane-600 text-white',
+			secondary: 'border-ink-200 bg-ink-100 text-ink-700',
+			destructive: 'border-rose-600 bg-rose-600 text-white',
+			success: 'border-emerald-200 bg-emerald-50 text-emerald-800',
+			warning: 'border-sun-300 bg-sun-50 text-gold-700',
+			info: 'border-iane-200 bg-iane-50 text-iane-800',
 		},
 		size: {
 			sm: 'px-2 py-0.5 text-xs',
@@ -23,7 +21,7 @@ export const badgeVariants = tv({
 		},
 	},
 	defaultVariants: { variant: 'default', size: 'md' },
-});
+})
 
 export interface BadgeProps
 	extends ComponentProps<'span'>,
@@ -40,5 +38,5 @@ export function Badge({ className, variant, size, children, ...props }: BadgePro
 		>
 			{children}
 		</span>
-	);
+	)
 }
