@@ -1,17 +1,40 @@
-import { twMerge } from 'tailwind-merge'
-import type { ComponentProps } from 'react'
-import { Badge } from './badge'
+import { twMerge } from 'tailwind-merge';
+import type { ComponentProps } from 'react';
+import { StatusBadge } from './StatusBadge';
 
 export interface DeviceGeneralInfoProps extends ComponentProps<'div'> {
-	brand: string
-	model: string
-	imei: string
-	serialNumber: string
-	condition: string
-	department: string
-	line: string | null
-	responsible: string | null
-	observations: string | null
+	brand: string;
+	model: string;
+	imei: string;
+	serialNumber: string;
+	condition: string;
+	department: string;
+	line: string | null;
+	responsible: string | null;
+	observations: string | null;
+}
+
+function InfoItem({
+	label,
+	value,
+	mono = false,
+	className,
+}: {
+	label: string;
+	value: string;
+	mono?: boolean;
+	className?: string;
+}) {
+	return (
+		<div className={twMerge('rounded-md border border-line bg-subtle/50 p-3', className)}>
+			<dt className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted">
+				{label}
+			</dt>
+			<dd className={twMerge('break-words text-xs font-medium text-text', mono && 'font-mono')}>
+				{value}
+			</dd>
+		</div>
+	);
 }
 
 export function DeviceGeneralInfo({
@@ -28,75 +51,36 @@ export function DeviceGeneralInfo({
 	...props
 }: DeviceGeneralInfoProps) {
 	return (
-		<div
-			data-slot="device-general-info"
-			className={twMerge('space-y-4', className)}
-			{...props}
-		>
-			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-				<div className="p-3 bg-ink-50 border border-ink-200 rounded-lg">
-					<span className="text-[10px] font-medium text-ink-500 uppercase tracking-wider block mb-1">
-						Marca
-					</span>
-					<span className="text-xs font-medium text-ink-900">{brand}</span>
+		<div data-slot="device-general-info" className={twMerge('space-y-3', className)} {...props}>
+			<dl className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+				<InfoItem label="Marca" value={brand || '—'} />
+				<InfoItem label="Modelo" value={model || '—'} />
+				<InfoItem label="IMEI" value={imei || '—'} mono />
+				<InfoItem label="Nº de série" value={serialNumber || '—'} mono />
+				<div className="rounded-md border border-line bg-subtle/50 p-3">
+					<dt className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted">
+						Estado de conservação
+					</dt>
+					<dd>
+						<StatusBadge status={condition} type="condition" />
+					</dd>
 				</div>
-				<div className="p-3 bg-ink-50 border border-ink-200 rounded-lg">
-					<span className="text-[10px] font-medium text-ink-500 uppercase tracking-wider block mb-1">
-						Modelo
-					</span>
-					<span className="text-xs font-medium text-ink-900">{model}</span>
-				</div>
-				<div className="p-3 bg-ink-50 border border-ink-200 rounded-lg">
-					<span className="text-[10px] font-medium text-ink-500 uppercase tracking-wider block mb-1">
-						IMEI
-					</span>
-					<span className="text-xs font-mono text-ink-500 break-all">{imei || '—'}</span>
-				</div>
-				<div className="p-3 bg-ink-50 border border-ink-200 rounded-lg">
-					<span className="text-[10px] font-medium text-ink-500 uppercase tracking-wider block mb-1">
-						Nº de Série
-					</span>
-					<span className="text-xs font-mono text-ink-500 break-all">{serialNumber || '—'}</span>
-				</div>
-				<div className="p-3 bg-ink-50 border border-ink-200 rounded-lg">
-					<span className="text-[10px] font-medium text-ink-500 uppercase tracking-wider block mb-1">
-						Estado de Conservação
-					</span>
-					<Badge variant="info" size="sm" className="mt-0.5">
-						<span className="w-1.5 h-1.5 rounded-full bg-iane-600 shrink-0" aria-hidden="true" />
-						{condition}
-					</Badge>
-				</div>
-				<div className="p-3 bg-ink-50 border border-ink-200 rounded-lg">
-					<span className="text-[10px] font-medium text-ink-500 uppercase tracking-wider block mb-1">
-						Departamento
-					</span>
-					<span className="text-xs text-ink-500">{department}</span>
-				</div>
-			</div>
-
-			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-				<div className="p-3 bg-ink-50 border border-ink-200 rounded-lg">
-					<span className="text-[10px] font-medium text-ink-500 uppercase tracking-wider block mb-1">
-						Linha Telefônica
-					</span>
-					<span className="text-xs font-mono text-ink-500 break-all">{line || 'Sem linha'}</span>
-				</div>
-				<div className="p-3 bg-ink-50 border border-ink-200 rounded-lg">
-					<span className="text-[10px] font-medium text-ink-500 uppercase tracking-wider block mb-1">
-						Responsável
-					</span>
-					<span className="text-xs text-ink-500">{responsible || 'Estoque do Gestor de Telefonia'}</span>
-				</div>
-				<div className="p-3 bg-ink-50 border border-ink-200 rounded-lg col-span-2 sm:col-span-3">
-					<span className="text-[10px] font-medium text-ink-500 uppercase tracking-wider block mb-1">
+				<InfoItem label="Departamento" value={department || 'Não informado'} />
+				<InfoItem label="Linha telefônica" value={line || 'Sem linha'} mono />
+				<InfoItem
+					label="Responsável"
+					value={responsible || 'Estoque do Gestor de Telefonia'}
+					className="sm:col-span-2 lg:col-span-2"
+				/>
+				<div className="rounded-md border border-line bg-subtle/50 p-3 sm:col-span-2 lg:col-span-3">
+					<dt className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted">
 						Observações
-					</span>
-					<p className="text-xs text-ink-500 leading-relaxed whitespace-pre-wrap">
+					</dt>
+					<dd className="whitespace-pre-wrap text-xs leading-relaxed text-text">
 						{observations || 'Nenhuma observação registrada.'}
-					</p>
+					</dd>
 				</div>
-			</div>
+			</dl>
 		</div>
-	)
+	);
 }

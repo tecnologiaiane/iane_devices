@@ -1,15 +1,15 @@
-import { X } from 'lucide-react'
-import { twMerge } from 'tailwind-merge'
-import type { ComponentProps } from 'react'
-import { Badge } from './badge'
+import { X } from 'lucide-react';
+import { twMerge } from 'tailwind-merge';
+import type { ComponentProps } from 'react';
+import { StatusBadge } from './StatusBadge';
 
 export interface DeviceDetailHeaderProps extends ComponentProps<'div'> {
-	tag: string
-	model: string
-	status: string
-	serialNumber: string
-	custodian: string
-	onClose: () => void
+	tag: string;
+	model: string;
+	status: string;
+	serialNumber: string;
+	custodian: string;
+	onClose: () => void;
 }
 
 export function DeviceDetailHeader({
@@ -26,40 +26,44 @@ export function DeviceDetailHeader({
 		<div
 			data-slot="device-detail-header"
 			className={twMerge(
-				'flex items-center gap-3 p-5 border-b border-ink-200 bg-ink-50/50',
+				'flex items-start gap-3 border-b border-line bg-subtle/60 p-5',
 				className
 			)}
 			{...props}
 		>
-			<div className="w-10 h-10 rounded-lg bg-iane-600 text-white flex items-center justify-center shadow-sm">
-				<span className="font-mono font-bold text-[11px]">{tag.split('-')[0]}</span>
+			<div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-accent text-on-accent shadow-xs">
+				<span className="font-mono text-[11px] font-bold">{tag.split('-')[0]}</span>
 			</div>
-			<div className="flex-1 min-w-0">
-				<div className="flex items-center gap-2">
-					<span className="font-mono font-bold text-ink-900 text-sm">{tag}</span>
-					<span className="font-semibold text-ink-900">{model}</span>
+
+			<div className="min-w-0 flex-1">
+				<div className="flex flex-wrap items-baseline gap-2">
+					<span className="font-mono text-sm font-bold text-text">{tag}</span>
+					<span className="text-sm font-semibold text-text">{model}</span>
 				</div>
-				<div className="flex items-center gap-2 mt-1">
-					<Badge variant="info" size="sm">
-						<span className="w-1.5 h-1.5 rounded-full bg-iane-600 shrink-0" aria-hidden="true" />
-						{status}
-					</Badge>
+				<div className="mt-1">
+					<StatusBadge status={status} type="device" />
 				</div>
-				<p className="text-xs text-ink-500 mt-1">
-					Número de Série: <span className="font-mono text-ink-900">{serialNumber}</span> &bull;
-					Custódia: <span className="font-semibold text-ink-900">{custodian}</span>
+				<p className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted">
+					<span>
+						Número de série:{' '}
+						<span className="font-mono font-medium text-text">{serialNumber || '—'}</span>
+					</span>
+					<span aria-hidden="true">·</span>
+					<span>
+						Custódia: <span className="font-semibold text-text">{custodian}</span>
+					</span>
 				</p>
 			</div>
+
 			<button
+				type="button"
 				data-slot="close-button"
 				onClick={onClose}
-				className={twMerge(
-					'flex items-center justify-center w-8 h-8 rounded-md text-ink-500 hover:text-ink-900 hover:bg-ink-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
-				)}
+				className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-subtle hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
 				aria-label="Fechar"
 			>
-				<X className="w-4 h-4" />
+				<X className="h-4 w-4" aria-hidden="true" />
 			</button>
 		</div>
-	)
+	);
 }

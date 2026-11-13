@@ -1,95 +1,248 @@
-@import "tailwindcss";
-
-@theme {
-  /* Marca (extraída do logotipo IANE) */
-  --color-iane-50: #EBF6FD;
-  --color-iane-100: #D3EBF9;
-  --color-iane-200: #A9D7F2;
-  --color-iane-300: #6FBDE9;
-  --color-iane-400: #2FA0DE;
-  --color-iane-500: #148DD2;
-  --color-iane-600: #0178C8;
-  --color-iane-700: #0162A3;
-  --color-iane-800: #064D80;
-  --color-sky: #57C3E9;
-
-  --color-navy-700: #433E8C;
-  --color-navy-800: #322D78;
-  --color-navy-900: #262161;
-  --color-navy-950: #17143F;
-
-  --color-sun-50: #FFFBD6;
-  --color-sun-100: #FFF6A3;
-  --color-sun-300: #F8EC76;
-  --color-sun-400: #F5E230;
-  --color-sun-500: #E7C800;
-
-  --color-gold-600: #B47E00;
-  --color-gold-700: #8A5F00;
-
-  /* Neutros (substituem slate-*) */
-  --color-ink-50: #F5F7FB;
-  --color-ink-100: #ECEFF6;
-  --color-ink-200: #DDE2EE;
-  --color-ink-300: #C5CCDD;
-  --color-ink-400: #98A1BB;
-  --color-ink-500: #6B7494;
-  --color-ink-600: #4F5776;
-  --color-ink-700: #3A4160;
-  --color-ink-800: #272C4A;
-  --color-ink-900: #1A1D38;
-
-  /* Tipografia */
-  --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
-
-  /* Sombras com tom marinho */
-  --shadow-xs: 0 1px 2px rgb(38 33 97 / .08);
-  --shadow-xl: 0 12px 32px -8px rgb(38 33 97 / .28);
-}
+@import 'tailwindcss';
+@import './design-system/tokens/colors.css';
+@import './design-system/tokens/typography.css';
+@import './design-system/tokens/spacing.css';
+@import './design-system/tokens/themes.css';
 
 @layer base {
-  body {
-    @apply bg-ink-50 text-ink-900 antialiased;
-    font-family: var(--font-sans);
-  }
+	html {
+		color-scheme: light;
+	}
 
-  :focus-visible {
-    outline: 3px solid var(--color-sun-500);
-    outline-offset: 2px;
-  }
+	html[data-theme='dark'] {
+		color-scheme: dark;
+	}
 
-  /* Tabular numbers for clean numeric alignments */
-  .tabular-nums {
-    font-variant-numeric: tabular-nums;
-  }
+	body {
+		@apply bg-bg text-text antialiased;
+		font-family: var(--font-system-sans);
+		font-size: var(--text-body);
+		line-height: var(--text-body--line-height);
+	}
+
+	/* Título de página 28/650 · seção 20/650 · subtítulo 15/650 */
+	h1 {
+		font-size: var(--text-page);
+		line-height: var(--text-page--line-height);
+		font-weight: var(--font-weight-strong);
+		letter-spacing: -0.015em;
+	}
+
+	h2 {
+		font-size: var(--text-section);
+		line-height: var(--text-section--line-height);
+		font-weight: var(--font-weight-strong);
+		letter-spacing: -0.01em;
+	}
+
+	h3 {
+		font-size: var(--text-subtitle);
+		line-height: var(--text-subtitle--line-height);
+		font-weight: var(--font-weight-strong);
+	}
+
+	:focus-visible {
+		outline: 2px solid var(--focus);
+		outline-offset: 2px;
+	}
+
+	::selection {
+		background: color-mix(in srgb, var(--accent) 24%, transparent);
+	}
+
+	dialog {
+		color: var(--text);
+	}
+
+	dialog::backdrop {
+		background: var(--overlay);
+		-webkit-backdrop-filter: blur(2px);
+		backdrop-filter: blur(2px);
+	}
+
+	/* Tabular numbers for clean numeric alignments */
+	.tabular-nums {
+		font-variant-numeric: tabular-nums;
+	}
+}
+
+@keyframes modal-in {
+	from {
+		opacity: 0;
+		transform: translateY(8px) scale(0.98);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+		scroll-behavior: auto !important;
+	}
+}
+
+@layer components {
+	/* Classes de tipografia para novas telas */
+	.ds-page-title {
+		font-size: var(--text-page);
+		line-height: var(--text-page--line-height);
+		font-weight: var(--font-weight-strong);
+		letter-spacing: -0.015em;
+		color: var(--text);
+	}
+
+	.ds-section-title {
+		font-size: var(--text-section);
+		line-height: var(--text-section--line-height);
+		font-weight: var(--font-weight-strong);
+		letter-spacing: -0.01em;
+		color: var(--text);
+	}
+
+	.ds-subtitle {
+		font-size: var(--text-subtitle);
+		line-height: var(--text-subtitle--line-height);
+		font-weight: var(--font-weight-strong);
+		color: var(--text);
+	}
+
+	.ds-body {
+		font-size: var(--text-body);
+		line-height: var(--text-body--line-height);
+		font-weight: 400;
+		color: var(--text);
+	}
+
+	.ds-caption {
+		font-size: var(--text-caption);
+		line-height: var(--text-caption--line-height);
+		font-weight: 400;
+		color: var(--muted);
+	}
+
+	/* Padrão de tabela do Design System */
+	.ds-table {
+		width: 100%;
+		border-collapse: collapse;
+		text-align: left;
+		font-size: var(--text-caption);
+		color: var(--text);
+	}
+
+	.ds-table thead {
+		background: var(--subtle);
+		color: var(--muted);
+		font-size: 11px;
+		font-weight: 600;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+	}
+
+	.ds-table thead th {
+		padding: 10px 16px;
+		border-bottom: 1px solid var(--line);
+		white-space: nowrap;
+	}
+
+	.ds-table tbody tr {
+		border-bottom: 1px solid var(--line);
+		transition: background-color var(--dur-fast);
+	}
+
+	.ds-table tbody tr:last-child {
+		border-bottom: 0;
+	}
+
+	.ds-table tbody tr:hover {
+		background: color-mix(in srgb, var(--subtle) 65%, transparent);
+	}
+
+	.ds-table tbody td {
+		padding: 10px 16px;
+		vertical-align: middle;
+	}
+
+	/* Em telas estreitas cada linha vira um cartão com rótulo e valor. */
+	@media (max-width: 700px) {
+		.ds-table thead {
+			display: none;
+		}
+
+		.ds-table,
+		.ds-table tbody,
+		.ds-table tr,
+		.ds-table td {
+			display: block;
+			width: 100%;
+		}
+
+		.ds-table tbody tr {
+			margin-bottom: 12px;
+			border: 1px solid var(--line);
+			border-radius: var(--r2);
+			background: var(--surface);
+			overflow: hidden;
+		}
+
+		.ds-table tbody td {
+			display: flex;
+			align-items: flex-start;
+			justify-content: space-between;
+			gap: 16px;
+			padding: 8px 12px;
+			border-bottom: 1px solid var(--line);
+			text-align: right;
+		}
+
+		.ds-table tbody td:last-child {
+			border-bottom: 0;
+		}
+
+		.ds-table tbody td[data-label]::before {
+			content: attr(data-label);
+			font-size: 11px;
+			font-weight: 600;
+			color: var(--muted);
+			text-transform: uppercase;
+			letter-spacing: 0.04em;
+			text-align: left;
+			flex-shrink: 0;
+		}
+	}
 }
 
 /* Custom subtle scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+	width: 6px;
+	height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: transparent;
+	background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #C5CCDD;
-  border-radius: 9999px;
+	background: var(--line-strong);
+	border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #98A1BB;
+	background: var(--muted);
 }
 
 @media print {
-  .no-print {
-    display: none !important;
-  }
-  .print-only {
-    display: block !important;
-  }
-  body {
-    background: white !important;
-    color: black !important;
-  }
+	.no-print {
+		display: none !important;
+	}
+	.print-only {
+		display: block !important;
+	}
+	body {
+		background: white !important;
+		color: black !important;
+	}
 }

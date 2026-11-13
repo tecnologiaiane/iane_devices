@@ -1,122 +1,130 @@
-import React from 'react';
-import { DeviceStatus, LineStatus, CollaboratorStatus, TermStatus, DeviceCondition } from '../types';
+import {
+	AlertTriangle,
+	Ban,
+	CheckCircle2,
+	CircleDashed,
+	Clock3,
+	Info,
+	LoaderCircle,
+	MinusCircle,
+	XCircle,
+} from 'lucide-react';
+import {
+	DeviceStatus,
+	LineStatus,
+	CollaboratorStatus,
+	TermStatus,
+	DeviceCondition,
+} from '../types';
 
 interface StatusBadgeProps {
-  status: DeviceStatus | LineStatus | CollaboratorStatus | TermStatus | DeviceCondition | string;
-  type?: 'device' | 'line' | 'collaborator' | 'term' | 'condition' | 'request';
-  size?: 'sm' | 'md';
+	status: DeviceStatus | LineStatus | CollaboratorStatus | TermStatus | DeviceCondition | string;
+	type?: 'device' | 'line' | 'collaborator' | 'term' | 'condition' | 'request';
+	size?: 'sm' | 'md';
 }
 
-export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, type = 'device', size = 'sm' }) => {
-  const sizeClasses = size === 'sm' ? 'px-2 py-0.5 text-xs' : 'px-2.5 py-1 text-xs font-medium';
+type Tone = 'neutral' | 'success' | 'info' | 'warning' | 'danger';
 
-  // Cores semânticas profissionais (alto contraste, sem excesso)
-  let badgeStyles = 'bg-ink-100 text-ink-700 border-ink-200';
-  let indicatorColor = 'bg-ink-400';
-
-  switch (status) {
-    // Aparelhos
-    case 'Disponível':
-      badgeStyles = 'bg-emerald-50 text-emerald-800 border-emerald-200';
-      indicatorColor = 'bg-emerald-500';
-      break;
-    case 'Em uso':
-    case 'Em Uso':
-    case 'Ativa':
-    case 'Ativo':
-      badgeStyles = 'bg-iane-50 text-iane-800 border-iane-200';
-      indicatorColor = 'bg-iane-600';
-      break;
-    case 'Aguardando avaliação':
-      badgeStyles = 'bg-sun-50 text-gold-700 border-sun-300';
-      indicatorColor = 'bg-sun-500';
-      break;
-    case 'Em manutenção':
-      badgeStyles = 'bg-orange-50 text-orange-800 border-orange-200';
-      indicatorColor = 'bg-orange-500';
-      break;
-    case 'Reservado':
-      badgeStyles = 'bg-purple-50 text-purple-800 border-purple-200';
-      indicatorColor = 'bg-purple-500';
-      break;
-    case 'Aguardando baixa patrimonial':
-      badgeStyles = 'bg-rose-50 text-rose-800 border-rose-300';
-      indicatorColor = 'bg-rose-500';
-      break;
-    case 'Extraviado':
-    case 'Cancelada':
-    case 'Desligado':
-      badgeStyles = 'bg-rose-100 text-rose-900 border-rose-200';
-      indicatorColor = 'bg-rose-600';
-      break;
-    case 'Baixado':
-      badgeStyles = 'bg-ink-100 text-ink-600 border-ink-300';
-      indicatorColor = 'bg-ink-400';
-      break;
-    case 'Suspensa':
-    case 'Em processo de cancelamento':
-      badgeStyles = 'bg-orange-50 text-orange-800 border-orange-200';
-      indicatorColor = 'bg-orange-500';
-      break;
-    case 'Férias':
-    case 'Afastado':
-      badgeStyles = 'bg-indigo-50 text-indigo-800 border-indigo-200';
-      indicatorColor = 'bg-indigo-500';
-      break;
-    case 'Assinado':
-      badgeStyles = 'bg-emerald-50 text-emerald-800 border-emerald-200';
-      indicatorColor = 'bg-emerald-600';
-      break;
-    case 'Pendente de Assinatura':
-      badgeStyles = 'bg-sun-50 text-gold-700 border-sun-300 font-medium';
-      indicatorColor = 'bg-sun-500';
-      break;
-    case 'Pendente de aprovação':
-      badgeStyles = 'bg-sun-50 text-gold-700 border-sun-300 font-medium';
-      indicatorColor = 'bg-sun-500';
-      break;
-    case 'Aprovada':
-      badgeStyles = 'bg-emerald-50 text-emerald-800 border-emerald-200';
-      indicatorColor = 'bg-emerald-600';
-      break;
-    case 'Recusada':
-      badgeStyles = 'bg-rose-50 text-rose-800 border-rose-200';
-      indicatorColor = 'bg-rose-600';
-      break;
-    case 'Arquivado':
-      badgeStyles = 'bg-ink-100 text-ink-700 border-ink-300';
-      indicatorColor = 'bg-ink-400';
-      break;
-
-    // Condição
-    case 'Novo':
-      badgeStyles = 'bg-emerald-50 text-emerald-800 border-emerald-200';
-      indicatorColor = 'bg-emerald-500';
-      break;
-    case 'Excelente':
-      badgeStyles = 'bg-cyan-50 text-cyan-800 border-cyan-200';
-      indicatorColor = 'bg-cyan-500';
-      break;
-    case 'Bom':
-      badgeStyles = 'bg-sky-50 text-sky-800 border-sky-200';
-      indicatorColor = 'bg-sky-500';
-      break;
-    case 'Regular':
-      badgeStyles = 'bg-sun-50 text-gold-700 border-sun-300';
-      indicatorColor = 'bg-sun-500';
-      break;
-    case 'Danificado':
-      badgeStyles = 'bg-rose-50 text-rose-800 border-rose-200';
-      indicatorColor = 'bg-rose-500';
-      break;
-    default:
-      break;
-  }
-
-  return (
-    <span className={`inline-flex items-center gap-1.5 border rounded-md font-medium tracking-tight whitespace-nowrap ${badgeStyles} ${sizeClasses}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${indicatorColor} shrink-0`} aria-hidden="true" />
-      <span>{status}</span>
-    </span>
-  );
+const TONE_STYLES: Record<Tone, { badge: string; icon: string; Icon: typeof Info }> = {
+	neutral: {
+		badge: 'border-line bg-subtle text-muted',
+		icon: 'text-muted',
+		Icon: CircleDashed,
+	},
+	success: {
+		badge: 'border-ok-bd bg-ok-bg text-ok-fg',
+		icon: 'text-ok-fg',
+		Icon: CheckCircle2,
+	},
+	info: {
+		badge: 'border-info-bd bg-info-bg text-info-fg',
+		icon: 'text-info-fg',
+		Icon: Info,
+	},
+	warning: {
+		badge: 'border-warn-bd bg-warn-bg text-warn-fg',
+		icon: 'text-warn-fg',
+		Icon: AlertTriangle,
+	},
+	danger: {
+		badge: 'border-danger-bd bg-danger-bg text-danger-fg',
+		icon: 'text-danger-fg',
+		Icon: XCircle,
+	},
 };
+
+/** Ícone por significado, não apenas por cor: o texto sempre acompanha. */
+function resolveStatus(status: string): Tone {
+	switch (status) {
+		case 'Disponível':
+		case 'Assinado':
+		case 'Aprovada':
+		case 'Ativo':
+		case 'Novo':
+			return 'success';
+
+		case 'Em uso':
+		case 'Em Uso':
+		case 'Em andamento':
+		case 'Em manutenção':
+		case 'Aguardando avaliação':
+		case 'Pendente de Assinatura':
+		case 'Pendente de aprovação':
+		case 'Suspensa':
+		case 'Em processo de cancelamento':
+		case 'Aguardando baixa patrimonial':
+			return 'warning';
+
+		case 'Extraviado':
+		case 'Cancelada':
+		case 'Desligado':
+		case 'Recusada':
+		case 'Danificado':
+		case 'Atrasado':
+		case 'Com erro':
+			return 'danger';
+
+		case 'Ativa':
+		case 'Excelente':
+		case 'Bom':
+		case 'Regular':
+			return 'info';
+
+		case 'Reservado':
+		case 'Férias':
+		case 'Afastado':
+		case 'Arquivado':
+		case 'Baixado':
+		case 'Inativo':
+			return 'neutral';
+
+		default:
+			return 'neutral';
+	}
+}
+
+function resolveIcon(status: string, tone: Tone): typeof Info {
+	if (status === 'Em manutenção' || status === 'Pendente de aprovação') return LoaderCircle;
+	if (status === 'Pendente de Assinatura' || status === 'Aguardando avaliação') return Clock3;
+	if (status === 'Baixado' || status === 'Cancelada' || status === 'Desligado') return Ban;
+	if (status === 'Inativo' || status === 'Arquivado') return MinusCircle;
+	return TONE_STYLES[tone].Icon;
+}
+
+export function StatusBadge({ status, size = 'sm' }: StatusBadgeProps) {
+	const tone = resolveStatus(status);
+	const styles = TONE_STYLES[tone];
+	const Icon = resolveIcon(status, tone);
+	const sizeClasses = size === 'sm' ? 'px-2 py-0.5 text-xs' : 'px-2.5 py-1 text-xs font-medium';
+
+	return (
+		<span
+			data-slot="status-badge"
+			data-tone={tone}
+			className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border font-medium tracking-tight ${styles.badge} ${sizeClasses}`}
+		>
+			<Icon className={`h-3 w-3 shrink-0 ${styles.icon}`} aria-hidden="true" />
+			<span>{status}</span>
+		</span>
+	);
+}

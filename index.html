@@ -10,11 +10,18 @@
     <meta property="og:description" content="Sistema corporativo IANE para controle patrimonial de dispositivos móveis, linhas corporativas, termos e movimentações." />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+      // Aplica o tema salvo antes da primeira pintura para evitar flash.
+      try {
+        if (localStorage.getItem('iane_theme') === 'dark') {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+      } catch {
+        // Armazenamento indisponível: o tema claro permanece.
+      }
+    </script>
   </head>
-  <body class="bg-ink-50 text-ink-900 antialiased font-sans">
+  <body class="bg-bg text-text antialiased font-sans">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

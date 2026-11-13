@@ -1,0 +1,104 @@
+/*
+ * IANE Design System v3.4 — Tokens de cor
+ * Camada 1: primitivos da marca
+ * Camada 2: semânticos (tema claro em :root, tema escuro em [data-theme="dark"])
+ *
+ * Regra: componentes e páginas usam apenas os semânticos.
+ * O amarelo é sempre preenchimento com texto marinho; nunca texto sobre fundo claro.
+ */
+
+:root {
+	/* Primitivos da marca */
+	--blue-600: #0a6ef0;
+	--sky: #3fc6f5;
+	--navy-900: #2b2380;
+	--navy-950: #1a1450;
+	--sun-400: #ffd91a;
+
+	/* Semânticos — tema claro */
+	--bg: #f6f8ff;
+	--surface: #ffffff;
+	--subtle: #edf1fc;
+	--line: #dce2f5;
+	--line-strong: #7c84aa;
+	--text: #0f1238;
+	--muted: #4b5378;
+	--accent: #0a6ef0;
+	--on-accent: #ffffff;
+	--focus: #3a32a0;
+	--overlay: rgb(15 18 56 / 0.6);
+
+	/* Status — independentes da identidade da marca */
+	--ok-bg: #ecfdf5;
+	--ok-fg: #065f46;
+	--ok-bd: #a7f3d0;
+
+	--warn-bg: #fffbeb;
+	--warn-fg: #92400e;
+	--warn-bd: #fde68a;
+
+	--danger-bg: #fef2f2;
+	--danger-fg: #991b1b;
+	--danger-bd: #fecaca;
+
+	--info-bg: #eff6ff;
+	--info-fg: #1e40af;
+	--info-bd: #bfdbfe;
+
+	/* Camada 3 — paleta de dados (gráficos) */
+	--chart-1: #0a6ef0;
+	--chart-2: #059669;
+	--chart-3: #b45309;
+	--chart-4: #c2410c;
+	--chart-5: #6d28d9;
+	--chart-6: #64748b;
+	--chart-7: #94a3b8;
+	--chart-8: #dc2626;
+	--chart-track: var(--subtle);
+
+	/* Sombras discretas, com tom da marca */
+	--shadow-color: 43 35 128;
+}
+
+[data-theme='dark'] {
+	--bg: #0a0b26;
+	--surface: #12143a;
+	--subtle: #1a1d46;
+	--line: #262a55;
+	--line-strong: #6e75a8;
+	--text: #eef0ff;
+	--muted: #a8aed6;
+	--accent: #4db5ff;
+	--on-accent: #08102a;
+	--focus: #ffd91a;
+	--overlay: rgb(3 4 18 / 0.72);
+
+	--ok-bg: #06281f;
+	--ok-fg: #a7f3d0;
+	--ok-bd: #145c45;
+
+	--warn-bg: #2a1e05;
+	--warn-fg: #fde68a;
+	--warn-bd: #6b4b0b;
+
+	--danger-bg: #2b0e0e;
+	--danger-fg: #fecaca;
+	--danger-bd: #7f1d1d;
+
+	--info-bg: #0b1b33;
+	--info-fg: #bfdbfe;
+	--info-bd: #1e3a8a;
+
+	/* Camada 3 — paleta de dados (gráficos) */
+	--chart-1: #4db5ff;
+	--chart-2: #34d399;
+	--chart-3: #fbbf24;
+	--chart-4: #fb923c;
+	--chart-5: #c084fc;
+	--chart-6: #94a3b8;
+	--chart-7: #cbd5e1;
+	--chart-8: #f87171;
+	--chart-track: var(--line);
+
+	--shadow-color: 3 4 18;
+}

@@ -155,15 +155,15 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {errorMessage && (
-          <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-800 flex items-start gap-2">
-            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+          <div className="p-3 bg-danger-bg border border-danger-bd rounded-lg text-xs text-danger-fg flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 text-danger-fg shrink-0 mt-0.5" />
             <span>{errorMessage}</span>
           </div>
         )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-semibold text-ink-700 mb-1">
+            <label className="block text-xs font-semibold text-text mb-1">
               Identificador do Ativo (Tag) *
             </label>
             <input
@@ -171,13 +171,13 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
               value={assetTag}
               onChange={(e) => setAssetTag(e.target.value.toUpperCase())}
               placeholder="Ex: CEL-015"
-              className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 font-mono focus:outline-none focus:ring-2 focus:ring-iane-500 uppercase"
+              className="w-full text-xs rounded-lg border border-line-strong bg-surface px-3 py-2 text-text font-mono focus:outline-none focus:ring-2 focus:ring-focus/40 uppercase"
               required
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-ink-700 mb-1">
+            <label className="block text-xs font-semibold text-text mb-1">
               Fabricante *
             </label>
             <SearchableSelect value={brand} onChange={setBrand} options={catalogOptions(catalogs.brands, brand)} placeholder="Selecione a marca" />
@@ -185,7 +185,7 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-ink-700 mb-1">
+          <label className="block text-xs font-semibold text-text mb-1">
             Modelo *
           </label>
           <SearchableSelect value={model} onChange={setModel} options={catalogOptions(catalogs.models, model)} placeholder="Selecione o modelo" />
@@ -193,7 +193,7 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-medium text-ink-700 mb-1">
+            <label className="block text-xs font-medium text-text mb-1">
               IMEI
             </label>
             <input
@@ -202,32 +202,32 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
               onChange={(e) => setImei1(e.target.value.replace(/\D/g, ''))}
               placeholder="Opcional - 14 a 17 dígitos"
               maxLength={17}
-              className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 font-mono focus:outline-none focus:ring-2 focus:ring-iane-500"
+              className="w-full text-xs rounded-lg border border-line-strong bg-surface px-3 py-2 text-text font-mono focus:outline-none focus:ring-2 focus:ring-focus/40"
             />
           </div>
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-ink-700 mb-1">
+          <label className="block text-xs font-medium text-text mb-1">
             Setor
           </label>
           <SearchableSelect value={sector} onChange={setSector} options={catalogOptions(catalogs.sectors, sector)} placeholder="Não especificado" />
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-ink-700 mb-1">Unidade</label>
+          <label className="block text-xs font-medium text-text mb-1">Unidade</label>
           <SearchableSelect value={unit} onChange={setUnit} options={catalogOptions(catalogs.units, unit)} placeholder="Selecione a unidade (opcional)" />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-medium text-ink-700 mb-1">
+            <label className="block text-xs font-medium text-text mb-1">
               Estado de Conservação
             </label>
             <select
               value={condition}
               onChange={(e) => setCondition(e.target.value as DeviceCondition)}
-              className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500"
+              className="w-full text-xs rounded-lg border border-line-strong bg-surface px-3 py-2 text-text focus:outline-none focus:ring-2 focus:ring-focus/40"
             >
               <option value="Novo">Novo (Na caixa / Sem uso)</option>
               <option value="Excelente">Excelente (Sem arranhões)</option>
@@ -240,19 +240,19 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-medium text-ink-700 mb-1">
+            <label className="block text-xs font-medium text-text mb-1">
               Data de Aquisição
             </label>
             <input
               type="date"
               value={purchaseDate}
               onChange={(e) => setPurchaseDate(e.target.value)}
-              className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 font-mono focus:outline-none focus:ring-2 focus:ring-iane-500"
+              className="w-full text-xs rounded-lg border border-line-strong bg-surface px-3 py-2 text-text font-mono focus:outline-none focus:ring-2 focus:ring-focus/40"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-ink-700 mb-1">
+            <label className="block text-xs font-medium text-text mb-1">
               Valor de Aquisição (R$)
             </label>
             <input
@@ -261,33 +261,33 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
               value={purchaseValue}
               onChange={(e) => setPurchaseValue(e.target.value)}
               placeholder="Ex: 2499.00"
-              className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 font-mono focus:outline-none focus:ring-2 focus:ring-iane-500"
+              className="w-full text-xs rounded-lg border border-line-strong bg-surface px-3 py-2 text-text font-mono focus:outline-none focus:ring-2 focus:ring-focus/40"
             />
           </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-semibold text-ink-700 mb-1">
+            <label className="block text-xs font-semibold text-text mb-1">
               Status do Ativo
             </label>
             <select
               value={status}
               disabled={deviceToEdit?.status === inUseStatus}
               onChange={(e) => setStatus(e.target.value as DeviceStatus)}
-              className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500 disabled:bg-ink-100"
+              className="w-full text-xs rounded-lg border border-line-strong bg-surface px-3 py-2 text-text focus:outline-none focus:ring-2 focus:ring-focus/40 disabled:bg-subtle"
             >
               {deviceStatusOptions.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}
             </select>
             {deviceToEdit?.status === inUseStatus && (
-              <p className="text-[10px] text-gold-700 mt-0.5">
+              <p className="text-[10px] text-warn-fg mt-0.5">
                 Para alterar status de aparelho "Em uso", realize a movimentação de Devolução.
               </p>
             )}
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-ink-700 mb-1">
+            <label className="block text-xs font-medium text-text mb-1">
               Departamento Destinado
             </label>
             <SearchableSelect value={currentDepartment} onChange={setCurrentDepartment} options={catalogOptions(catalogs.departments, currentDepartment)} placeholder="Não especificado / Pool Geral" />
@@ -295,7 +295,7 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-ink-700 mb-1">
+          <label className="block text-xs font-medium text-text mb-1">
             Observações Técnicas / Patrimoniais
           </label>
           <textarea
@@ -303,21 +303,21 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Acessórios inclusos, histórico de notas fiscais, restrições operacionais..."
-            className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500 resize-none"
+            className="w-full text-xs rounded-lg border border-line-strong bg-surface px-3 py-2 text-text focus:outline-none focus:ring-2 focus:ring-focus/40 resize-none"
           />
         </div>
 
-        <div className="flex items-center justify-end gap-2 pt-3 border-t border-ink-200">
+        <div className="flex items-center justify-end gap-2 pt-3 border-t border-line">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-xs font-medium text-ink-700 bg-ink-100 hover:bg-ink-200 rounded-lg transition-colors"
+            className="px-4 py-2 text-xs font-medium text-text bg-subtle hover:bg-line rounded-lg transition-colors"
           >
             Cancelar
           </button>
           <button
             type="submit"
-            className="px-5 py-2 text-xs font-semibold text-white bg-iane-600 hover:bg-iane-700 rounded-lg shadow-xs transition-colors"
+            className="px-5 py-2 text-xs font-semibold text-on-accent bg-accent hover:bg-accent/90 rounded-lg shadow-xs transition-colors"
           >
             <span>{deviceToEdit ? 'Salvar Alterações' : 'Cadastrar'}</span>
           </button>

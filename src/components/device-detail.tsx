@@ -1,77 +1,122 @@
-import { twMerge } from 'tailwind-merge'
-import type { ComponentProps } from 'react'
-import { DeviceDetailHeader } from './device-detail-header'
-import { DeviceTabs } from './device-tabs'
-import { DeviceTimeline } from './device-timeline'
-import { DeviceDetailFooter } from './device-detail-footer'
-import { DeviceGeneralInfo } from './device-general-info'
-import { QrCode } from './QrCode'
-import { Badge } from './badge'
+import { useEffect, useRef, useState } from 'react';
+import { FileText } from 'lucide-react';
+import { twMerge } from 'tailwind-merge';
+import type { ComponentProps } from 'react';
+import { DeviceDetailHeader } from './device-detail-header';
+import { DeviceTabs } from './device-tabs';
+import { DeviceTimeline, type TimelineEventData } from './device-timeline';
+import { DeviceDetailFooter } from './device-detail-footer';
+import { DeviceGeneralInfo } from './device-general-info';
+import { EmptyState } from './empty-state';
+import { StatusBadge } from './StatusBadge';
+import { QrCode } from './QrCode';
 
-export interface DeviceDetailProps extends ComponentProps<'div'> {
-	className?: string
-	device: {
-		tag: string
-		model: string
-		status: string
-		serialNumber: string
-		custodian: string
-		brand: string
-		imei: string
-		condition: string
-		department: string
-		line: string | null
-		responsible: string | null
-		observations: string | null
-	}
-	onClose: () => void
+export interface DeviceDetailTerm {
+	id: string;
+	code: string;
+	type: string;
+	date: string;
+	status: string;
 }
 
-export function DeviceDetail({ device, onClose, className, ...props }: DeviceDetailProps) {
+export interface DeviceDetailProps extends Omit<ComponentProps<'dialog'>, 'onClose'> {
+	device: {
+		tag: string;
+		model: string;
+		status: string;
+		serialNumber: string;
+		custodian: string;
+		brand: string;
+		imei: string;
+		condition: string;
+		department: string;
+		line: string | null;
+		responsible: string | null;
+		observations: string | null;
+		createdAt: string | null;
+	};
+	history?: TimelineEventData[];
+	terms?: DeviceDetailTerm[];
+	qrUrl?: string | null;
+	onOpenTerm?: (termId: string) => void;
+	onClose: () => void;
+}
+
+export function DeviceDetail({
+	device,
+	history = [],
+	terms = [],
+	qrUrl,
+	onOpenTerm,
+	onClose,
+	className,
+	...props
+}: DeviceDetailProps) {
+	const [activeTab, setActiveTab] = useState('geral');
+	const dialogRef = useRef<HTMLDialogElement>(null);
+	const previousFocusRef = useRef<HTMLElement | null>(null);
+
+	useEffect(() => {
+		const dialog = dialogRef.current;
+		if (!dialog) return;
+		previousFocusRef.current =
+			document.activeElement instanceof HTMLElement ? document.activeElement : null;
+		dialog.showModal();
+		document.body.style.overflow = 'hidden';
+		return () => {
+			document.body.style.overflow = '';
+			previousFocusRef.current?.focus?.();
+		};
+	}, []);
+
 	const tabs = [
-		{ id: 'historico', label: 'Histórico do Dispositivo', count: 1 },
 		{ id: 'geral', label: 'Informações Gerais' },
-		{ id: 'termos', label: 'Termos', count: 1 },
-	]
+		{ id: 'historico', label: 'Histórico do Dispositivo', count: history.length },
+		{ id: 'termos', label: 'Termos', count: terms.length },
+		{ id: 'etiqueta', label: 'Etiqueta QR' },
+	];
+
+	const resolvedQrUrl =
+		qrUrl || `${typeof window !== 'undefined' ? window.location.origin : ''}/report/device/${device.tag}`;
 
 	return (
-		<div
-			data-slot="device-detail-root"
-			className={twMerge('fixed inset-0 z-50 overflow-y-auto', className)}
-			role="dialog"
-			aria-modal="true"
+		<dialog
+			ref={dialogRef}
+			data-slot="device-detail"
+			aria-label={`Detalhes do dispositivo ${device.tag}`}
+			onCancel={(event) => {
+				event.preventDefault();
+				onClose();
+			}}
+			onClick={(event) => {
+				if (event.target === event.currentTarget) onClose();
+			}}
+			className={twMerge(
+				'm-auto w-[calc(100%-2rem)] max-w-4xl overflow-hidden rounded-lg border border-line bg-surface p-0 text-text shadow-xl',
+				'open:animate-[modal-in_200ms_ease-out]',
+				className
+			)}
 			{...props}
 		>
-			<div
-				data-slot="device-detail-backdrop"
-				className="fixed inset-0 bg-ink-900/60 backdrop-blur-xs transition-opacity"
-				onClick={onClose}
-				aria-hidden="true"
-			/>
-			<div className="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
-				<div
-					data-slot="device-detail-popup"
-					className={twMerge(
-						'relative transform overflow-hidden rounded-xl bg-white text-left shadow-xl transition-all w-full my-8 border border-ink-200',
-						'modal:zoom-in modal:fade-in duration-300',
-						className
-					)}
-					onClick={(e) => e.stopPropagation()}
-				>
-					<DeviceDetailHeader
-						tag={device.tag}
-						model={device.model}
-						status={device.status}
-						serialNumber={device.serialNumber}
-						custodian={device.custodian}
-						onClose={onClose}
-					/>
-					<DeviceTabs tabs={tabs} activeId="geral" onTabChange={() => {}} />
-					<div className="px-6 py-5 max-h-[calc(85vh-120px)] overflow-y-auto">
-						{/* Conteúdo padrão: Histórico do Dispositivo */}
-						<DeviceTimeline />
+			<div className="flex max-h-[calc(100dvh-2rem)] flex-col">
+				<DeviceDetailHeader
+					tag={device.tag}
+					model={device.model}
+					status={device.status}
+					serialNumber={device.serialNumber}
+					custodian={device.custodian}
+					onClose={onClose}
+				/>
 
-						{/* Informações Gerais */}
+				<DeviceTabs tabs={tabs} activeId={activeTab} onTabChange={setActiveTab} />
+
+				<div
+					id={`panel-${activeTab}`}
+					role="tabpanel"
+					aria-labelledby={`tab-${activeTab}`}
+					className="flex-1 overflow-y-auto px-5 py-4"
+				>
+					{activeTab === 'geral' && (
 						<DeviceGeneralInfo
 							brand={device.brand}
 							model={device.model}
@@ -83,28 +128,62 @@ export function DeviceDetail({ device, onClose, className, ...props }: DeviceDet
 							responsible={device.responsible}
 							observations={device.observations}
 						/>
+					)}
 
-						{/* QR Code para impressão de etiqueta */}
-						<div className="mt-6 p-4 bg-ink-50 border border-ink-200 rounded-lg">
-							<div className="flex items-center gap-2 mb-2">
-								<span className="text-[10px] font-medium text-ink-500 uppercase tracking-wider">
-									Etiqueta QR
-								</span>
-								<Badge variant="secondary" size="sm">
-									Imprimir
-								</Badge>
-							</div>
-							<div className="flex flex-col items-center gap-2">
-								<QrCode value={`http://app.telefonia.local/report/device/${device.tag}`} size={160} />
-								<p className="text-[10px] font-mono text-ink-600 break-all max-w-xs">
-									http://app.telefonia.local/report/device/{device.tag}
-								</p>
-							</div>
+					{activeTab === 'historico' && <DeviceTimeline events={history} />}
+
+					{activeTab === 'termos' && (
+						<div className="space-y-2">
+							{terms.length === 0 ? (
+								<EmptyState
+									icon={FileText}
+									title="Nenhum termo vinculado"
+									description="Os termos gerados em entregas, devoluções e transferências aparecem aqui."
+								/>
+							) : (
+								<ul className="divide-y divide-line rounded-lg border border-line">
+									{terms.map((term) => (
+										<li
+											key={term.id}
+											className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5"
+										>
+											<div className="min-w-0">
+												<p className="font-mono text-xs font-semibold text-text">{term.code}</p>
+												<p className="text-[11px] text-muted">
+													{term.type} · {term.date}
+												</p>
+											</div>
+											<div className="flex items-center gap-2">
+												<StatusBadge status={term.status} type="term" />
+												{onOpenTerm && (
+													<button
+														type="button"
+														onClick={() => onOpenTerm(term.id)}
+														className="rounded-md px-2 py-1 text-xs font-semibold text-accent transition-colors hover:bg-subtle"
+													>
+														Abrir
+													</button>
+												)}
+											</div>
+										</li>
+									))}
+								</ul>
+							)}
 						</div>
-					</div>
-					<DeviceDetailFooter createdAt={null} onClose={onClose} />
+					)}
+
+					{activeTab === 'etiqueta' && (
+						<div className="flex flex-col items-center gap-3 rounded-lg border border-line bg-subtle/50 p-5">
+							<QrCode value={resolvedQrUrl} size={180} alt={`QR Code do dispositivo ${device.tag}`} />
+							<p className="max-w-sm break-all text-center font-mono text-[11px] text-muted">
+								{resolvedQrUrl}
+							</p>
+						</div>
+					)}
 				</div>
+
+				<DeviceDetailFooter createdAt={device.createdAt} onClose={onClose} />
 			</div>
-		</div>
-	)
+		</dialog>
+	);
 }

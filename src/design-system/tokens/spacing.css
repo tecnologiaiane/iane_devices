@@ -1,0 +1,24 @@
+/*
+ * IANE Design System v3.4 — Espaço, forma, movimento e camadas
+ * Escala de espaçamento em múltiplos de 4px (a escala nativa do Tailwind já segue 4px).
+ * Dois raios de borda: 6px (controles) e 10px (superfícies).
+ */
+
+:root {
+	--s1: 4px;
+	--s2: 8px;
+	--s3: 12px;
+	--s4: 16px;
+	--s5: 24px;
+	--s6: 32px;
+	--s7: 48px;
+
+	--r: 6px;
+	--r2: 10px;
+
+	--dur-fast: 120ms;
+	--dur: 200ms;
+
+	--z-sticky: 20;
+	--z-toast: 60;
+}

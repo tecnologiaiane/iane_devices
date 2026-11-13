@@ -1,0 +1,119 @@
+/*
+ * IANE Design System v3.4 — Ponte com o Tailwind v4
+ * Os utilitários apontam para as variáveis semânticas (inline), então trocar
+ * [data-theme] redefine o tema inteiro sem reestilizar cada página.
+ */
+
+@theme inline {
+	/* Semânticos */
+	--color-bg: var(--bg);
+	--color-surface: var(--surface);
+	--color-subtle: var(--subtle);
+	--color-line: var(--line);
+	--color-line-strong: var(--line-strong);
+	--color-text: var(--text);
+	--color-muted: var(--muted);
+	--color-accent: var(--accent);
+	--color-on-accent: var(--on-accent);
+	--color-focus: var(--focus);
+
+	/* Status */
+	--color-ok-bg: var(--ok-bg);
+	--color-ok-fg: var(--ok-fg);
+	--color-ok-bd: var(--ok-bd);
+	--color-warn-bg: var(--warn-bg);
+	--color-warn-fg: var(--warn-fg);
+	--color-warn-bd: var(--warn-bd);
+	--color-danger-bg: var(--danger-bg);
+	--color-danger-fg: var(--danger-fg);
+	--color-danger-bd: var(--danger-bd);
+	--color-info-bg: var(--info-bg);
+	--color-info-fg: var(--info-fg);
+	--color-info-bd: var(--info-bd);
+
+	/* Primitivos da marca (uso restrito: menu, cabeçalhos e destaques) */
+	--color-brand-blue: var(--blue-600);
+	--color-brand-sky: var(--sky);
+	--color-brand-navy: var(--navy-900);
+	--color-brand-navy-dark: var(--navy-950);
+	--color-brand-sun: var(--sun-400);
+
+	/* Tipografia */
+	--font-sans: var(--font-system-sans);
+	--font-mono: var(--font-system-mono);
+	--text-page: 1.75rem;
+	--text-page--line-height: 2.125rem;
+	--text-section: 1.25rem;
+	--text-section--line-height: 1.75rem;
+	--text-subtitle: 0.9375rem;
+	--text-subtitle--line-height: 1.375rem;
+	--text-body: 0.875rem;
+	--text-body--line-height: 1.5rem;
+	--text-caption: 0.75rem;
+	--text-caption--line-height: 1rem;
+	--font-weight-strong: 650;
+
+	/* Forma */
+	--radius-sm: 4px;
+	--radius-md: 6px;
+	--radius-lg: 10px;
+	--radius-xl: 10px;
+	--radius-2xl: 10px;
+
+	/* Breakpoints do Design System */
+	--breakpoint-sm: 700px;
+	--breakpoint-lg: 1024px;
+}
+
+/*
+ * Compatibilidade: a base antiga usava a paleta ink-* em toda a aplicação.
+ * Ela passa a apontar para os semânticos, então o tema escuro alcança as
+ * telas legadas sem reescrever cada utilitário.
+ * ink-50 = fundo, ink-100 = sutil, ink-200 = linha, ink-300 = linha forte,
+ * ink-400/500/600 = texto secundário, ink-700/800/900 = texto principal.
+ */
+@theme inline {
+	--color-ink-50: var(--bg);
+	--color-ink-100: var(--subtle);
+	--color-ink-200: var(--line);
+	--color-ink-300: var(--line-strong);
+	--color-ink-400: var(--muted);
+	--color-ink-500: var(--muted);
+	--color-ink-600: var(--muted);
+	--color-ink-700: var(--text);
+	--color-ink-800: var(--text);
+	--color-ink-900: var(--text);
+
+	/* Primitivos antigos da marca passam a usar os valores oficiais da v3.4 */
+	--color-iane-600: var(--blue-600);
+	--color-navy-900: var(--navy-900);
+	--color-navy-950: var(--navy-950);
+	--color-sun-400: var(--sun-400);
+	--color-sky: var(--sky);
+}
+
+/*
+ * Escalas de apoio mantidas para telas legadas. Não são semânticas:
+ * todo componente novo deve preferir bg/surface/subtle/line/text/muted/accent.
+ */
+@theme {
+	--color-iane-50: #ebf6fd;
+	--color-iane-100: #d3ebf9;
+	--color-iane-200: #a9d7f2;
+	--color-iane-300: #6fbde9;
+	--color-iane-400: #2fa0de;
+	--color-iane-500: #148dd2;
+	--color-iane-700: #0162a3;
+	--color-iane-800: #064d80;
+
+	--color-navy-700: #433e8c;
+	--color-navy-800: #322d78;
+
+	--color-sun-50: #fffbd6;
+	--color-sun-100: #fff6a3;
+	--color-sun-300: #f8ec76;
+	--color-sun-500: #e7c800;
+
+	--color-gold-600: #b47e00;
+	--color-gold-700: #8a5f00;
+}
