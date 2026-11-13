@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Device, DeviceStatus, Movement, DocumentTerm, DeviceCondition, User as AppUser, Catalogs } from '../types';
 import { dataService, STOCK_LABEL, isStockCustody, stockDisplayName } from '../services/dataStorage';
 import { formatDate, formatCurrency, formatImei } from '../utils/formatters';
@@ -50,6 +50,10 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
   const [stockFilter, setStockFilter] = useState<'todos' | 'em_estoque' | 'com_colaborador'>('todos');
   const [departmentFilter, setDepartmentFilter] = useState<string>('todos');
   const [brandFilter, setBrandFilter] = useState<string>('todos');
+
+  // Filtros
+  const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
+  const filterMenuRef = useRef<HTMLDivElement>(null);
 
   // Detail Drawer
   const [detailDevice, setDetailDevice] = useState<Device | null>(null);
@@ -112,6 +116,25 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
       active = false;
     };
   }, [detailDevice]);
+
+  // Fecha o dropdown de filtros ao clicar fora ou pressionar Esc
+  useEffect(() => {
+    if (!isFilterMenuOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (filterMenuRef.current && !filterMenuRef.current.contains(event.target as Node)) {
+        setIsFilterMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsFilterMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isFilterMenuOpen]);
 
   // Quick Release Modal for "Aguardando avaliação"
   const [releasingDevice, setReleasingDevice] = useState<Device | null>(null);
@@ -221,67 +244,117 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
           </div>
         </div>
 
-        {/* Filter chips / selects */}
-        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border-subtle text-xs">
-          <span className="text-text-muted font-medium flex items-center gap-1 mr-1">
+        {/* Filtro geral (dropdown) */}
+        <div
+          ref={filterMenuRef}
+          className="flex flex-wrap items-center gap-2 pt-2 border-t border-border-subtle text-xs"
+        >
+          <button
+            type="button"
+            onClick={() => setIsFilterMenuOpen((open) => !open)}
+            aria-expanded={isFilterMenuOpen}
+            aria-haspopup="menu"
+            className="inline-flex items-center gap-2 radius-lg border border-border-subtle bg-surface-card px-2.5 py-1 text-text-muted font-medium focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+          >
             <Filter className="w-3 h-3 text-text-muted" />
-            Filtros:
-          </span>
+            <span>Filtros</span>
+            {(
+              stockFilter !== 'todos' ||
+              statusFilter !== 'todos' ||
+              departmentFilter !== 'todos' ||
+              brandFilter !== 'todos'
+            ) && (
+              <Badge variant="info" size="sm" className="text-[10px]">
+                ativos
+              </Badge>
+            )}
+          </button>
 
-          {/* Localização / Custódia */}
-          <select
-            value={stockFilter}
-            onChange={(e) => setStockFilter(e.target.value as any)}
-            className="w-auto radius-base border border-border-subtle bg-surface-card px-2.5 py-1 text-text-muted font-medium focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
-          >
-            <option value="todos">Custódia: Todas</option>
-            <option value="em_estoque">No Estoque</option>
-            <option value="com_colaborador">Em Uso com Colaborador</option>
-          </select>
+          {isFilterMenuOpen && (
+            <div
+              className="absolute z-40 mt-1 w-72 overflow-hidden radius-lg border border-border-subtle bg-surface-card shadow-lg py-2"
+            >
+              <div className="px-3 py-2 space-y-3 border-b border-border-subtle pb-2">
+                <div>
+                  <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-1">
+                    Custódia
+                  </label>
+                  <select
+                    value={stockFilter}
+                    onChange={(e) => setStockFilter(e.target.value as any)}
+                    className="w-full h-9 text-xs radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                  >
+                    <option value="todos">Todas</option>
+                    <option value="em_estoque">No Estoque</option>
+                    <option value="com_colaborador">Em Uso com Colaborador</option>
+                  </select>
+                </div>
 
-          {/* Status */}
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-auto radius-base border border-border-subtle bg-surface-card px-2.5 py-1 text-text-muted font-medium focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
-          >
-            <option value="todos">Status: Todos</option>
-            {catalogs.deviceStatuses.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}
-          </select>
+                <div>
+                  <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-1">
+                    Status
+                  </label>
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="w-full h-9 text-xs radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                  >
+                    <option value="todos">Todos</option>
+                    {catalogs.deviceStatuses.map((item) => (
+                      <option key={item.id} value={item.name}>{item.name}</option>
+                    ))}
+                  </select>
+                </div>
 
-          {/* Departamento */}
-          <select
-            value={departmentFilter}
-            onChange={(e) => setDepartmentFilter(e.target.value)}
-            className="w-auto radius-base border border-border-subtle bg-surface-card px-2.5 py-1 text-text-muted font-medium focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
-          >
-            <option value="todos">Departamento: Todos</option>
-            {uniqueDepartments.map((dept) => (
-              <option key={dept} value={dept}>{dept}</option>
-            ))}
-          </select>
+                <div>
+                  <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-1">
+                    Departamento
+                  </label>
+                  <select
+                    value={departmentFilter}
+                    onChange={(e) => setDepartmentFilter(e.target.value)}
+                    className="w-full h-9 text-xs radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                  >
+                    <option value="todos">Todos</option>
+                    {uniqueDepartments.map((dept) => (
+                      <option key={dept} value={dept}>{dept}</option>
+                    ))}
+                  </select>
+                </div>
 
-          {/* Marca */}
-          <select
-            value={brandFilter}
-            onChange={(e) => setBrandFilter(e.target.value)}
-            className="w-auto radius-base border border-border-subtle bg-surface-card px-2.5 py-1 text-text-muted font-medium focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
-          >
-            <option value="todos">Marca: Todas</option>
-            {uniqueBrands.map((b) => (
-              <option key={b} value={b}>{b}</option>
-            ))}
-          </select>
+                <div>
+                  <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-1">
+                    Marca
+                  </label>
+                  <select
+                    value={brandFilter}
+                    onChange={(e) => setBrandFilter(e.target.value)}
+                    className="w-full h-9 text-xs radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                  >
+                    <option value="todos">Todas</option>
+                    {uniqueBrands.map((b) => (
+                      <option key={b} value={b}>{b}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
 
-          {(statusFilter !== 'todos' || stockFilter !== 'todos' || departmentFilter !== 'todos' || brandFilter !== 'todos') && (
-            <Button variant="ghost" size="sm" onClick={() => {
-              setStatusFilter('todos');
-              setStockFilter('todos');
-              setDepartmentFilter('todos');
-              setBrandFilter('todos');
-            }}>
-              Resetar Filtros
-            </Button>
+              <div className="px-3 py-2 flex justify-end gap-2">
+                <Button variant="ghost" size="sm" onClick={() => setIsFilterMenuOpen(false)}>
+                  Fechar
+                </Button>
+                {(statusFilter !== 'todos' || stockFilter !== 'todos' || departmentFilter !== 'todos' || brandFilter !== 'todos') && (
+                  <Button variant="ghost" size="sm" onClick={() => {
+                    setStatusFilter('todos');
+                    setStockFilter('todos');
+                    setDepartmentFilter('todos');
+                    setBrandFilter('todos');
+                  }}>
+                    Limpar filtros
+                  </Button>
+                )}
+              </div>
+            </div>
           )}
 
           <div className="ml-auto flex items-center gap-1 text-text-muted">
