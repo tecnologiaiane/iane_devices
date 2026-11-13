@@ -1,102 +1,117 @@
 import { twMerge } from 'tailwind-merge'
-import type { ComponentProps } from 'react'
-import { Badge } from './badge'
+import type { ComponentProps, ReactNode } from 'react'
+import { StatusBadge } from './StatusBadge'
+import { formatCurrency, formatDate } from '../utils/formatters'
 
 export interface DeviceGeneralInfoProps extends ComponentProps<'div'> {
 	brand: string
 	model: string
 	imei: string
+	imei2?: string
 	serialNumber: string
 	condition: string
 	department: string
+	sector?: string
+	unit?: string
 	line: string | null
 	responsible: string | null
 	observations: string | null
+	purchaseDate?: string
+	purchaseValue?: number
+	status: string
+}
+
+function InfoItem({
+	label,
+	children,
+	mono = false,
+	className,
+}: {
+	label: string
+	children: ReactNode
+	mono?: boolean
+	className?: string
+}) {
+	return (
+		<div className={twMerge('rounded-lg border border-ink-200 bg-ink-50/60 p-3', className)}>
+			<dt className="text-[10px] font-medium uppercase tracking-wider text-ink-500">{label}</dt>
+			<dd
+				className={twMerge(
+					'mt-1 break-words text-xs text-ink-900',
+					mono && 'font-mono tabular-nums'
+				)}
+			>
+				{children}
+			</dd>
+		</div>
+	)
 }
 
 export function DeviceGeneralInfo({
 	brand,
 	model,
 	imei,
+	imei2,
 	serialNumber,
 	condition,
 	department,
+	sector,
+	unit,
 	line,
 	responsible,
 	observations,
+	purchaseDate,
+	purchaseValue,
+	status,
 	className,
 	...props
 }: DeviceGeneralInfoProps) {
 	return (
-		<div
-			data-slot="device-general-info"
-			className={twMerge('space-y-4', className)}
-			{...props}
-		>
-			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-				<div className="p-3 bg-ink-50 border border-ink-200 rounded-lg">
-					<span className="text-[10px] font-medium text-ink-500 uppercase tracking-wider block mb-1">
-						Marca
-					</span>
-					<span className="text-xs font-medium text-ink-900">{brand}</span>
-				</div>
-				<div className="p-3 bg-ink-50 border border-ink-200 rounded-lg">
-					<span className="text-[10px] font-medium text-ink-500 uppercase tracking-wider block mb-1">
-						Modelo
-					</span>
-					<span className="text-xs font-medium text-ink-900">{model}</span>
-				</div>
-				<div className="p-3 bg-ink-50 border border-ink-200 rounded-lg">
-					<span className="text-[10px] font-medium text-ink-500 uppercase tracking-wider block mb-1">
-						IMEI
-					</span>
-					<span className="text-xs font-mono text-ink-500 break-all">{imei || '—'}</span>
-				</div>
-				<div className="p-3 bg-ink-50 border border-ink-200 rounded-lg">
-					<span className="text-[10px] font-medium text-ink-500 uppercase tracking-wider block mb-1">
-						Nº de Série
-					</span>
-					<span className="text-xs font-mono text-ink-500 break-all">{serialNumber || '—'}</span>
-				</div>
-				<div className="p-3 bg-ink-50 border border-ink-200 rounded-lg">
-					<span className="text-[10px] font-medium text-ink-500 uppercase tracking-wider block mb-1">
-						Estado de Conservação
-					</span>
-					<Badge variant="info" size="sm" className="mt-0.5">
-						<span className="w-1.5 h-1.5 rounded-full bg-iane-600 shrink-0" aria-hidden="true" />
-						{condition}
-					</Badge>
-				</div>
-				<div className="p-3 bg-ink-50 border border-ink-200 rounded-lg">
-					<span className="text-[10px] font-medium text-ink-500 uppercase tracking-wider block mb-1">
-						Departamento
-					</span>
-					<span className="text-xs text-ink-500">{department}</span>
-				</div>
-			</div>
+		<div data-slot="device-general-info" className={twMerge('space-y-4', className)} {...props}>
+			<dl className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+				<InfoItem label="Marca">{brand || '—'}</InfoItem>
+				<InfoItem label="Modelo">{model || '—'}</InfoItem>
+				<InfoItem label="Situação">
+					<StatusBadge status={status} type="device" size="sm" />
+				</InfoItem>
 
-			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-				<div className="p-3 bg-ink-50 border border-ink-200 rounded-lg">
-					<span className="text-[10px] font-medium text-ink-500 uppercase tracking-wider block mb-1">
-						Linha Telefônica
-					</span>
-					<span className="text-xs font-mono text-ink-500 break-all">{line || 'Sem linha'}</span>
-				</div>
-				<div className="p-3 bg-ink-50 border border-ink-200 rounded-lg">
-					<span className="text-[10px] font-medium text-ink-500 uppercase tracking-wider block mb-1">
-						Responsável
-					</span>
-					<span className="text-xs text-ink-500">{responsible || 'Estoque do Gestor de Telefonia'}</span>
-				</div>
-				<div className="p-3 bg-ink-50 border border-ink-200 rounded-lg col-span-2 sm:col-span-3">
-					<span className="text-[10px] font-medium text-ink-500 uppercase tracking-wider block mb-1">
-						Observações
-					</span>
-					<p className="text-xs text-ink-500 leading-relaxed whitespace-pre-wrap">
-						{observations || 'Nenhuma observação registrada.'}
+				<InfoItem label="IMEI 1" mono>
+					{imei || '—'}
+				</InfoItem>
+				<InfoItem label="IMEI 2" mono>
+					{imei2 || '—'}
+				</InfoItem>
+				<InfoItem label="Nº de série" mono>
+					{serialNumber || '—'}
+				</InfoItem>
+
+				<InfoItem label="Estado de conservação">
+					<StatusBadge status={condition} type="condition" size="sm" />
+				</InfoItem>
+				<InfoItem label="Departamento">{department || 'Não informado'}</InfoItem>
+				<InfoItem label="Setor">{sector || 'Não informado'}</InfoItem>
+
+				<InfoItem label="Unidade">{unit || 'Não informado'}</InfoItem>
+				<InfoItem label="Linha telefônica" mono>
+					{line || <span className="font-sans italic text-ink-500">Sem linha associada</span>}
+				</InfoItem>
+				<InfoItem label="Responsável">
+					{responsible || <span className="italic text-ink-500">Estoque do Gestor de Telefonia</span>}
+				</InfoItem>
+
+				<InfoItem label="Data de compra" mono>
+					{formatDate(purchaseDate)}
+				</InfoItem>
+				<InfoItem label="Valor de compra" mono>
+					{formatCurrency(purchaseValue)}
+				</InfoItem>
+
+				<InfoItem label="Observações" className="sm:col-span-2 lg:col-span-3">
+					<p className="whitespace-pre-wrap leading-relaxed">
+						{observations || <span className="italic text-ink-500">Nenhuma observação registrada.</span>}
 					</p>
-				</div>
-			</div>
+				</InfoItem>
+			</dl>
 		</div>
 	)
 }

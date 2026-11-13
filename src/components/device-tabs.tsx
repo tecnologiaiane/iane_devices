@@ -13,18 +13,14 @@ export interface DeviceTabsProps extends ComponentProps<'div'> {
 	onTabChange: (id: string) => void
 }
 
-export function DeviceTabs({
-	tabs,
-	activeId,
-	onTabChange,
-	className,
-	...props
-}: DeviceTabsProps) {
+export function DeviceTabs({ tabs, activeId, onTabChange, className, ...props }: DeviceTabsProps) {
 	return (
 		<div
 			data-slot="device-tabs"
+			role="tablist"
+			aria-label="Seções do dispositivo"
 			className={twMerge(
-				'border-b border-ink-200 flex gap-4 px-5 pb-1 text-xs font-medium',
+				'flex shrink-0 gap-1 overflow-x-auto border-b border-ink-200 bg-white px-2 sm:px-4',
 				className
 			)}
 			{...props}
@@ -34,20 +30,29 @@ export function DeviceTabs({
 				return (
 					<button
 						key={tab.id}
-						data-slot="tab"
-						data-active={isActive ? '' : undefined}
+						type="button"
+						role="tab"
+						id={`device-tab-${tab.id}`}
+						aria-selected={isActive}
+						aria-controls={`device-tabpanel-${tab.id}`}
 						onClick={() => onTabChange(tab.id)}
 						className={twMerge(
-							'flex items-center gap-1.5 py-3 border-b-2 whitespace-nowrap transition-colors',
+							'flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-2.5 py-3 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:px-3',
 							isActive
-								? 'border-iane-600 text-iane-700 font-semibold'
-								: 'border-transparent text-ink-500 hover:text-ink-900 hover:bg-ink-100/50',
-							className
+								? 'border-iane-600 font-semibold text-iane-700'
+								: 'border-transparent font-medium text-ink-500 hover:text-ink-900'
 						)}
 					>
 						{tab.label}
 						{tab.count !== undefined && (
-							<span className="text-ink-500">({tab.count})</span>
+							<span
+								className={twMerge(
+									'rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums',
+									isActive ? 'bg-iane-50 text-iane-700' : 'bg-ink-100 text-ink-500'
+								)}
+							>
+								{tab.count}
+							</span>
 						)}
 					</button>
 				)

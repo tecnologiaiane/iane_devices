@@ -24,45 +24,36 @@ export function TimelineEvent({
 	...props
 }: TimelineEventProps) {
 	return (
-		<div
-			data-slot="timeline-event"
-			className={twMerge('relative pl-6 mb-4 last:mb-0', className)}
-			{...props}
-		>
-			<div className="absolute -left-3 top-1 w-3 h-3 rounded-full border-2 border-white shadow-sm bg-emerald-500" aria-hidden="true" />
-			<div className="p-3 bg-ink-50 border border-ink-200 rounded-lg space-y-1">
-				<div className="flex items-center justify-between flex-wrap gap-1">
-					<div className="flex items-center gap-2">
-						<span className="font-bold text-ink-900">{type}</span>
-						{code && (
-							<span className="text-[10px] font-mono text-ink-500">
-								({code})
-							</span>
-						)}
+		<div data-slot="timeline-event" className={twMerge('relative pl-6', className)} {...props}>
+			<div
+				className="absolute left-0 top-3.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-500 shadow-sm"
+				aria-hidden="true"
+			/>
+
+			<div className="space-y-1.5 rounded-lg border border-ink-200 bg-ink-50 p-3">
+				<div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+					<div className="flex min-w-0 flex-wrap items-center gap-2">
+						<span className="text-xs font-bold text-ink-900">{type}</span>
+						{code && <span className="font-mono text-[10px] text-ink-500">{code}</span>}
 					</div>
-					<span className="font-mono text-ink-500 text-[11px] font-semibold">
-						{date}
-					</span>
+					<span className="font-mono text-[11px] font-semibold text-ink-500">{date}</span>
 				</div>
-				<div className="text-[11px] text-ink-500 flex items-center gap-1.5 py-0.5 font-medium">
-					<span className="text-ink-500">De:</span>
-					<span className="px-1.5 py-0.5 rounded bg-ink-100 text-ink-900 font-bold">
-						{origin}
-					</span>
-					<ArrowRight className="w-3 h-3 text-ink-500" />
-					<span className="text-ink-500">Para:</span>
-					<span className="px-1.5 py-0.5 rounded bg-ink-50 text-ink-900 font-bold">
-						{destination}
-					</span>
+
+				<div className="flex flex-wrap items-center gap-1.5 text-[11px] font-medium text-ink-500">
+					<span>De:</span>
+					<span className="rounded bg-ink-100 px-1.5 py-0.5 font-bold text-ink-900">{origin}</span>
+					<ArrowRight className="h-3 w-3 shrink-0 text-ink-400" aria-hidden="true" />
+					<span>Para:</span>
+					<span className="rounded bg-white px-1.5 py-0.5 font-bold text-ink-900">{destination}</span>
 				</div>
-				{reason && (
-					<p className="text-[11px] text-ink-500 italic">"{reason}"</p>
-				)}
+
+				{reason && <p className="text-[11px] italic leading-relaxed text-ink-500">&ldquo;{reason}&rdquo;</p>}
+
 				{documentCode && (
-					<div className="pt-1 flex items-center gap-1">
-						<FileText className="w-3 h-3 text-iane-600" />
-						<span className="text-[10px] font-mono font-semibold text-iane-600">
-							Documento Vinculado: {documentCode}
+					<div className="flex items-center gap-1 border-t border-ink-200 pt-1.5">
+						<FileText className="h-3 w-3 shrink-0 text-iane-600" aria-hidden="true" />
+						<span className="font-mono text-[10px] font-semibold text-iane-700">
+							Documento vinculado: {documentCode}
 						</span>
 					</div>
 				)}

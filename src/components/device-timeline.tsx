@@ -1,44 +1,44 @@
 import { twMerge } from 'tailwind-merge'
 import type { ComponentProps } from 'react'
 import { TimelineEvent } from './timeline-event'
+import { formatDate } from '../utils/formatters'
+import type { Movement } from '../types'
 
-export interface DeviceTimelineProps extends ComponentProps<'div'> {}
+export interface DeviceTimelineProps extends ComponentProps<'div'> {
+	events: Movement[]
+}
 
-export function DeviceTimeline({ className, ...props }: DeviceTimelineProps) {
-	const events = [
-		{
-			type: 'Entrega',
-			code: 'MOV-2026-005',
-			date: '01/01/2026',
-			origin: 'Estoque',
-			destination: 'Ricardo Luis Barbosa de Lima',
-			documentCode: 'MOV-2026-005-PDF',
-			reason: 'Carga inicial',
-		},
-	]
-
+export function DeviceTimeline({ events, className, ...props }: DeviceTimelineProps) {
 	return (
-		<div
-			data-slot="device-timeline"
-			className={twMerge('space-y-4', className)}
-			{...props}
-		>
-			<div className="p-3 bg-iane-50 border border-iane-200 rounded-lg text-xs text-iane-800">
-				<p className="font-semibold mb-0.5">Histórico do Dispositivo:</p>
-				<p className="text-[11px] leading-relaxed">
-					Apresenta formalmente cada período de utilização por colaborador e a devolução e conferência
-					intermediária no Estoque.
+		<div data-slot="device-timeline" className={twMerge('space-y-4', className)} {...props}>
+			<div className="rounded-lg border border-iane-200 bg-iane-50 p-3 text-xs text-iane-800">
+				<p className="font-semibold">Histórico do dispositivo</p>
+				<p className="mt-0.5 text-[11px] leading-relaxed">
+					Cada período de utilização por colaborador e cada passagem pelo Estoque, na ordem mais
+					recente.
 				</p>
 			</div>
 
-			<div className="relative pl-6 space-y-4 before:content-[''] before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-ink-200">
-				{events.map((evt, idx) => (
-					<TimelineEvent key={evt.code ?? idx} {...evt} />
-				))}
-				{events.length === 0 && (
-					<p className="text-ink-500 text-center py-4">Sem movimentações registradas.</p>
-				)}
-			</div>
+			{events.length === 0 ? (
+				<p className="rounded-lg border border-dashed border-ink-200 px-4 py-8 text-center text-xs text-ink-500">
+					Nenhuma movimentação registrada para este aparelho.
+				</p>
+			) : (
+				<div className="relative space-y-4 before:absolute before:bottom-2 before:left-[5px] before:top-2 before:w-0.5 before:bg-ink-200 before:content-['']">
+					{events.map((event) => (
+						<TimelineEvent
+							key={event.id}
+							type={event.type}
+							code={event.code || null}
+							date={formatDate(event.date)}
+							origin={event.originCollaboratorName || 'Estoque'}
+							destination={event.destinationCollaboratorName || 'Estoque'}
+							documentCode={event.documentCode || null}
+							reason={event.reason || event.observations || null}
+						/>
+					))}
+				</div>
+			)}
 		</div>
 	)
 }

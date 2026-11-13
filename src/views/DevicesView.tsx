@@ -51,39 +51,64 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
 
   // Detail Drawer
   const [detailDevice, setDetailDevice] = useState<Device | null>(null);
-  const [detailTab, setDetailTab] = useState<'historico' | 'geral' | 'linha' | 'responsavel' | 'termos' | 'observacoes' | 'etiqueta'>('historico');
+  const [detailHistory, setDetailHistory] = useState<Movement[]>([]);
+  const [detailTerms, setDetailTerms] = useState<DocumentTerm[]>([]);
 
   // QR Code / Etiqueta do dispositivo
   const [qrUrl, setQrUrl] = useState<string | null>(null);
   const [qrLoading, setQrLoading] = useState(false);
 
-  const fetchQrUrl = async (deviceId: string) => {
-    setQrLoading(true);
-    try {
-      const res = await fetch(`/api/devices/${encodeURIComponent(deviceId)}/qr-url`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('iane_auth_token_v2') || ''}`,
-        },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setQrUrl(data.data?.qrUrl || null);
-      } else {
-        setQrUrl(null);
-      }
-    } catch {
-      setQrUrl(null);
-    } finally {
-      setQrLoading(false);
-    }
-  };
-
   useEffect(() => {
-    if (detailDevice) {
-      void fetchQrUrl(detailDevice.id);
-    } else {
+    if (!detailDevice) {
       setQrUrl(null);
+      setQrLoading(false);
+      setDetailHistory([]);
+      setDetailTerms([]);
+      return;
     }
+
+    const deviceId = detailDevice.id;
+    const assetTag = detailDevice.assetTag;
+    let active = true;
+
+    const sortHistory = (movements: Movement[]) =>
+      movements
+        .filter((movement) => movement.deviceId === deviceId || (!movement.deviceId && movement.deviceTag === assetTag))
+        .sort((a, b) => (b.date || '').localeCompare(a.date || '') || b.code.localeCompare(a.code));
+    const filterTerms = (terms: DocumentTerm[]) =>
+      terms.filter((term) => term.deviceId === deviceId || (!term.deviceId && term.deviceTag === assetTag));
+
+    setDetailHistory(sortHistory(dataService.getMovements()));
+    setDetailTerms(filterTerms(dataService.getTerms()));
+    setQrUrl(null);
+    setQrLoading(true);
+
+    // Busca a URL pública do relatório no servidor; ignora resultados de um aparelho já fechado.
+    void (async () => {
+      try {
+        const res = await fetch(`/api/devices/${encodeURIComponent(deviceId)}/qr-url`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('iane_auth_token_v2') || ''}`,
+          },
+        });
+        if (!active) return;
+        if (!res.ok) {
+          setQrUrl(null);
+          return;
+        }
+        const data = await res.json();
+        if (!active) return;
+        setQrUrl(data.data?.qrUrl || null);
+      } catch {
+        if (active) setQrUrl(null);
+      } finally {
+        if (active) setQrLoading(false);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
   }, [detailDevice]);
 
   // Quick Release Modal for "Aguardando avaliação"
@@ -460,6 +485,7 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
       {detailDevice && (
         <DeviceDetail
           device={{
+            id: detailDevice.id,
             tag: detailDevice.assetTag,
             model: detailDevice.model,
             status: detailDevice.status,
@@ -470,12 +496,23 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
                 : STOCK_LABEL,
             brand: detailDevice.brand ?? '',
             imei: detailDevice.imei1 ?? '',
+            imei2: detailDevice.imei2,
             condition: detailDevice.condition,
             department: detailDevice.currentDepartment ?? '',
+            sector: detailDevice.sector,
+            unit: detailDevice.unit,
             line: detailDevice.associatedPhoneNumber ?? null,
             responsible: detailDevice.currentCollaboratorName ?? null,
             observations: detailDevice.notes ?? null,
+            purchaseDate: detailDevice.purchaseDate,
+            purchaseValue: detailDevice.purchaseValue,
+            createdAt: detailDevice.createdAt,
           }}
+          history={detailHistory}
+          terms={detailTerms}
+          qrUrl={qrUrl}
+          qrLoading={qrLoading}
+          onViewTerm={onViewTerm}
           onClose={() => setDetailDevice(null)}
         />
       )}
