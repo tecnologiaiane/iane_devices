@@ -20,7 +20,7 @@ export function DeviceTabs({ tabs, activeId, onTabChange, className, ...props }:
 			role="tablist"
 			aria-label="Seções do dispositivo"
 			className={twMerge(
-				'flex shrink-0 gap-1 overflow-x-auto border-b border-ink-200 bg-white px-2 sm:px-4',
+				'flex shrink-0 gap-1 overflow-x-auto border-b border-border-subtle bg-surface-card px-2 sm:px-4',
 				className
 			)}
 			{...props}
@@ -37,10 +37,10 @@ export function DeviceTabs({ tabs, activeId, onTabChange, className, ...props }:
 						aria-controls={`device-tabpanel-${tab.id}`}
 						onClick={() => onTabChange(tab.id)}
 						className={twMerge(
-							'flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-2.5 py-3 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:px-3',
+							'flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-2.5 py-3 text-xs font-body transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-navy-base sm:px-3',
 							isActive
-								? 'border-iane-600 font-semibold text-iane-700'
-								: 'border-transparent font-medium text-ink-500 hover:text-ink-900'
+								? 'border-brand-blue-action font-semibold text-brand-blue-action'
+								: 'border-transparent font-medium text-text-muted hover:text-text-primary'
 						)}
 					>
 						{tab.label}
@@ -48,7 +48,7 @@ export function DeviceTabs({ tabs, activeId, onTabChange, className, ...props }:
 							<span
 								className={twMerge(
 									'rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums',
-									isActive ? 'bg-iane-50 text-iane-700' : 'bg-ink-100 text-ink-500'
+									isActive ? 'bg-surface-subtle text-brand-blue-action' : 'bg-surface-subtle text-text-muted'
 								)}
 							>
 								{tab.count}

@@ -1,7 +1,47 @@
 @import "tailwindcss";
 
 @theme {
-  /* Marca (extraída do logotipo IANE) */
+  /* ============================================================
+     IANE Design System v3.5 — Modern Industrial Executive
+     Fonte absoluta de verdade: DESIGN.md
+     ============================================================ */
+
+  /* --- Cores de marca (estrutura) --- */
+  --color-brand-navy-dark: #0F1238;
+  --color-brand-navy-base: #1A1450;
+  --color-brand-blue-action: #0A6EF0;
+  --color-brand-blue-action-hover: #0858C2;
+  --color-brand-sky-glow: #3FC6F5;
+  --color-brand-sun: #FFD91A;
+
+  /* --- Superfícies (canvas/cards) --- */
+  --color-surface-canvas: #F6F8FF;
+  --color-surface-card: #FFFFFF;
+  --color-surface-subtle: #EDF1FC;
+
+  /* --- Bordas --- */
+  --color-border-subtle: #DCE2F5;
+  --color-border-strong: #7C84AA;
+
+  /* --- Textos --- */
+  --color-text-primary: #0F1238;
+  --color-text-muted: #4B5378;
+
+  /* --- Semântica de status --- */
+  --color-status-success-bg: #E6F8F0;
+  --color-status-success-fg: #0E7043;
+  --color-status-success-border: #A3E5C7;
+  --color-status-warning-bg: #FFF8E6;
+  --color-status-warning-fg: #8A5A00;
+  --color-status-warning-border: #FFE08F;
+  --color-status-danger-bg: #FEECEB;
+  --color-status-danger-fg: #B42318;
+  --color-status-danger-border: #FECDCA;
+  --color-status-info-bg: #EBF3FE;
+  --color-status-info-fg: #175CD3;
+  --color-status-info-border: #B2DDFF;
+
+  /* --- Marca legada (mantida para retrocompatibilidade) --- */
   --color-iane-50: #EBF6FD;
   --color-iane-100: #D3EBF9;
   --color-iane-200: #A9D7F2;
@@ -27,7 +67,7 @@
   --color-gold-600: #B47E00;
   --color-gold-700: #8A5F00;
 
-  /* Neutros (substituem slate-*) */
+  /* Neutros legados (substituem slate-*) */
   --color-ink-50: #F5F7FB;
   --color-ink-100: #ECEFF6;
   --color-ink-200: #DDE2EE;
@@ -39,29 +79,66 @@
   --color-ink-800: #272C4A;
   --color-ink-900: #1A1D38;
 
-  /* Tipografia */
-  --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+  /* --- Tipografia (DESIGN.md v3.5) --- */
+  --font-sans: 'Manrope', system-ui, sans-serif;
+  --font-body: 'Hanken Grotesk', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 
-  /* Sombras com tom marinho */
+  /* --- Raios de borda (DESIGN.md v3.5) --- */
+  --radius-base: 0.5rem;    /* 8px — inputs, selects, tabelas */
+  --radius-lg: 1rem;        /* 16px — cards, widgets, modais */
+  --radius-xl: 1.5rem;      /* 24px — painéis de impacto */
+  --radius-full: 9999px;    /* pílulas, badges, chips */
+
+  /* --- Elevação (satin micro-borders + camadas) --- */
   --shadow-xs: 0 1px 2px rgb(38 33 97 / .08);
-  --shadow-xl: 0 12px 32px -8px rgb(38 33 97 / .28);
+  --shadow-sm: 0 1px 3px 0 rgb(15 18 56 / 0.03), 0 1px 2px -1px rgb(15 18 56 / 0.02);
+  --shadow-md: 0 4px 6px -1px rgb(15 18 56 / 0.06), 0 2px 4px -2px rgb(15 18 56 / 0.04);
+  --shadow-lg: 0 10px 15px -3px rgb(15 18 56 / 0.08), 0 4px 6px -4px rgb(15 18 56 / 0.03);
+  --shadow-xl: 0 20px 25px -5px rgb(15 18 56 / 0.12), 0 8px 10px -6px rgb(15 18 56 / 0.04);
 }
 
 @layer base {
   body {
-    @apply bg-ink-50 text-ink-900 antialiased;
-    font-family: var(--font-sans);
+    @apply bg-surface-canvas text-text-primary antialiased;
+    font-family: var(--font-body);
   }
 
   :focus-visible {
-    outline: 3px solid var(--color-sun-500);
+    outline: 3px solid var(--color-brand-sun);
     outline-offset: 2px;
   }
 
   /* Tabular numbers for clean numeric alignments */
   .tabular-nums {
     font-variant-numeric: tabular-nums;
+  }
+
+  /* Utilitários de tipografia do DESIGN.md v3.5 */
+  .font-display {
+    font-family: var(--font-sans);
+  }
+  .font-body {
+    font-family: var(--font-body);
+  }
+  .font-code {
+    font-family: var(--font-mono);
+  }
+}
+
+@layer components {
+  /* Raios de borda — DESIGN.md v3.5 */
+  .radius-base {
+    border-radius: var(--radius-base);
+  }
+  .radius-lg {
+    border-radius: var(--radius-lg);
+  }
+  .radius-xl {
+    border-radius: var(--radius-xl);
+  }
+  .radius-full {
+    border-radius: var(--radius-full);
   }
 }
 

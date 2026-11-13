@@ -5,6 +5,8 @@ import { StatusBadge } from '../components/StatusBadge';
 import { Modal } from '../components/Modal';
 import { NavTab } from '../components/Sidebar';
 import { Catalogs, User } from '../types';
+import { Button } from '../components/button';
+import { Badge } from '../components/badge';
 import {
   Smartphone,
   PhoneCall,
@@ -31,13 +33,8 @@ const PENDING_TERMS_STORAGE_KEY = 'iane_pending_terms_notice_count';
 const DONUT_RADIUS = 54;
 const DONUT_CIRCUMFERENCE = 2 * Math.PI * DONUT_RADIUS;
 
-// DDDs exibidos no resumo de linhas e utilitário de extração.
 const TARGET_DDDS = ['83', '71', '84'];
 
-/**
- * Extrai o DDD de um número de telefone, ignorando máscara, código do país (+55)
- * e o zero de discagem inicial. Retorna null quando não há DDD identificável.
- */
 function extractDdd(phoneNumber?: string): string | null {
   let digits = String(phoneNumber || '').replace(/\D/g, '');
   if (!digits) return null;
@@ -74,8 +71,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
 
   const [isPendingTermsModalOpen, setIsPendingTermsModalOpen] = useState(false);
 
-  // Aviso de termos pendentes: somente para administradores e uma vez por sessão.
-  // Se a quantidade mudar (novos termos), o aviso volta a aparecer.
   useEffect(() => {
     if (!isAdmin || pendingTerms.length === 0) return;
     try {
@@ -95,16 +90,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
     }
   };
 
-  // --- Indicadores derivados ---
   const statusSegments = [
-    { label: 'Em uso', count: metrics.inUseDevices, color: '#0178C8' },
-    { label: 'Disponíveis', count: metrics.stockAvailable, color: '#10B981' },
-    { label: 'Aguardando avaliação', count: metrics.stockAwaitingEvaluation, color: '#E7C800' },
-    { label: 'Em manutenção', count: metrics.stockMaintenance, color: '#F97316' },
-    { label: 'Reservados', count: metrics.stockReserved, color: '#A855F7' },
-    { label: 'Aguardando baixa', count: metrics.stockAwaitingDisposal, color: '#6B7494' },
-    { label: 'Baixados', count: metrics.stockDisposed, color: '#C5CCDD' },
-    { label: 'Extraviados', count: metrics.lostDevices, color: '#E11D48' },
+    { label: 'Em uso', count: metrics.inUseDevices, color: 'var(--color-brand-blue-action)' },
+    { label: 'Disponíveis', count: metrics.stockAvailable, color: 'var(--color-status-success-fg)' },
+    { label: 'Aguardando avaliação', count: metrics.stockAwaitingEvaluation, color: 'var(--color-status-warning-fg)' },
+    { label: 'Em manutenção', count: metrics.stockMaintenance, color: 'var(--color-status-danger-fg)' },
+    { label: 'Reservados', count: metrics.stockReserved, color: 'var(--color-text-muted)' },
+    { label: 'Aguardando baixa', count: metrics.stockAwaitingDisposal, color: 'var(--color-text-muted)' },
+    { label: 'Baixados', count: metrics.stockDisposed, color: 'var(--color-text-muted)' },
+    { label: 'Extraviados', count: metrics.lostDevices, color: 'var(--color-status-danger-fg)' },
   ].filter((segment) => segment.count > 0);
 
   const totalSegments = statusSegments.reduce((sum, segment) => sum + segment.count, 0);
@@ -141,7 +135,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
   const activeCollaborators = collaborators.filter((c) => c.status === 'Ativo').length;
   const signedTermsPercent = terms.length > 0 ? Math.round((signedTerms.length / terms.length) * 100) : 0;
 
-  // Resumo de linhas: apenas os DDDs 083, 071 e 084, na ordem fixa.
   const dddRows = TARGET_DDDS.map((ddd) => ({
     ddd: `0${ddd}`,
     active: lines.filter((l) => extractDdd(l.phoneNumber) === ddd && (l.status === lineInUseStatus || l.status === 'Ativa')).length,
@@ -152,7 +145,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
     return !ddd || !TARGET_DDDS.includes(ddd);
   }).length;
 
-  // Aparelhos em uso por Setor (setor do próprio aparelho, definido no cadastro).
   const inUseBySector = new Map<string, number>(sectors.map((sector) => [sector, 0]));
   let inUseWithoutSector = 0;
   devices.forEach((device) => {
@@ -172,75 +164,75 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
 
   return (
     <div className="space-y-6">
-      {/* Cards informativos com os totais (sem navegação) */}
+      {/* KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <div className="p-4 bg-white rounded-xl border border-ink-200 border-t-[3px] border-t-iane-500 shadow-xs">
-          <div className="flex items-center justify-between text-ink-500 mb-1">
+        <div className="p-4 radius-lg border border-border-subtle bg-surface-card shadow-sm border-t-4 border-t-brand-blue-action">
+          <div className="flex items-center justify-between text-text-muted mb-1">
             <span className="text-xs font-medium">Aparelhos</span>
-            <Smartphone className="w-4 h-4 text-iane-600" />
+            <Smartphone className="w-4 h-4 text-brand-blue-action" />
           </div>
-          <div className="text-2xl font-bold font-mono tabular-nums text-ink-900">
+          <div className="text-2xl font-bold font-code tabular-nums text-text-primary">
             {metrics.totalDevices}
           </div>
-          <div className="mt-1.5 text-[11px] text-ink-500">Cadastrados na frota</div>
+          <div className="mt-1.5 text-[11px] text-text-muted">Cadastrados na frota</div>
         </div>
 
-        <div className="p-4 bg-white rounded-xl border border-ink-200 border-t-[3px] border-t-iane-500 shadow-xs">
-          <div className="flex items-center justify-between text-ink-500 mb-1">
+        <div className="p-4 radius-lg border border-border-subtle bg-surface-card shadow-sm border-t-4 border-t-brand-blue-action">
+          <div className="flex items-center justify-between text-text-muted mb-1">
             <span className="text-xs font-medium">Em uso</span>
-            <Users className="w-4 h-4 text-iane-600" />
+            <Users className="w-4 h-4 text-brand-blue-action" />
           </div>
-          <div className="text-2xl font-bold font-mono tabular-nums text-ink-900">
+          <div className="text-2xl font-bold font-code tabular-nums text-text-primary">
             {metrics.inUseDevices}
           </div>
-          <div className="mt-1.5 text-[11px] text-iane-700 font-medium">
+          <div className="mt-1.5 text-[11px] text-brand-blue-action font-medium">
             {percent(metrics.inUseDevices)}% com colaboradores
           </div>
         </div>
 
-        <div className="p-4 bg-white rounded-xl border border-ink-200 border-t-[3px] border-t-iane-500 shadow-xs">
-          <div className="flex items-center justify-between text-ink-500 mb-1">
+        <div className="p-4 radius-lg border border-border-subtle bg-surface-card shadow-sm border-t-4 border-t-brand-blue-action">
+          <div className="flex items-center justify-between text-text-muted mb-1">
             <span className="text-xs font-medium">No estoque</span>
-            <Package className="w-4 h-4 text-indigo-600" />
+            <Package className="w-4 h-4 text-brand-blue-action" />
           </div>
-          <div className="text-2xl font-bold font-mono tabular-nums text-ink-900">
+          <div className="text-2xl font-bold font-code tabular-nums text-text-primary">
             {metrics.stockTotal}
           </div>
-          <div className="mt-1.5 text-[11px] text-ink-500">Sob custódia de TI</div>
+          <div className="mt-1.5 text-[11px] text-text-muted">Sob custódia de TI</div>
         </div>
 
-        <div className="p-4 bg-emerald-50/60 rounded-xl border border-emerald-200 border-t-[3px] border-t-emerald-500 shadow-xs">
-          <div className="flex items-center justify-between text-emerald-800 mb-1">
+        <div className="p-4 radius-lg border border-status-success-border bg-status-success-bg border-t-4 border-t-status-success-fg shadow-sm">
+          <div className="flex items-center justify-between text-status-success-fg mb-1">
             <span className="text-xs font-bold">Disponíveis</span>
-            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            <CheckCircle2 className="w-4 h-4 text-status-success-fg" />
           </div>
-          <div className="text-2xl font-bold font-mono tabular-nums text-emerald-900">
+          <div className="text-2xl font-bold font-code tabular-nums text-status-success-fg">
             {metrics.stockAvailable}
           </div>
-          <div className="mt-1.5 text-[11px] text-emerald-700 font-medium">Prontos para entrega</div>
+          <div className="mt-1.5 text-[11px] text-status-success-fg font-medium">Prontos para entrega</div>
         </div>
 
-        <div className="p-4 bg-white rounded-xl border border-ink-200 border-t-[3px] border-t-orange-400 shadow-xs">
-          <div className="flex items-center justify-between text-ink-500 mb-1">
+        <div className="p-4 radius-lg border border-border-subtle bg-surface-card shadow-sm border-t-4 border-t-status-warning-fg">
+          <div className="flex items-center justify-between text-text-muted mb-1">
             <span className="text-xs font-medium">Em manutenção</span>
-            <Wrench className="w-4 h-4 text-orange-600" />
+            <Wrench className="w-4 h-4 text-status-warning-fg" />
           </div>
-          <div className="text-2xl font-bold font-mono tabular-nums text-orange-700">
+          <div className="text-2xl font-bold font-code tabular-nums text-text-primary">
             {metrics.stockMaintenance}
           </div>
-          <div className="mt-1.5 text-[11px] text-ink-500">Em assistência técnica</div>
+          <div className="mt-1.5 text-[11px] text-text-muted">Em assistência técnica</div>
         </div>
 
-        <div className="p-4 bg-white rounded-xl border border-ink-200 border-t-[3px] border-t-iane-500 shadow-xs">
-          <div className="flex items-center justify-between text-ink-500 mb-1">
+        <div className="p-4 radius-lg border border-border-subtle bg-surface-card shadow-sm border-t-4 border-t-brand-blue-action">
+          <div className="flex items-center justify-between text-text-muted mb-1">
             <span className="text-xs font-medium">Linhas ativas</span>
-            <PhoneCall className="w-4 h-4 text-iane-600" />
+            <PhoneCall className="w-4 h-4 text-brand-blue-action" />
           </div>
-          <div className="text-2xl font-bold font-mono tabular-nums text-ink-900">
+          <div className="text-2xl font-bold font-code tabular-nums text-text-primary">
             {metrics.activeLines}
           </div>
-          <div className="mt-1.5 text-[11px] text-ink-500">
-            <span className="text-emerald-700 font-semibold tabular-nums">{metrics.availableLines}</span> livres
+          <div className="mt-1.5 text-[11px] text-text-muted">
+            <span className="text-status-success-fg font-semibold tabular-nums">{metrics.availableLines}</span> livres
             {' · '}
             {metrics.totalLines} no total
           </div>
@@ -250,13 +242,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
       {/* Gráficos e resumos */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Status dos aparelhos (donut) */}
-        <div className="bg-white p-5 rounded-xl border border-ink-200 shadow-xs">
+        <div className="radius-lg border border-border-subtle bg-surface-card shadow-sm p-5">
           <div className="flex items-start justify-between mb-4">
             <div>
-              <h2 className="text-sm font-bold text-ink-900">Status dos aparelhos</h2>
-              <p className="text-xs text-ink-500">Como a frota está distribuída hoje</p>
+              <h2 className="text-sm font-semibold text-text-primary">Status dos aparelhos</h2>
+              <p className="text-[11px] text-text-muted">Como a frota está distribuída hoje</p>
             </div>
-            <Smartphone className="w-4 h-4 text-ink-400" />
+            <Smartphone className="w-4 h-4 text-text-muted" />
           </div>
 
           <div className="flex flex-col sm:flex-row items-center gap-5">
@@ -278,213 +270,209 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
                 ))}
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-2xl font-bold font-mono tabular-nums text-ink-900">
+                <span className="text-2xl font-bold font-code tabular-nums text-text-primary">
                   {metrics.totalDevices}
                 </span>
-                <span className="text-[10px] text-ink-500 uppercase tracking-wider">aparelhos</span>
+                <span className="text-[10px] text-text-muted uppercase tracking-wider">aparelhos</span>
               </div>
             </div>
 
             <div className="flex-1 w-full space-y-2">
               {statusSegments.map((segment) => (
-                <div key={segment.label} className="flex items-center justify-between gap-2 text-xs">
+                <div key={segment.label} className="flex items-center justify-between gap-2 text-[11px]">
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: segment.color }} />
-                    <span className="text-ink-700 truncate">{segment.label}</span>
+                    <span className="text-text-muted truncate">{segment.label}</span>
                   </div>
-                  <span className="font-mono text-ink-600 tabular-nums shrink-0">
-                    {segment.count} <span className="text-ink-400">({percent(segment.count)}%)</span>
+                  <span className="font-code text-text-muted tabular-nums shrink-0">
+                    {segment.count} <span className="text-text-muted">({percent(segment.count)}%)</span>
                   </span>
                 </div>
               ))}
               {statusSegments.length === 0 && (
-                <p className="text-xs text-ink-500">Nenhum aparelho cadastrado ainda.</p>
+                <p className="text-[11px] text-text-muted">Nenhum aparelho cadastrado ainda.</p>
               )}
             </div>
           </div>
         </div>
 
         {/* Resumo de linhas por DDD */}
-        <div className="bg-white rounded-xl border border-ink-200 shadow-xs flex flex-col">
+        <div className="radius-lg border border-border-subtle bg-surface-card shadow-sm flex flex-col">
           <div className="px-5 pt-5 pb-3 flex items-start justify-between">
             <div>
-              <h2 className="text-sm font-bold text-ink-900">Resumo de linhas</h2>
-              <p className="text-xs text-ink-500">Ativas e disponíveis por DDD</p>
+              <h2 className="text-sm font-semibold text-text-primary">Resumo de linhas</h2>
+              <p className="text-[11px] text-text-muted">Ativas e disponíveis por DDD</p>
             </div>
-            <PhoneCall className="w-4 h-4 text-ink-400" />
+            <PhoneCall className="w-4 h-4 text-text-muted" />
           </div>
 
           <div className="flex-1 overflow-y-auto max-h-64">
-            <table className="w-full text-xs border-collapse">
-              <thead className="text-ink-600 uppercase font-semibold tracking-wider text-[11px]">
+            <table className="w-full text-[11px] border-collapse">
+              <thead className="text-text-muted font-semibold uppercase tracking-wider">
                 <tr>
-                  <th className="sticky top-0 bg-ink-50 py-2 px-4 text-left border-y border-ink-200">DDD</th>
-                  <th className="sticky top-0 bg-ink-50 py-2 px-4 text-center border-y border-ink-200">Ativas</th>
-                  <th className="sticky top-0 bg-ink-50 py-2 px-4 text-center border-y border-ink-200">Disponíveis</th>
+                  <th className="sticky top-0 bg-surface-subtle py-2 px-4 text-left border-y border-border-subtle">DDD</th>
+                  <th className="sticky top-0 bg-surface-subtle py-2 px-4 text-center border-y border-border-subtle">Ativas</th>
+                  <th className="sticky top-0 bg-surface-subtle py-2 px-4 text-center border-y border-border-subtle">Disponíveis</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-ink-100">
+              <tbody className="divide-y divide-border-subtle">
                 {dddRows.map((row, index) => (
-                  <tr key={row.ddd} className={index % 2 === 1 ? 'bg-ink-50/60' : undefined}>
-                    <td className="py-2.5 px-4 font-mono font-semibold text-ink-800">{row.ddd}</td>
-                    <td className="py-2.5 px-4 text-center font-mono tabular-nums text-ink-900">{row.active}</td>
-                    <td className="py-2.5 px-4 text-center font-mono tabular-nums text-emerald-700">{row.available}</td>
+                  <tr key={row.ddd} className={index % 2 === 1 ? 'bg-surface-subtle' : undefined}>
+                    <td className="py-2.5 px-4 font-code font-semibold text-text-primary">{row.ddd}</td>
+                    <td className="py-2.5 px-4 text-center font-code tabular-nums text-text-primary">{row.active}</td>
+                    <td className="py-2.5 px-4 text-center font-code tabular-nums text-status-success-fg">{row.available}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
 
-          <div className="px-5 py-3 border-t border-ink-100 text-[11px] text-ink-500">
+          <div className="px-5 py-3 border-t border-border-subtle text-[11px] text-text-muted">
             {linesOutsideTargetDdds} linha(s) fora dos DDDs 083, 071 e 084.
           </div>
         </div>
 
         {/* Termos e documentos */}
-        <div className="bg-white p-5 rounded-xl border border-ink-200 shadow-xs flex flex-col">
+        <div className="radius-lg border border-border-subtle bg-surface-card shadow-sm p-5 flex flex-col">
           <div className="flex items-start justify-between mb-4">
             <div>
-              <h2 className="text-sm font-bold text-ink-900">Termos e documentos</h2>
-              <p className="text-xs text-ink-500">Assinaturas e arquivos de guarda</p>
+              <h2 className="text-sm font-semibold text-text-primary">Termos e documentos</h2>
+              <p className="text-[11px] text-text-muted">Assinaturas e arquivos de guarda</p>
             </div>
-            <FileText className="w-4 h-4 text-ink-400" />
+            <FileText className="w-4 h-4 text-text-muted" />
           </div>
 
           <div className="grid grid-cols-3 gap-2 text-center">
-            <div className="p-2.5 bg-sun-50 border border-sun-300 rounded-lg">
-              <div className="text-lg font-bold font-mono tabular-nums text-gold-700">{pendingTerms.length}</div>
-              <div className="text-[10px] font-medium text-gold-700">Pendentes</div>
+            <div className="p-2.5 radius-base border border-status-warning-border bg-status-warning-bg">
+              <div className="text-lg font-bold font-code tabular-nums text-status-warning-fg">{pendingTerms.length}</div>
+              <div className="text-[10px] font-medium text-status-warning-fg">Pendentes</div>
             </div>
-            <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg">
-              <div className="text-lg font-bold font-mono tabular-nums text-emerald-800">{signedTerms.length}</div>
-              <div className="text-[10px] font-medium text-emerald-800">Assinados</div>
+            <div className="p-2.5 radius-base border border-status-success-border bg-status-success-bg">
+              <div className="text-lg font-bold font-code tabular-nums text-status-success-fg">{signedTerms.length}</div>
+              <div className="text-[10px] font-medium text-status-success-fg">Assinados</div>
             </div>
-            <div className="p-2.5 bg-ink-50 border border-ink-200 rounded-lg">
-              <div className="text-lg font-bold font-mono tabular-nums text-ink-700">{archivedTerms.length}</div>
-              <div className="text-[10px] font-medium text-ink-600">Arquivados</div>
+            <div className="p-2.5 radius-base border border-border-subtle bg-surface-subtle">
+              <div className="text-lg font-bold font-code tabular-nums text-text-muted">{archivedTerms.length}</div>
+              <div className="text-[10px] font-medium text-text-muted">Arquivados</div>
             </div>
           </div>
 
           <div className="mt-4 space-y-1.5 flex-1">
-            <div className="flex items-center justify-between text-[11px] text-ink-500">
+            <div className="flex items-center justify-between text-[11px] text-text-muted">
               <span>Documentos assinados</span>
-              <span className="font-mono tabular-nums">{signedTermsPercent}%</span>
+              <span className="font-code tabular-nums">{signedTermsPercent}%</span>
             </div>
-            <div className="w-full h-2 bg-ink-100 rounded-full overflow-hidden">
+            <div className="w-full h-2 bg-surface-subtle rounded-full overflow-hidden">
               <div
-                className="h-full bg-emerald-500 rounded-full transition-all duration-300"
+                className="h-full bg-brand-blue-action rounded-full transition-all duration-300"
                 style={{ width: `${signedTermsPercent}%` }}
               />
             </div>
-            <p className="text-[11px] text-ink-500 pt-1">
+            <p className="text-[11px] text-text-muted pt-1">
               {signedTerms.length} de {terms.length} documentos concluídos.
             </p>
           </div>
 
-          <div className="pt-3 mt-3 border-t border-ink-100 flex items-center justify-between">
-            <span className="text-[11px] text-ink-500">{pendingTerms.length} aguardando assinatura</span>
-            <button
-              type="button"
-              onClick={() => onNavigate('termos')}
-              className="text-[11px] font-semibold text-iane-600 hover:text-iane-800 inline-flex items-center gap-1"
-            >
+          <div className="pt-3 mt-3 border-t border-border-subtle flex items-center justify-between">
+            <span className="text-[11px] text-text-muted">{pendingTerms.length} aguardando assinatura</span>
+            <Button variant="ghost" size="sm" onClick={() => onNavigate('termos')} className="flex items-center gap-1">
               Abrir termos
               <ArrowRight className="w-3 h-3" />
-            </button>
+            </Button>
           </div>
         </div>
       </div>
 
       {/* Departamentos, fabricantes e aparelhos por setor */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-white p-5 rounded-xl border border-ink-200 shadow-xs">
+        <div className="radius-lg border border-border-subtle bg-surface-card shadow-sm p-5">
           <div className="flex items-start justify-between mb-4">
             <div>
-              <h2 className="text-sm font-bold text-ink-900">Aparelhos por departamento</h2>
-              <p className="text-xs text-ink-500">Onde a frota está alocada</p>
+              <h2 className="text-sm font-semibold text-text-primary">Aparelhos por departamento</h2>
+              <p className="text-[11px] text-text-muted">Onde a frota está alocada</p>
             </div>
-            <Building2 className="w-4 h-4 text-ink-400" />
+            <Building2 className="w-4 h-4 text-text-muted" />
           </div>
 
           <div className="space-y-3">
             {devicesByDepartment.slice(0, 6).map(([department, count]) => (
               <div key={department} className="space-y-1">
-                <div className="flex items-center justify-between text-xs gap-2">
-                  <span className="font-medium text-ink-700 truncate">{department}</span>
-                  <span className="font-mono text-ink-600 tabular-nums shrink-0">{count}</span>
+                <div className="flex items-center justify-between text-[11px] gap-2">
+                  <span className="font-medium text-text-muted truncate">{department}</span>
+                  <span className="font-code text-text-muted tabular-nums shrink-0">{count}</span>
                 </div>
-                <div className="w-full h-2 bg-ink-100 rounded-full overflow-hidden">
+                <div className="w-full h-2 bg-surface-subtle rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-navy-700 rounded-full"
+                    className="h-full bg-brand-navy-base rounded-full"
                     style={{ width: `${Math.round((count / maxDepartmentCount) * 100)}%` }}
                   />
                 </div>
               </div>
             ))}
             {devicesByDepartment.length === 0 && (
-              <p className="text-xs text-ink-500">Nenhum aparelho alocado.</p>
+              <p className="text-[11px] text-text-muted">Nenhum aparelho alocado.</p>
             )}
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-xl border border-ink-200 shadow-xs">
+        <div className="radius-lg border border-border-subtle bg-surface-card shadow-sm p-5">
           <div className="flex items-start justify-between mb-4">
             <div>
-              <h2 className="text-sm font-bold text-ink-900">Aparelhos por fabricante</h2>
-              <p className="text-xs text-ink-500">Marcas presentes na frota</p>
+              <h2 className="text-sm font-semibold text-text-primary">Aparelhos por fabricante</h2>
+              <p className="text-[11px] text-text-muted">Marcas presentes na frota</p>
             </div>
-            <Tag className="w-4 h-4 text-ink-400" />
+            <Tag className="w-4 h-4 text-text-muted" />
           </div>
 
           <div className="flex flex-wrap gap-2">
             {devicesByBrand.slice(0, 10).map(([brand, count]) => (
               <span
                 key={brand}
-                className="text-xs px-2.5 py-1.5 bg-ink-50 border border-ink-200 rounded-lg font-medium text-ink-800"
+                className="text-[11px] px-2.5 py-1.5 radius-base border border-border-subtle bg-surface-subtle font-medium text-text-muted"
               >
                 {brand}
-                <span className="ml-1.5 font-mono font-bold text-iane-700 tabular-nums">{count}</span>
+                <span className="ml-1.5 font-code font-bold text-brand-blue-action tabular-nums">{count}</span>
               </span>
             ))}
             {devicesByBrand.length === 0 && (
-              <p className="text-xs text-ink-500">Nenhum fabricante registrado.</p>
+              <p className="text-[11px] text-text-muted">Nenhum fabricante registrado.</p>
             )}
           </div>
 
-          <div className="mt-4 pt-3 border-t border-ink-100 grid grid-cols-2 gap-3">
+          <div className="mt-4 pt-3 border-t border-border-subtle grid grid-cols-2 gap-3">
             <div>
-              <span className="text-[10px] uppercase tracking-wider text-ink-500 block">Colaboradores ativos</span>
-              <span className="text-base font-bold font-mono tabular-nums text-ink-900">{activeCollaborators}</span>
+              <span className="text-[10px] uppercase tracking-wider text-text-muted block">Colaboradores ativos</span>
+              <span className="text-base font-bold font-code tabular-nums text-text-primary">{activeCollaborators}</span>
             </div>
             <div>
-              <span className="text-[10px] uppercase tracking-wider text-ink-500 block">Sem aparelho</span>
-              <span className="text-base font-bold font-mono tabular-nums text-ink-900">{metrics.devicesWithoutCollaborator}</span>
+              <span className="text-[10px] uppercase tracking-wider text-text-muted block">Sem aparelho</span>
+              <span className="text-base font-bold font-code tabular-nums text-text-primary">{metrics.devicesWithoutCollaborator}</span>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-ink-200 shadow-xs flex flex-col">
+        <div className="radius-lg border border-border-subtle bg-surface-card shadow-sm flex flex-col">
           <div className="px-5 pt-5 pb-3 flex items-start justify-between">
             <div>
-              <h2 className="text-sm font-bold text-ink-900">Aparelhos por Setor</h2>
-              <p className="text-xs text-ink-500">Aparelhos em uso por setor do aparelho</p>
+              <h2 className="text-sm font-semibold text-text-primary">Aparelhos por Setor</h2>
+              <p className="text-[11px] text-text-muted">Aparelhos em uso por setor do aparelho</p>
             </div>
-            <Building2 className="w-4 h-4 text-ink-400" />
+            <Building2 className="w-4 h-4 text-text-muted" />
           </div>
 
           <div className="flex-1 overflow-y-auto max-h-64">
-            <table className="w-full text-xs border-collapse">
-              <thead className="text-ink-600 uppercase font-semibold tracking-wider text-[11px]">
+            <table className="w-full text-[11px] border-collapse">
+              <thead className="text-text-muted font-semibold uppercase tracking-wider">
                 <tr>
-                  <th className="sticky top-0 bg-ink-50 py-2 px-4 text-left border-y border-ink-200">Setor</th>
-                  <th className="sticky top-0 bg-ink-50 py-2 px-4 text-center border-y border-ink-200">Em Uso</th>
+                  <th className="sticky top-0 bg-surface-subtle py-2 px-4 text-left border-y border-border-subtle">Setor</th>
+                  <th className="sticky top-0 bg-surface-subtle py-2 px-4 text-center border-y border-border-subtle">Em Uso</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-ink-100">
+              <tbody className="divide-y divide-border-subtle">
                 {sectors.map((sector, index) => (
-                  <tr key={sector} className={index % 2 === 1 ? 'bg-ink-50/60' : undefined}>
-                    <td className="py-2.5 px-4 font-medium text-ink-800">{sector}</td>
-                    <td className="py-2.5 px-4 text-center font-mono tabular-nums text-ink-900">
+                  <tr key={sector} className={index % 2 === 1 ? 'bg-surface-subtle' : undefined}>
+                    <td className="py-2.5 px-4 font-medium text-text-primary">{sector}</td>
+                    <td className="py-2.5 px-4 text-center font-code tabular-nums text-text-primary">
                       {inUseBySector.get(sector) || 0}
                     </td>
                   </tr>
@@ -493,7 +481,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
             </table>
           </div>
 
-          <div className="px-5 py-3 border-t border-ink-100 text-[11px] text-ink-500">
+          <div className="px-5 py-3 border-t border-border-subtle text-[11px] text-text-muted">
             {inUseWithoutSector} aparelho(s) em uso sem Setor definido.
           </div>
         </div>
@@ -501,13 +489,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
 
       {/* Listas operacionais */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white p-5 rounded-xl border border-ink-200 shadow-xs">
+        <div className="radius-lg border border-border-subtle bg-surface-card shadow-sm p-5">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-gold-700" />
-              <h2 className="text-sm font-bold text-ink-900">Atenção necessária</h2>
+              <AlertTriangle className="w-4 h-4 text-status-warning-fg" />
+              <h2 className="text-sm font-semibold text-text-primary">Atenção necessária</h2>
             </div>
-            <span className="text-[11px] text-ink-500 font-medium">
+            <span className="text-[11px] text-text-muted font-medium">
               {attentionDevices.length} aparelho(s)
             </span>
           </div>
@@ -516,18 +504,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
             {attentionDevices.slice(0, 6).map((device) => (
               <div
                 key={device.id}
-                className={`p-3 rounded-lg border flex items-start justify-between gap-3 ${
+                className={`p-3 radius-base border flex items-start justify-between gap-3 ${
                   device.status === maintenanceStatus
-                    ? 'bg-orange-50/70 border-orange-200'
-                    : 'bg-sun-50/70 border-sun-300'
+                    ? 'bg-status-warning-bg/50 border-status-warning-border'
+                    : 'bg-status-warning-bg/50 border-status-warning-border'
                 }`}
               >
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-bold text-ink-900 font-mono text-xs">{device.assetTag}</span>
+                    <span className="font-bold text-text-primary font-code text-[11px]">{device.assetTag}</span>
                     <StatusBadge status={device.status} type="device" size="sm" />
                   </div>
-                  <p className="text-[11px] text-ink-600 truncate">
+                  <p className="text-[11px] text-text-muted truncate">
                     {device.model}
                     {device.notes ? ` · ${device.notes}` : ''}
                   </p>
@@ -535,7 +523,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
                 <button
                   type="button"
                   onClick={() => onNavigate('dispositivos')}
-                  className="text-[11px] font-semibold text-iane-700 hover:text-iane-900 hover:underline shrink-0"
+                  className="text-[11px] font-semibold text-brand-blue-action hover:underline shrink-0"
                 >
                   Abrir
                 </button>
@@ -544,79 +532,75 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
 
             {attentionDevices.length === 0 && (
               <div className="py-6 text-center">
-                <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
-                <p className="text-xs font-semibold text-ink-700">Nenhuma pendência no estoque</p>
-                <p className="text-[11px] text-ink-500 mt-0.5">
+                <CheckCircle2 className="w-8 h-8 text-status-success-fg mx-auto mb-2" />
+                <p className="text-xs font-semibold text-text-primary">Nenhuma pendência no estoque</p>
+                <p className="text-[11px] text-text-muted mt-0.5">
                   Não há aparelhos aguardando avaliação ou em manutenção.
                 </p>
               </div>
             )}
-          </div>
 
-          {attentionDevices.length > 6 && (
-            <button
-              type="button"
-              onClick={() => onNavigate('dispositivos')}
-              className="mt-3 w-full py-2 text-[11px] font-semibold text-iane-600 bg-iane-50 hover:bg-iane-100 rounded-lg transition-colors"
-            >
-              Ver todos os {attentionDevices.length} aparelhos
-            </button>
-          )}
+            {attentionDevices.length > 6 && (
+              <button
+                type="button"
+                onClick={() => onNavigate('dispositivos')}
+                className="mt-3 w-full py-2 text-[11px] font-semibold text-brand-blue-action bg-surface-subtle hover:bg-surface-card radius-base transition-colors"
+              >
+                Ver todos os {attentionDevices.length} aparelhos
+              </button>
+            )}
+          </div>
         </div>
 
-        <div className="bg-white p-5 rounded-xl border border-ink-200 shadow-xs">
+        <div className="radius-lg border border-border-subtle bg-surface-card shadow-sm p-5">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-ink-500" />
-              <h2 className="text-sm font-bold text-ink-900">Últimas movimentações</h2>
+              <Clock className="w-4 h-4 text-text-muted" />
+              <h2 className="text-sm font-semibold text-text-primary">Últimas movimentações</h2>
             </div>
-            <button
-              type="button"
-              onClick={() => onNavigate('movimentacoes')}
-              className="text-[11px] font-semibold text-iane-600 hover:text-iane-800 inline-flex items-center gap-1"
-            >
+            <Button variant="ghost" size="sm" onClick={() => onNavigate('movimentacoes')} className="flex items-center gap-1">
               Ver todas ({movements.length})
               <ArrowRight className="w-3 h-3" />
-            </button>
+            </Button>
           </div>
 
-          <div className="divide-y divide-ink-100">
+          <div className="divide-y divide-border-subtle">
             {movements.slice(0, 6).map((movement) => (
               <div key={movement.id} className="py-2.5 flex items-start justify-between gap-3">
                 <div className="flex items-start gap-2.5 min-w-0">
                   <span
-                    className={`mt-0.5 w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                    className={`mt-0.5 w-7 h-7 radius-base flex items-center justify-center shrink-0 ${
                       movement.type === 'Entrega'
-                        ? 'bg-emerald-50 text-emerald-600'
+                        ? 'bg-status-success-bg text-status-success-fg'
                         : movement.type === 'Devolução'
-                          ? 'bg-sun-50 text-gold-700'
-                          : 'bg-iane-50 text-iane-600'
+                          ? 'bg-status-warning-bg text-status-warning-fg'
+                          : 'bg-surface-subtle text-brand-blue-action'
                     }`}
                   >
                     <ArrowLeftRight className="w-3.5 h-3.5" />
                   </span>
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-xs font-semibold text-ink-900">{movement.type}</span>
-                      <span className="text-[11px] font-mono font-bold text-iane-700">
+                      <span className="text-[11px] font-semibold text-text-primary">{movement.type}</span>
+                      <span className="text-[11px] font-code font-bold text-brand-blue-action">
                         {movement.deviceTag || movement.phoneNumber || 'Ativo'}
                       </span>
                     </div>
-                    <p className="text-[11px] text-ink-500 truncate">
+                    <p className="text-[11px] text-text-muted truncate">
                       {stockDisplayName(movement.originCollaboratorName)} →{' '}
                       {stockDisplayName(movement.destinationCollaboratorName)}
                     </p>
                   </div>
                 </div>
-                <span className="text-[11px] font-mono text-ink-500 shrink-0">{formatDate(movement.date)}</span>
+                <span className="text-[11px] font-code text-text-muted shrink-0">{formatDate(movement.date)}</span>
               </div>
             ))}
 
             {movements.length === 0 && (
               <div className="py-6 text-center">
-                <ArrowLeftRight className="w-8 h-8 text-ink-300 mx-auto mb-2" />
-                <p className="text-xs font-semibold text-ink-700">Nenhuma movimentação registrada</p>
-                <p className="text-[11px] text-ink-500 mt-0.5">
+                <ArrowLeftRight className="w-8 h-8 text-border-strong mx-auto mb-2" />
+                <p className="text-xs font-semibold text-text-primary">Nenhuma movimentação registrada</p>
+                <p className="text-[11px] text-text-muted mt-0.5">
                   As entregas, devoluções e transferências aparecerão aqui.
                 </p>
               </div>
@@ -634,22 +618,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
         maxWidth="md"
       >
         <div className="space-y-4">
-          <div className="flex items-start gap-3 p-4 rounded-xl bg-sun-50 border border-sun-300">
-            <FileWarning className="w-5 h-5 text-gold-700 shrink-0 mt-0.5" />
-            <p className="text-xs text-gold-700 leading-relaxed">
+          <div className="flex items-start gap-3 p-4 radius-lg border border-status-warning-border bg-status-warning-bg">
+            <FileWarning className="w-5 h-5 text-status-warning-fg shrink-0 mt-0.5" />
+            <p className="text-[11px] text-status-warning-fg leading-relaxed">
               {firstName ? `${firstName}, existem` : 'Existem'}{' '}
-              <strong className="text-ink-900">{pendingTerms.length} termo(s)</strong> gerados e ainda
+              <strong className="text-text-primary">{pendingTerms.length} termo(s)</strong> gerados e ainda
               não assinados. Regularize com o gestor responsável para manter a documentação patrimonial
               em dia.
             </p>
           </div>
 
-          <div className="divide-y divide-ink-100 border border-ink-200 rounded-lg overflow-hidden">
+          <div className="divide-y divide-border-subtle border border-border-subtle radius-lg overflow-hidden">
             {pendingTerms.slice(0, 5).map((term) => (
-              <div key={term.id} className="px-3 py-2.5 flex items-center justify-between gap-3 bg-white">
+              <div key={term.id} className="px-3 py-2.5 flex items-center justify-between gap-3 bg-surface-card">
                 <div className="min-w-0">
-                  <span className="text-xs font-mono font-bold text-ink-900">{term.code}</span>
-                  <p className="text-[11px] text-ink-500 truncate">
+                  <span className="text-[11px] font-code font-bold text-text-primary">{term.code}</span>
+                  <p className="text-[11px] text-text-muted truncate">
                     {term.collaboratorName || 'Sem colaborador'} · {formatDate(term.date)}
                   </p>
                 </div>
@@ -659,29 +643,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
           </div>
 
           {pendingTerms.length > 5 && (
-            <p className="text-[11px] text-ink-500 text-center">
+            <p className="text-[11px] text-text-muted text-center">
               e mais {pendingTerms.length - 5} termo(s) pendente(s).
             </p>
           )}
 
           <div className="flex justify-end gap-2 pt-1">
-            <button
-              type="button"
-              onClick={() => {
-                closePendingTermsModal();
-                onNavigate('termos');
-              }}
-              className="px-4 py-2 text-xs font-semibold text-iane-700 bg-iane-50 hover:bg-iane-100 border border-iane-200 rounded-lg transition-colors"
-            >
+            <Button variant="ghost" size="sm" onClick={() => {
+              closePendingTermsModal();
+              onNavigate('termos');
+            }}>
               Ver termos
-            </button>
-            <button
-              type="button"
-              onClick={closePendingTermsModal}
-              className="px-5 py-2 text-xs font-semibold text-white bg-iane-600 hover:bg-iane-700 rounded-lg shadow-xs transition-colors"
-            >
-              OK
-            </button>
+            </Button>
           </div>
         </div>
       </Modal>

@@ -17,8 +17,10 @@ import {
   Eye,
   X,
   CheckCircle2,
-  Clock
+  Clock,
 } from 'lucide-react';
+import { Button } from '../components/button';
+import { Badge } from '../components/badge';
 
 interface LinesViewProps {
   onOpenLineModal: (line?: PhoneLine) => void;
@@ -107,22 +109,22 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
   return (
     <div className="space-y-5">
       {/* Search and Filters */}
-      <div className="bg-white p-4 rounded-xl border border-ink-200 shadow-xs space-y-3">
+      <div className="radius-lg border border-border-subtle bg-surface-card shadow-sm p-4 space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="relative flex-1 max-w-md">
-            <Search className="w-4 h-4 text-ink-400 absolute left-3 top-2.5" />
+            <Search className="w-4 h-4 text-text-muted absolute left-3 top-2.5" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar por número, operadora, plano, colaborador..."
-              className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-ink-300 bg-white placeholder-ink-400 text-ink-800 focus:outline-none focus:ring-2 focus:ring-iane-500"
+              className="w-full pl-9 pr-3 py-2 text-xs radius-base border border-border-subtle bg-surface-card placeholder-text-muted text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
             />
           </div>
 
           <button
             onClick={() => onOpenLineModal()}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold text-white bg-iane-600 hover:bg-iane-700 shadow-xs transition-colors shrink-0"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 radius-lg text-xs font-medium text-white bg-brand-blue-action hover:bg-brand-blue-action-hover shadow-sm transition-colors shrink-0"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Nova Linha</span>
@@ -130,16 +132,16 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
         </div>
 
         {/* Filter controls */}
-        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-ink-100 text-xs">
-          <span className="text-ink-500 font-medium flex items-center gap-1 mr-1">
-            <Filter className="w-3 h-3 text-ink-400" />
+        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border-subtle text-xs">
+          <span className="text-text-muted font-medium flex items-center gap-1 mr-1">
+            <Filter className="w-3 h-3 text-text-muted" />
             Filtros:
           </span>
 
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="rounded-md border border-ink-300 bg-white px-2.5 py-1 text-ink-700 font-medium"
+            className="w-auto radius-base border border-border-subtle bg-surface-card px-2.5 py-1 text-text-muted font-medium focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
           >
             <option value="todos">Status: Todos</option>
             {catalogs.lineStatuses.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}
@@ -148,7 +150,7 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
           <select
             value={carrierFilter}
             onChange={(e) => setCarrierFilter(e.target.value)}
-            className="rounded-md border border-ink-300 bg-white px-2.5 py-1 text-ink-700 font-medium"
+            className="w-auto radius-base border border-border-subtle bg-surface-card px-2.5 py-1 text-text-muted font-medium focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
           >
             <option value="todos">Operadora: Todas</option>
             <option value="Vivo">Vivo</option>
@@ -159,24 +161,28 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
           <select
             value={associationFilter}
             onChange={(e) => setAssociationFilter(e.target.value as any)}
-            className="rounded-md border border-ink-300 bg-white px-2.5 py-1 text-ink-700 font-medium"
+            className="w-auto radius-base border border-border-subtle bg-surface-card px-2.5 py-1 text-text-muted font-medium focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
           >
             <option value="todos">Vínculo: Todos</option>
             <option value="com_aparelho">Com Aparelho Associado</option>
             <option value="sem_aparelho">Sem Aparelho (Chip Livre / BYOD)</option>
           </select>
 
-          <div className="ml-auto text-[11px] text-ink-500 tabular-nums">
-            Exibindo <strong>{filteredLines.length}</strong> de <strong>{lines.length}</strong> linhas
+          <div className="ml-auto flex items-center gap-1 text-text-muted">
+            <span className="text-[11px]">Exibindo</span>
+            <span className="text-[11px] font-semibold text-text-primary tabular-nums">{filteredLines.length}</span>
+            <span className="text-[11px]">de</span>
+            <span className="text-[11px] font-semibold text-text-primary tabular-nums">{lines.length}</span>
+            <span className="text-[11px]">linhas</span>
           </div>
         </div>
       </div>
 
       {/* Main Table */}
-      <div className="bg-white rounded-xl border border-ink-200 shadow-xs overflow-hidden">
+      <div className="radius-lg border border-border-subtle bg-surface-card shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-ink-50 border-b border-ink-200 text-ink-600 uppercase font-semibold tracking-wider text-[11px]">
+          <table className="w-full text-left text-[11px] border-collapse">
+            <thead className="bg-surface-subtle border-b border-border-subtle text-text-muted uppercase font-semibold tracking-wider">
               <tr>
                 <th className="py-3 px-4">Número da Linha</th>
                 <th className="py-3 px-4">Operadora</th>
@@ -188,30 +194,30 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
                 <th className="py-3 px-4 text-right">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-ink-100">
+            <tbody className="divide-y divide-border-subtle">
               {filteredLines.map((line) => (
                 <tr 
                   key={line.id} 
-                  className="hover:bg-ink-50/80 transition-colors group cursor-pointer"
+                  className="hover:bg-surface-subtle transition-colors group cursor-pointer"
                   onClick={() => setDetailLine(line)}
                 >
                   {/* Phone */}
-                  <td className="py-3 px-4 font-mono font-bold text-ink-900 whitespace-nowrap">
+                  <td className="py-3 px-4 font-code font-bold text-text-primary whitespace-nowrap">
                     {formatPhone(line.phoneNumber)}
                   </td>
 
                   {/* Carrier */}
-                  <td className="py-3 px-4 font-semibold text-ink-800">
+                  <td className="py-3 px-4 font-semibold text-text-primary">
                     {line.carrier}
                   </td>
 
                   {/* Plan */}
-                  <td className="py-3 px-4 text-ink-700 max-w-[200px] truncate">
+                  <td className="py-3 px-4 text-text-muted max-w-[200px] truncate">
                     {line.planName || 'Não informado'}
                   </td>
 
                   {/* Cost */}
-                  <td className="py-3 px-4 font-mono text-ink-700 tabular-nums">
+                  <td className="py-3 px-4 font-code text-text-muted tabular-nums">
                     {formatCurrency(line.monthlyCost)}
                   </td>
 
@@ -223,11 +229,12 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
                   {/* Device */}
                   <td className="py-3 px-4">
                     {line.associatedDeviceTag ? (
-                      <span className="font-mono font-medium text-iane-700 bg-iane-50 px-2 py-0.5 rounded border border-iane-200">
+                      <Badge variant="info" size="sm" showDot className="text-[11px]">
+                        <PhoneCall className="w-2.5 h-2.5" />
                         {line.associatedDeviceTag}
-                      </span>
+                      </Badge>
                     ) : (
-                      <span className="text-ink-400 italic">Nenhum</span>
+                      <span className="text-text-muted italic font-body">Nenhum</span>
                     )}
                   </td>
 
@@ -235,13 +242,13 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
                   <td className="py-3 px-4">
                     {line.currentCollaboratorName ? (
                       <div>
-                        <span className="font-medium text-ink-900">{line.currentCollaboratorName}</span>
+                        <span className="font-medium text-text-primary">{line.currentCollaboratorName}</span>
                         {line.department && (
-                          <span className="block text-[11px] text-ink-400">{line.department}</span>
+                          <span className="block text-[11px] text-text-muted">{line.department}</span>
                         )}
                       </div>
                     ) : (
-                      <span className="text-ink-400 italic">Disponível em Estoque</span>
+                      <span className="text-text-muted italic font-body">Disponível em Estoque</span>
                     )}
                   </td>
 
@@ -250,7 +257,7 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
                     <button
                       title="Ver Detalhes"
                       onClick={() => setDetailLine(line)}
-                      className="p-1.5 text-ink-500 hover:text-iane-600 hover:bg-iane-50 rounded-md transition-colors"
+                      className="p-1.5 text-text-muted hover:text-brand-blue-action hover:bg-surface-subtle radius-base transition-colors"
                     >
                       <Eye className="w-3.5 h-3.5" />
                     </button>
@@ -259,7 +266,7 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
                       <button
                         title="Desassociar do aparelho"
                         onClick={() => handleDisassociate(line.id)}
-                        className="p-1.5 text-gold-700 hover:text-gold-700 hover:bg-sun-50 rounded-md transition-colors"
+                        className="p-1.5 text-status-warning-fg hover:bg-status-warning-bg radius-base transition-colors"
                       >
                         <Unlink className="w-3.5 h-3.5" />
                       </button>
@@ -267,7 +274,7 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
                       <button
                         title="Associar a um aparelho celular"
                         onClick={() => setAssociatingLine(line)}
-                        className="p-1.5 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded-md transition-colors"
+                        className="p-1.5 text-status-success-fg hover:bg-status-success-bg radius-base transition-colors"
                       >
                         <Link className="w-3.5 h-3.5" />
                       </button>
@@ -276,7 +283,7 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
                     <button
                       title="Editar"
                       onClick={() => onOpenLineModal(line)}
-                      className="p-1.5 text-ink-500 hover:text-ink-800 hover:bg-ink-100 rounded-md transition-colors"
+                      className="p-1.5 text-text-muted hover:text-text-primary hover:bg-surface-subtle radius-base transition-colors"
                     >
                       <Edit2 className="w-3.5 h-3.5" />
                     </button>
@@ -284,7 +291,7 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
                     <button
                       title="Excluir"
                       onClick={() => handleDelete(line.id, line.phoneNumber)}
-                      className="p-1.5 text-ink-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
+                      className="p-1.5 text-text-muted hover:text-status-danger-fg hover:bg-status-danger-bg radius-base transition-colors"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -295,10 +302,10 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
           </table>
 
           {filteredLines.length === 0 && (
-            <div className="p-10 text-center text-ink-500">
-              <PhoneCall className="w-10 h-10 text-ink-300 mx-auto mb-2" />
-              <p className="font-semibold text-ink-700">Nenhuma linha encontrada</p>
-              <p className="text-xs text-ink-500 mt-1">Ajuste os filtros de pesquisa para visualizar outros registros.</p>
+            <div className="p-10 text-center text-text-muted">
+              <PhoneCall className="w-10 h-10 text-border-strong mx-auto mb-2" />
+              <p className="font-semibold text-text-primary">Nenhuma linha encontrada</p>
+              <p className="text-[11px] text-text-muted mt-1">Ajuste os filtros de pesquisa para visualizar outros registros.</p>
             </div>
           )}
         </div>
@@ -307,24 +314,24 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
       {/* QUICK ASSOCIATION MODAL */}
       {associatingLine && (
         <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
-          <div className="fixed inset-0 bg-ink-900/60 backdrop-blur-xs" onClick={() => setAssociatingLine(null)} />
+          <div className="fixed inset-0 bg-brand-navy-dark/45 backdrop-blur-sm" onClick={() => setAssociatingLine(null)} />
           <div className="flex min-h-full items-center justify-center p-4">
-            <div className="relative bg-white rounded-xl shadow-xl border border-ink-200 w-full max-w-md p-6 space-y-4">
-              <h3 className="text-sm font-bold text-ink-900">
+            <div className="relative bg-surface-card radius-lg border border-border-subtle shadow-lg w-full max-w-md p-5 space-y-4">
+              <h3 className="text-sm font-semibold text-text-primary">
                 Associar Linha {associatingLine.phoneNumber} a um Aparelho
               </h3>
-              <p className="text-xs text-ink-600">
+              <p className="text-[11px] text-text-muted">
                 Selecione o aparelho celular corporativo no qual o chip SIM desta linha será instalado:
               </p>
 
               <div>
-                <label className="block text-xs font-semibold text-ink-700 mb-1">
+                <label className="block text-[11px] font-medium text-text-muted mb-1.5">
                   Aparelho Alvo *
                 </label>
                 <select
                   value={selectedDeviceId}
                   onChange={(e) => setSelectedDeviceId(e.target.value)}
-                  className="w-full text-xs rounded-lg border border-ink-300 bg-white px-3 py-2 text-ink-800"
+                  className="w-full h-10 text-xs radius-base border border-border-subtle bg-surface-card px-3 py-2 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
                 >
                   <option value="">-- Selecione o aparelho --</option>
                   {availableDevices.map((d) => (
@@ -335,20 +342,13 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
                 </select>
               </div>
 
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  onClick={() => setAssociatingLine(null)}
-                  className="px-4 py-2 text-xs font-medium text-ink-700 bg-ink-100 hover:bg-ink-200 rounded-lg"
-                >
+              <div className="flex justify-end gap-2 pt-2 border-t border-border-subtle">
+                <Button variant="ghost" size="sm" onClick={() => setAssociatingLine(null)}>
                   Cancelar
-                </button>
-                <button
-                  disabled={!selectedDeviceId}
-                  onClick={handleConfirmAssociate}
-                  className="px-4 py-2 text-xs font-semibold text-white bg-iane-600 hover:bg-iane-700 rounded-lg disabled:opacity-50"
-                >
+                </Button>
+                <Button variant="primary" size="sm" disabled={!selectedDeviceId} onClick={handleConfirmAssociate}>
                   Confirmar Associação
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -358,76 +358,73 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
       {/* LINE DETAIL MODAL */}
       {detailLine && (
         <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
-          <div className="fixed inset-0 bg-ink-900/60 backdrop-blur-xs" onClick={() => setDetailLine(null)} />
+          <div className="fixed inset-0 bg-brand-navy-dark/45 backdrop-blur-sm" onClick={() => setDetailLine(null)} />
           <div className="flex min-h-full items-center justify-center p-4">
-            <div className="relative bg-white rounded-xl shadow-2xl border border-ink-200 w-full max-w-2xl overflow-hidden p-6 space-y-4">
-              <div className="flex items-center justify-between border-b border-ink-200 pb-3">
+            <div className="relative bg-surface-card radius-lg border border-border-subtle shadow-lg w-full max-w-2xl overflow-hidden p-5 space-y-4">
+              <div className="flex items-center justify-between border-b border-border-subtle pb-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-iane-600 text-white flex items-center justify-center">
+                  <div className="w-10 h-10 radius-base bg-brand-blue-action text-white flex items-center justify-center">
                     <PhoneCall className="w-5 h-5" />
                   </div>
                   <div>
-                    <h2 className="text-base font-bold text-ink-900 font-mono">
+                    <h2 className="text-sm font-semibold text-text-primary font-code">
                       {detailLine.phoneNumber}
                     </h2>
-                    <p className="text-xs text-ink-500">
+                    <p className="text-[11px] text-text-muted">
                       Operadora {detailLine.carrier}{detailLine.planName ? ` · ${detailLine.planName}` : ''}
                     </p>
                   </div>
                 </div>
                 <button
                   onClick={() => setDetailLine(null)}
-                  className="text-ink-400 hover:text-ink-600 p-1"
+                  className="text-text-muted hover:text-text-primary p-1.5 radius-base hover:bg-surface-subtle transition-colors"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 bg-ink-50 rounded-lg text-xs">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 bg-surface-subtle radius-base text-[11px]">
                 <div>
-                  <span className="text-ink-400 text-[11px] block">Status da Linha</span>
+                  <span className="text-text-muted block">Status da Linha</span>
                   <StatusBadge status={detailLine.status} type="line" />
                 </div>
                 <div>
-                  <span className="text-ink-400 text-[11px] block">Custo Mensal</span>
-                  <span className="font-mono font-bold text-ink-900">{formatCurrency(detailLine.monthlyCost)}</span>
+                  <span className="text-text-muted block">Custo Mensal</span>
+                  <span className="font-code font-bold text-text-primary">{formatCurrency(detailLine.monthlyCost)}</span>
                 </div>
                 <div>
-                  <span className="text-ink-400 text-[11px] block">Data de Ativação</span>
-                  <span className="text-ink-900">{formatDate(detailLine.activationDate)}</span>
+                  <span className="text-text-muted block">Data de Ativação</span>
+                  <span className="text-text-primary">{formatDate(detailLine.activationDate)}</span>
                 </div>
                 <div>
-                  <span className="text-ink-400 text-[11px] block">ICCID (Chip)</span>
-                  <span className="font-mono text-ink-900">{detailLine.iccid || 'Não registrado'}</span>
+                  <span className="text-text-muted block">ICCID (Chip)</span>
+                  <span className="font-code text-text-primary">{detailLine.iccid || 'Não registrado'}</span>
                 </div>
                 <div>
-                  <span className="text-ink-400 text-[11px] block">Aparelho Associado</span>
-                  <span className="font-semibold text-ink-900">{detailLine.associatedDeviceTag || 'Nenhum'}</span>
+                  <span className="text-text-muted block">Aparelho Associado</span>
+                  <span className="font-semibold text-text-primary">{detailLine.associatedDeviceTag || 'Nenhum'}</span>
                 </div>
                 <div>
-                  <span className="text-ink-400 text-[11px] block">Responsável Atual</span>
-                  <span className="font-semibold text-ink-900">{detailLine.currentCollaboratorName || 'Sem responsável'}</span>
+                  <span className="text-text-muted block">Responsável Atual</span>
+                  <span className="font-semibold text-text-primary">{detailLine.currentCollaboratorName || 'Sem responsável'}</span>
                 </div>
                 <div>
-                  <span className="text-ink-400 text-[11px] block">Unidade</span>
-                  <span className="font-semibold text-ink-900">{detailLine.unit || 'Não informada'}</span>
+                  <span className="text-text-muted block">Unidade</span>
+                  <span className="font-semibold text-text-primary">{detailLine.unit || 'Não informada'}</span>
                 </div>
               </div>
 
               {detailLine.notes && (
-                <div className="text-xs p-3 bg-ink-100 rounded text-ink-700">
+                <div className="text-[11px] p-3 radius-base bg-surface-subtle text-text-muted">
                   <span className="font-semibold block mb-0.5">Observações:</span>
                   {detailLine.notes}
                 </div>
               )}
 
-              <div className="flex justify-end pt-2">
-                <button
-                  onClick={() => setDetailLine(null)}
-                  className="px-4 py-1.5 text-xs font-semibold text-ink-700 bg-ink-100 hover:bg-ink-200 rounded-lg"
-                >
+              <div className="flex justify-end pt-2 border-t border-border-subtle">
+                <Button variant="ghost" size="sm" onClick={() => setDetailLine(null)}>
                   Fechar
-                </button>
+                </Button>
               </div>
             </div>
           </div>

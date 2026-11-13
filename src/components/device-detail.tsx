@@ -1,11 +1,10 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { twMerge } from 'tailwind-merge'
 import type { ComponentProps } from 'react'
-import { ExternalLink, Loader2 } from 'lucide-react'
+import { ExternalLink, Eye, Loader2 } from 'lucide-react'
 import { DeviceDetailHeader } from './device-detail-header'
 import { DeviceTabs } from './device-tabs'
 import { DeviceTimeline } from './device-timeline'
-import { DeviceDetailFooter } from './device-detail-footer'
 import { DeviceGeneralInfo } from './device-general-info'
 import { QrCode } from './QrCode'
 import { Button } from './button'
@@ -35,7 +34,6 @@ export interface DeviceDetailProps extends ComponentProps<'div'> {
 		observations: string | null
 		purchaseDate?: string
 		purchaseValue?: number
-		createdAt?: string
 	}
 	history: Movement[]
 	terms: DocumentTerm[]
@@ -54,7 +52,7 @@ function DeviceTerms({
 }) {
 	if (terms.length === 0) {
 		return (
-			<p className="rounded-lg border border-dashed border-ink-200 px-4 py-8 text-center text-xs text-ink-500">
+			<p className="radius-base border border-dashed border-border-subtle px-4 py-8 text-center text-xs text-text-muted">
 				Nenhum termo vinculado a este aparelho.
 			</p>
 		)
@@ -65,17 +63,17 @@ function DeviceTerms({
 			{terms.map((term) => (
 				<li
 					key={term.id}
-					className="flex flex-col gap-3 rounded-lg border border-ink-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between"
+					className="flex flex-col gap-3 radius-base border border-border-subtle bg-surface-card p-3 sm:flex-row sm:items-center sm:justify-between"
 				>
 					<div className="min-w-0">
 						<div className="flex flex-wrap items-center gap-2">
-							<span className="font-mono text-xs font-bold text-ink-900">{term.code}</span>
+							<span className="font-code text-xs font-semibold text-text-primary">{term.code}</span>
 							<StatusBadge status={term.status} type="term" size="sm" />
 						</div>
-						<p className="mt-1 text-xs text-ink-600">
+						<p className="mt-1 text-xs text-text-muted">
 							{term.type} &middot; {formatDate(term.date)}
 						</p>
-						<p className="truncate text-[11px] text-ink-500" title={term.title}>
+						<p className="truncate text-[11px] text-text-muted" title={term.title}>
 							{term.title}
 						</p>
 					</div>
@@ -84,9 +82,11 @@ function DeviceTerms({
 							variant="secondary"
 							size="md"
 							onClick={() => onViewTerm(term)}
+							aria-label={`Abrir termo ${term.code}`}
+							title="Abrir termo"
 							className="w-full shrink-0 sm:w-auto"
 						>
-							Abrir termo
+							<Eye className="h-4 w-4" aria-hidden="true" />
 						</Button>
 					)}
 				</li>
@@ -97,43 +97,39 @@ function DeviceTerms({
 
 function DeviceLabel({
 	tag,
-	deviceId,
 	qrUrl,
 	qrLoading,
 }: {
 	tag: string
-	deviceId: string
 	qrUrl: string | null
 	qrLoading?: boolean
 }) {
-	const fallbackUrl =
-		typeof window === 'undefined'
-			? ''
-			: `${window.location.origin}/report/device/${encodeURIComponent(deviceId)}`
-	const value = qrUrl || fallbackUrl
-
 	return (
-		<div className="rounded-lg border border-ink-200 bg-ink-50/60 p-4">
-			<p className="text-[10px] font-semibold uppercase tracking-wider text-ink-500">Etiqueta QR</p>
-			<p className="mt-1 text-xs text-ink-600">
+		<div className="radius-lg border border-border-subtle bg-surface-subtle p-4">
+			<p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Etiqueta QR</p>
+			<p className="mt-1 text-xs text-text-muted">
 				Aponte a câmera para abrir o relatório público do aparelho, sem necessidade de login.
 			</p>
 
 			{qrLoading ? (
-				<div className="mt-4 flex items-center justify-center gap-2 py-8 text-xs text-ink-500">
+				<div className="mt-4 flex items-center justify-center gap-2 py-8 text-xs text-text-muted">
 					<Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
 					Carregando etiqueta…
 				</div>
+			) : !qrUrl ? (
+				<p className="mt-4 radius-base border border-dashed border-border-subtle px-4 py-8 text-center text-xs text-text-muted">
+					Não foi possível gerar o link seguro da etiqueta. Reabra o aparelho para tentar novamente.
+				</p>
 			) : (
 				<div className="mt-4 flex flex-col items-center gap-4 sm:flex-row sm:items-start">
-					<QrCode value={value} size={140} alt={`QR Code do aparelho ${tag}`} />
+					<QrCode value={qrUrl} size={140} alt={`QR Code do aparelho ${tag}`} />
 					<div className="min-w-0 space-y-2 text-center sm:text-left">
-						<p className="break-all font-mono text-[11px] leading-relaxed text-ink-600">{value}</p>
+						<p className="break-all font-code text-[11px] leading-relaxed text-text-muted">{qrUrl}</p>
 						<a
-							href={value}
+							href={qrUrl}
 							target="_blank"
 							rel="noreferrer"
-							className="inline-flex items-center gap-1.5 text-xs font-semibold text-iane-700 hover:text-iane-800 hover:underline"
+							className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-blue-action hover:underline"
 						>
 							Abrir relatório
 							<ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
@@ -156,12 +152,12 @@ export function DeviceDetail({
 	className,
 	...props
 }: DeviceDetailProps) {
-	const [activeTab, setActiveTab] = useState<DetailTabId>('historico')
+	const [activeTab, setActiveTab] = useState<DetailTabId>('geral')
 	const dialogRef = useRef<HTMLDivElement>(null)
 	const titleId = useId()
 
 	useEffect(() => {
-		setActiveTab('historico')
+		setActiveTab('geral')
 	}, [device.id])
 
 	useEffect(() => {
@@ -183,8 +179,8 @@ export function DeviceDetail({
 	}, [onClose])
 
 	const tabs = [
-		{ id: 'historico', label: 'Histórico', count: history.length },
 		{ id: 'geral', label: 'Informações gerais' },
+		{ id: 'historico', label: 'Histórico', count: history.length },
 		{ id: 'termos', label: 'Termos', count: terms.length },
 		{ id: 'etiqueta', label: 'Etiqueta' },
 	]
@@ -200,7 +196,7 @@ export function DeviceDetail({
 		>
 			<div
 				data-slot="device-detail-backdrop"
-				className="absolute inset-0 bg-ink-900/60 backdrop-blur-xs"
+				className="absolute inset-0 bg-[#0F1238]/45 backdrop-blur-sm"
 				onClick={onClose}
 				aria-hidden="true"
 			/>
@@ -209,7 +205,7 @@ export function DeviceDetail({
 				ref={dialogRef}
 				data-slot="device-detail-popup"
 				className={twMerge(
-					'relative flex max-h-[calc(100dvh-1.5rem)] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-ink-200 bg-white text-left shadow-2xl sm:max-h-[calc(100dvh-2rem)]',
+					'relative flex max-h-[calc(100dvh-1.5rem)] w-full max-w-4xl flex-col overflow-hidden radius-lg border border-border-subtle bg-surface-card shadow-lg sm:max-h-[calc(100dvh-2rem)]',
 					className
 				)}
 			>
@@ -230,10 +226,8 @@ export function DeviceDetail({
 					id={`device-tabpanel-${activeTab}`}
 					aria-labelledby={`device-tab-${activeTab}`}
 					tabIndex={0}
-					className="flex-1 overflow-y-auto px-4 py-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:px-6"
+					className="flex-1 overflow-y-auto px-4 py-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-navy-base sm:px-6"
 				>
-					{activeTab === 'historico' && <DeviceTimeline events={history} />}
-
 					{activeTab === 'geral' && (
 						<DeviceGeneralInfo
 							brand={device.brand}
@@ -254,19 +248,14 @@ export function DeviceDetail({
 						/>
 					)}
 
+					{activeTab === 'historico' && <DeviceTimeline events={history} />}
+
 					{activeTab === 'termos' && <DeviceTerms terms={terms} onViewTerm={onViewTerm} />}
 
 					{activeTab === 'etiqueta' && (
-						<DeviceLabel
-							tag={device.tag}
-							deviceId={device.id}
-							qrUrl={qrUrl}
-							qrLoading={qrLoading}
-						/>
+						<DeviceLabel tag={device.tag} qrUrl={qrUrl} qrLoading={qrLoading} />
 					)}
 				</div>
-
-				<DeviceDetailFooter createdAt={device.createdAt ?? null} onClose={onClose} />
 			</div>
 		</div>
 	)

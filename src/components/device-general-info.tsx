@@ -33,12 +33,12 @@ function InfoItem({
 	className?: string
 }) {
 	return (
-		<div className={twMerge('rounded-lg border border-ink-200 bg-ink-50/60 p-3', className)}>
-			<dt className="text-[10px] font-medium uppercase tracking-wider text-ink-500">{label}</dt>
+		<div className={twMerge('radius-base border border-border-subtle bg-surface-subtle p-3', className)}>
+			<dt className="text-[10px] font-medium uppercase tracking-wider text-text-muted">{label}</dt>
 			<dd
 				className={twMerge(
-					'mt-1 break-words text-xs text-ink-900',
-					mono && 'font-mono tabular-nums'
+					'mt-1 break-words text-xs text-text-primary',
+					mono && 'font-code tabular-nums'
 				)}
 			>
 				{children}
@@ -67,7 +67,11 @@ export function DeviceGeneralInfo({
 	...props
 }: DeviceGeneralInfoProps) {
 	return (
-		<div data-slot="device-general-info" className={twMerge('space-y-4', className)} {...props}>
+		<div
+			data-slot="device-general-info"
+			className={twMerge('space-y-4', className)}
+			{...props}
+		>
 			<dl className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
 				<InfoItem label="Marca">{brand || '—'}</InfoItem>
 				<InfoItem label="Modelo">{model || '—'}</InfoItem>
@@ -93,10 +97,10 @@ export function DeviceGeneralInfo({
 
 				<InfoItem label="Unidade">{unit || 'Não informado'}</InfoItem>
 				<InfoItem label="Linha telefônica" mono>
-					{line || <span className="font-sans italic text-ink-500">Sem linha associada</span>}
+					{line || <span className="font-body italic text-text-muted">Sem linha associada</span>}
 				</InfoItem>
 				<InfoItem label="Responsável">
-					{responsible || <span className="italic text-ink-500">Estoque do Gestor de Telefonia</span>}
+					{responsible || <span className="font-body italic text-text-muted">Estoque do Gestor de Telefonia</span>}
 				</InfoItem>
 
 				<InfoItem label="Data de compra" mono>
@@ -108,7 +112,7 @@ export function DeviceGeneralInfo({
 
 				<InfoItem label="Observações" className="sm:col-span-2 lg:col-span-3">
 					<p className="whitespace-pre-wrap leading-relaxed">
-						{observations || <span className="italic text-ink-500">Nenhuma observação registrada.</span>}
+						{observations || <span className="font-body italic text-text-muted">Nenhuma observação registrada.</span>}
 					</p>
 				</InfoItem>
 			</dl>

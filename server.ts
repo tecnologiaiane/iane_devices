@@ -6,7 +6,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { randomBytes } from 'crypto';
+import { randomBytes, createCipheriv, createDecipheriv, createHash } from 'crypto';
 import pg from 'pg';
 import dotenv from 'dotenv';
 import bcrypt from 'bcryptjs';
@@ -2415,17 +2415,51 @@ app.delete('/api/devices/:id', requirePermission('dispositivos_edit'), async (re
 // QR Code / Relatório Web de Dispositivo (etiqueta para impressão)
 // ----------------------------------------------------------------------------
 
+// Links públicos do QR Code não expõem o id/tag real do aparelho: o id é cifrado
+// com AES-256-GCM. Em produção, defina REPORT_TOKEN_SECRET para manter as etiquetas
+// válidas mesmo após a rotação do JWT_SECRET.
+const REPORT_TOKEN_KEY = createHash('sha256')
+  .update(`report-link:${process.env.REPORT_TOKEN_SECRET || EFFECTIVE_JWT_SECRET}`)
+  .digest();
+
+function encryptReportId(id: string): string {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv('aes-256-gcm', REPORT_TOKEN_KEY, iv);
+  const encrypted = Buffer.concat([cipher.update(id, 'utf8'), cipher.final()]);
+  return Buffer.concat([iv, cipher.getAuthTag(), encrypted]).toString('base64url');
+}
+
+function decryptReportId(token: string): string | null {
+  try {
+    const raw = Buffer.from(token, 'base64url');
+    if (raw.length <= 28) return null;
+    const decipher = createDecipheriv('aes-256-gcm', REPORT_TOKEN_KEY, raw.subarray(0, 12));
+    decipher.setAuthTag(raw.subarray(12, 28));
+    return Buffer.concat([decipher.update(raw.subarray(28)), decipher.final()]).toString('utf8');
+  } catch {
+    return null;
+  }
+}
+
 // Retorna a URL do relatório público do dispositivo para geração do QR Code.
 app.get('/api/devices/:id/qr-url', requireReadAccess, route(async (req, res) => {
   const { id } = req.params;
   const baseUrl = (process.env.APP_BASE_URL || 'http://app.telefonia.local').replace(/\/$/, '');
-  const reportUrl = `${baseUrl}/report/device/${encodeURIComponent(id)}`;
+  const reportUrl = `${baseUrl}/report/d/${encryptReportId(id)}`;
   res.json({ success: true, data: { reportUrl, qrUrl: reportUrl } });
 }));
 
 // Página pública de relatório do dispositivo (acessível via QR Code, sem login).
-app.get('/report/device/:id', async (req, res) => {
-  const { id } = req.params;
+// A rota antiga (/report/device/:id) é mantida para etiquetas já impressas.
+app.get(['/report/device/:id', '/report/d/:token'], async (req, res) => {
+  const legacyId = req.params.id;
+  const id = legacyId || decryptReportId(req.params.token || '');
+
+  if (!id) {
+    res.status(404).send('<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Dispositivo não encontrado</title></head><body style="font-family:sans-serif;padding:2rem;color:#374151"><h1>Dispositivo não encontrado</h1><p>O código escaneado não corresponde a nenhum aparelho cadastrado no GELIN.</p></body></html>');
+    return;
+  }
+
   let device: any = null;
 
   if (pool && isDbConnected) {
