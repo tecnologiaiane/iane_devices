@@ -107,9 +107,6 @@ function DeviceLabel({
 	return (
 		<div className="radius-lg border border-border-subtle bg-surface-subtle p-4">
 			<p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Etiqueta QR</p>
-			<p className="mt-1 text-xs text-text-muted">
-				Aponte a câmera para abrir o relatório público do aparelho, sem necessidade de login.
-			</p>
 
 			{qrLoading ? (
 				<div className="mt-4 flex items-center justify-center gap-2 py-8 text-xs text-text-muted">

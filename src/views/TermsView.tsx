@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { DocumentTerm, TermType, TermStatus } from '../types';
 import { dataService } from '../services/dataStorage';
 import { formatDate } from '../utils/formatters';
@@ -26,6 +26,8 @@ import {
   CheckCircle2,
   X,
   Loader2,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 interface TermsViewProps {
@@ -38,6 +40,13 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm, onPrintTerm })
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('todos');
   const [typeFilter, setTypeFilter] = useState<string>('todos');
+
+  const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
+  const filterMenuRef = useRef<HTMLDivElement>(null);
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const pageSizes = [10, 25, 50, 100];
   const [isManualTermModalOpen, setIsManualTermModalOpen] = useState(false);
   const [manualTerm, setManualTerm] = useState<Partial<DocumentTerm>>({
     type: 'Termo de Entrega',
@@ -58,6 +67,25 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm, onPrintTerm })
   const refreshData = () => {
     setTerms(dataService.getTerms());
   };
+
+  // Fecha o dropdown de filtros ao clicar fora ou pressionar Esc
+  useEffect(() => {
+    if (!isFilterMenuOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (filterMenuRef.current && !filterMenuRef.current.contains(event.target as Node)) {
+        setIsFilterMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsFilterMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isFilterMenuOpen]);
 
   const handleSelectDevice = (deviceId: string) => {
     const device = devices.find((d) => d.id === deviceId);
@@ -233,6 +261,9 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm, onPrintTerm })
     return true;
   });
 
+  const totalPages = Math.ceil(filteredTerms.length / pageSize) || 1;
+  const paginatedTerms = filteredTerms.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
   const pendingCount = terms.filter(t => t.status === 'Pendente de Assinatura').length;
   const signedCount = terms.filter(t => t.status === 'Assinado').length;
 
@@ -286,49 +317,101 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm, onPrintTerm })
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border-subtle text-xs">
-          <span className="text-text-muted font-medium flex items-center gap-1 mr-1">
+        <div
+          ref={filterMenuRef}
+          className="relative"
+        >
+          <button
+            type="button"
+            onClick={() => setIsFilterMenuOpen((open) => !open)}
+            aria-expanded={isFilterMenuOpen}
+            aria-haspopup="menu"
+            className="inline-flex items-center gap-2 radius-lg border border-border-subtle bg-surface-card px-2.5 py-1 text-text-muted font-medium focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+          >
             <Filter className="w-3 h-3 text-text-muted" />
-            Filtros:
-          </span>
+            <span>Filtros</span>
+            {(
+              statusFilter !== 'todos' ||
+              typeFilter !== 'todos'
+            ) && (
+              <Badge variant="info" size="sm" className="text-[10px]">
+                ativos
+              </Badge>
+            )}
+          </button>
 
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-auto radius-base border border-border-subtle bg-surface-card px-2.5 py-1 text-text-muted font-medium focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
-          >
-            <option value="todos">Status: Todos</option>
-            <option value="Assinado">Assinado</option>
-            <option value="Pendente de Assinatura">Pendente de Assinatura</option>
-            <option value="Arquivado">Arquivado</option>
-          </select>
+          {isFilterMenuOpen && (
+            <div
+              className="absolute z-40 mt-1 w-72 overflow-hidden radius-lg border border-border-subtle bg-surface-card shadow-lg py-2"
+            >
+              <div className="px-3 py-2 space-y-3 border-b border-border-subtle pb-2">
+                <div>
+                  <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-1">Status</label>
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="w-full h-9 text-xs radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                  >
+                    <option value="todos">Todos</option>
+                    <option value="Assinado">Assinado</option>
+                    <option value="Pendente de Assinatura">Pendente de Assinatura</option>
+                    <option value="Arquivado">Arquivado</option>
+                  </select>
+                </div>
 
-          <select
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
-            className="w-auto radius-base border border-border-subtle bg-surface-card px-2.5 py-1 text-text-muted font-medium focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
-          >
-            <option value="todos">Tipo de documento: Todos</option>
-            <option value="Termo de Entrega">Termo de Entrega</option>
-            <option value="Termo de Devolução">Termo de Devolução</option>
-            <option value="Termo de Transferência">Termo de Transferência</option>
-          </select>
+                <div>
+                  <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-1">Tipo de documento</label>
+                  <select
+                    value={typeFilter}
+                    onChange={(e) => setTypeFilter(e.target.value)}
+                    className="w-full h-9 text-xs radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                  >
+                    <option value="todos">Todos</option>
+                    <option value="Termo de Entrega">Termo de Entrega</option>
+                    <option value="Termo de Devolução">Termo de Devolução</option>
+                    <option value="Termo de Transferência">Termo de Transferência</option>
+                  </select>
+                </div>
+              </div>
 
-          {(statusFilter !== 'todos' || typeFilter !== 'todos') && (
-            <Button variant="ghost" size="sm" onClick={() => {
-              setStatusFilter('todos');
-              setTypeFilter('todos');
-            }}>
-              Limpar filtros
-            </Button>
+              <div className="px-3 py-2 flex justify-end gap-2">
+                <Button variant="ghost" size="sm" onClick={() => setIsFilterMenuOpen(false)}>Fechar</Button>
+                {(statusFilter !== 'todos' || typeFilter !== 'todos') && (
+                  <Button variant="ghost" size="sm" onClick={() => {
+                    setStatusFilter('todos');
+                    setTypeFilter('todos');
+                  }}>
+                    Limpar filtros
+                  </Button>
+                )}
+              </div>
+            </div>
           )}
+        </div>
 
-          <div className="ml-auto flex items-center gap-1 text-text-muted">
+        <div className="flex items-center justify-between w-full pt-2 border-t border-border-subtle text-xs">
+          <div className="flex items-center gap-1 text-text-muted">
             <span className="text-[11px]">Exibindo</span>
-            <span className="text-[11px] font-semibold text-text-primary tabular-nums">{filteredTerms.length}</span>
+            <span className="text-[11px] font-semibold text-text-primary tabular-nums">{Math.min(currentPage * pageSize, filteredTerms.length)}</span>
             <span className="text-[11px]">de</span>
-            <span className="text-[11px] font-semibold text-text-primary tabular-nums">{terms.length}</span>
+            <span className="text-[11px] font-semibold text-text-primary tabular-nums">{filteredTerms.length}</span>
             <span className="text-[11px]">documentos</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label className="text-[11px] text-text-muted">Por página:</label>
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="w-auto h-9 text-[11px] radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary font-medium focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+            >
+              {pageSizes.map((size) => (
+                <option key={size} value={size}>{size}</option>
+              ))}
+            </select>
           </div>
         </div>
       </div>
@@ -349,7 +432,7 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm, onPrintTerm })
               </tr>
             </thead>
             <tbody className="divide-y divide-border-subtle">
-              {filteredTerms.map((term) => (
+              {paginatedTerms.map((term) => (
                 <tr
                   key={term.id}
                   className="hover:bg-surface-subtle transition-colors group cursor-pointer"
@@ -429,6 +512,36 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm, onPrintTerm })
           )}
         </div>
       </div>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between gap-3 px-4 py-3">
+          <div className="flex items-center gap-2 text-[11px] text-text-muted">
+            <span>Página {currentPage} de {totalPages}</span>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="flex items-center gap-1"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="flex items-center gap-1"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Modal para anexar um termo já existente em PDF */}
       <Modal

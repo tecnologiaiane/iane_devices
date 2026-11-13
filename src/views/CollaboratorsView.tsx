@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Collaborator, Device, PhoneLine, Movement, DocumentTerm } from '../types';
 import { dataService } from '../services/dataStorage';
 import { formatDate } from '../utils/formatters';
 import { StatusBadge } from '../components/StatusBadge';
 import { Button } from '../components/button';
+import { Badge } from '../components/badge';
 import {
   Users,
   Search,
@@ -20,6 +21,8 @@ import {
   FileText,
   X,
   History,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 interface CollaboratorsViewProps {
@@ -38,7 +41,13 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
   const [departmentFilter, setDepartmentFilter] = useState('todos');
   const [statusFilter, setStatusFilter] = useState('todos');
 
-  // Detail view
+  const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
+  const filterMenuRef = useRef<HTMLDivElement>(null);
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const pageSizes = [10, 25, 50, 100];
+
   const [detailCollab, setDetailCollab] = useState<Collaborator | null>(null);
 
   const refreshData = () => {
@@ -67,7 +76,9 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
 
   const uniqueDepartments = Array.from(new Set(collaborators.map(c => c.department)));
 
-  // Assets held by selected collaborator
+  const totalPages = Math.ceil(filteredCollabs.length / pageSize) || 1;
+  const paginatedCollabs = filteredCollabs.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
   const collabDevices = detailCollab
     ? dataService.getDevices().filter(d => d.currentCollaboratorId === detailCollab.id)
     : [];
@@ -86,7 +97,6 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
 
   return (
     <div className="space-y-5">
-      {/* Search and Filters */}
       <div className="radius-lg border border-border-subtle bg-surface-card shadow-sm p-4 space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="relative flex-1 max-w-md">
@@ -100,53 +110,114 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
             />
           </div>
 
-          <Button variant="primary" size="sm" onClick={() => onOpenCollaboratorModal()} className="flex items-center gap-1.5 shrink-0">
-            <Plus className="w-3.5 h-3.5" />
-            <span>Novo Colaborador</span>
-          </Button>
+          <div
+            ref={filterMenuRef}
+            className="relative"
+          >
+            <button
+              type="button"
+              onClick={() => setIsFilterMenuOpen((open) => !open)}
+              aria-expanded={isFilterMenuOpen}
+              aria-haspopup="menu"
+              className="inline-flex items-center gap-2 radius-lg border border-border-subtle bg-surface-card px-2.5 py-1 text-text-muted font-medium focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+            >
+              <Filter className="w-3 h-3 text-text-muted" />
+              <span>Filtros</span>
+              {(
+                departmentFilter !== 'todos' ||
+                statusFilter !== 'todos'
+              ) && (
+                <Badge variant="info" size="sm" className="text-[10px]">
+                  ativos
+                </Badge>
+              )}
+            </button>
+
+            {isFilterMenuOpen && (
+              <div
+                className="absolute z-40 mt-1 w-72 overflow-hidden radius-lg border border-border-subtle bg-surface-card shadow-lg py-2"
+              >
+                <div className="px-3 py-2 space-y-3 border-b border-border-subtle pb-2">
+                  <div>
+                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-1">Departamento</label>
+                    <select
+                      value={departmentFilter}
+                      onChange={(e) => setDepartmentFilter(e.target.value)}
+                      className="w-full h-9 text-xs radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                    >
+                      <option value="todos">Todos</option>
+                      {uniqueDepartments.map((dept) => (
+                        <option key={dept} value={dept}>{dept}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-1">Status</label>
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                      className="w-full h-9 text-xs radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                    >
+                      <option value="todos">Todos</option>
+                      <option value="Ativo">Ativo</option>
+                      <option value="Férias">Férias</option>
+                      <option value="Afastado">Afastado</option>
+                      <option value="Desligado">Desligado</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="px-3 py-2 flex justify-end gap-2">
+                  <Button variant="ghost" size="sm" onClick={() => setIsFilterMenuOpen(false)}>Fechar</Button>
+                  {(departmentFilter !== 'todos' || statusFilter !== 'todos') && (
+                    <Button variant="ghost" size="sm" onClick={() => {
+                      setDepartmentFilter('todos');
+                      setStatusFilter('todos');
+                    }}>
+                      Limpar filtros
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button variant="primary" size="sm" onClick={() => onOpenCollaboratorModal()} className="flex items-center gap-1.5 shrink-0">
+              <Plus className="w-3.5 h-3.5" />
+              <span>Novo Colaborador</span>
+            </Button>
+          </div>
         </div>
 
-        {/* Filter chips */}
-        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border-subtle text-xs">
-          <span className="text-text-muted font-medium flex items-center gap-1 mr-1">
-            <Filter className="w-3 h-3 text-text-muted" />
-            Filtros:
-          </span>
-
-          <select
-            value={departmentFilter}
-            onChange={(e) => setDepartmentFilter(e.target.value)}
-            className="w-auto radius-base border border-border-subtle bg-surface-card px-2.5 py-1 text-text-muted font-medium focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
-          >
-            <option value="todos">Departamento: Todos</option>
-            {uniqueDepartments.map((dept) => (
-              <option key={dept} value={dept}>{dept}</option>
-            ))}
-          </select>
-
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-auto radius-base border border-border-subtle bg-surface-card px-2.5 py-1 text-text-muted font-medium focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
-          >
-            <option value="todos">Status: Todos</option>
-            <option value="Ativo">Ativo</option>
-            <option value="Férias">Férias</option>
-            <option value="Afastado">Afastado</option>
-            <option value="Desligado">Desligado</option>
-          </select>
-
-          <div className="ml-auto flex items-center gap-1 text-text-muted">
+        <div className="flex items-center justify-between w-full pt-2 border-t border-border-subtle text-xs">
+          <div className="flex items-center gap-1 text-text-muted">
             <span className="text-[11px]">Exibindo</span>
-            <span className="text-[11px] font-semibold text-text-primary tabular-nums">{filteredCollabs.length}</span>
+            <span className="text-[11px] font-semibold text-text-primary tabular-nums">{Math.min(currentPage * pageSize, filteredCollabs.length)}</span>
             <span className="text-[11px]">de</span>
-            <span className="text-[11px] font-semibold text-text-primary tabular-nums">{collaborators.length}</span>
+            <span className="text-[11px] font-semibold text-text-primary tabular-nums">{filteredCollabs.length}</span>
             <span className="text-[11px]">colaboradores</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label className="text-[11px] text-text-muted">Por página:</label>
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="w-auto h-9 text-[11px] radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary font-medium focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+            >
+              {pageSizes.map((size) => (
+                <option key={size} value={size}>{size}</option>
+              ))}
+            </select>
           </div>
         </div>
       </div>
 
-      {/* Main Table */}
       <div className="radius-lg border border-border-subtle bg-surface-card shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-[11px] border-collapse">
@@ -163,7 +234,7 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-border-subtle">
-              {filteredCollabs.map((collab) => {
+              {paginatedCollabs.map((collab) => {
                 const heldDevices = dataService.getDevices().filter(d => d.currentCollaboratorId === collab.id);
                 const heldLines = dataService.getLines().filter(l => l.currentCollaboratorId === collab.id);
 
@@ -245,7 +316,36 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
         </div>
       </div>
 
-      {/* COLLABORATOR DETAIL MODAL */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between gap-3 px-4 py-3">
+          <div className="flex items-center gap-2 text-[11px] text-text-muted">
+            <span>Página {currentPage} de {totalPages}</span>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="flex items-center gap-1"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="flex items-center gap-1"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+        </div>
+      )}
+
       {detailCollab && (
         <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
           <div className="fixed inset-0 bg-brand-navy-dark/45 backdrop-blur-sm" onClick={() => setDetailCollab(null)} />

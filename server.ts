@@ -2520,7 +2520,7 @@ app.get(['/report/device/:id', '/report/d/:token'], async (req, res) => {
   .card { max-width: 720px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
   .header { display: flex; align-items: center; gap: 16px; margin-bottom: 28px; padding-bottom: 20px; border-bottom: 2px solid #e5e7eb; }
   .logo { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-  .logo-img { width: 32px; height: 32px; object-fit: contain; display: block; }
+  .logo-img { width: 56px; height: 56px; object-fit: contain; display: block; }
   .brand { font-size: 18px; font-weight: 800; color: #111827; letter-spacing: 0.4px; }
   .tag { font-size: 20px; font-weight: 800; letter-spacing: 0.5px; color: #1f2937; font-family: 'Source Code Pro', ui-monospace, SFMono-Regular, Menlo, monospace; }
   .badge { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; padding: 3px 10px; border-radius: 6px; white-space: nowrap; }
@@ -2541,8 +2541,7 @@ app.get(['/report/device/:id', '/report/d/:token'], async (req, res) => {
 <div class="card">
   <div class="header">
     <div class="logo">
-      <img class="logo-img" src="/logo.png" alt="GELIN">
-      <span class="brand">GELIN</span>
+      <img class="logo-img" src="/logo.png" alt="Marca">
     </div>
     <div style="flex:1; display:flex; flex-direction:column; gap:8px;">
       <span class="tag">${esc(device.assetTag)}</span>
@@ -2560,7 +2559,7 @@ app.get(['/report/device/:id', '/report/d/:token'], async (req, res) => {
     <div class="field"><span class="field-label">Responsável</span><span class="field-value">${collabLabel}</span></div>
   </div>
 
-  <div class="footer">GELIN — Gestão de Dispositivos · Relatório gerado em ${new Date().toLocaleString('pt-BR')}</div>
+  <div class="footer">Relatório gerado em ${new Date().toLocaleString('pt-BR')}</div>
 </div>
 </body>
 </html>`;

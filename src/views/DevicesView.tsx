@@ -26,6 +26,8 @@ import {
   Link,
   Printer,
   Loader2,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { Button } from '../components/button';
 import { Badge } from '../components/badge';
@@ -51,16 +53,17 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
   const [departmentFilter, setDepartmentFilter] = useState<string>('todos');
   const [brandFilter, setBrandFilter] = useState<string>('todos');
 
-  // Filtros
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
   const filterMenuRef = useRef<HTMLDivElement>(null);
 
-  // Detail Drawer
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const pageSizes = [10, 25, 50, 100];
+
   const [detailDevice, setDetailDevice] = useState<Device | null>(null);
   const [detailHistory, setDetailHistory] = useState<Movement[]>([]);
   const [detailTerms, setDetailTerms] = useState<DocumentTerm[]>([]);
 
-  // QR Code / Etiqueta do dispositivo
   const [qrUrl, setQrUrl] = useState<string | null>(null);
   const [qrLoading, setQrLoading] = useState(false);
 
@@ -89,7 +92,6 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
     setQrUrl(null);
     setQrLoading(true);
 
-    // Busca a URL pública do relatório no servidor; ignora resultados de um aparelho já fechado.
     void (async () => {
       try {
         const res = await fetch(`/api/devices/${encodeURIComponent(deviceId)}/qr-url`, {
@@ -117,7 +119,6 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
     };
   }, [detailDevice]);
 
-  // Fecha o dropdown de filtros ao clicar fora ou pressionar Esc
   useEffect(() => {
     if (!isFilterMenuOpen) return;
     const handleClickOutside = (event: MouseEvent) => {
@@ -136,7 +137,6 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
     };
   }, [isFilterMenuOpen]);
 
-  // Quick Release Modal for "Aguardando avaliação"
   const [releasingDevice, setReleasingDevice] = useState<Device | null>(null);
   const [releaseCondition, setReleaseCondition] = useState<DeviceCondition>('Excelente');
   const [releaseNotes, setReleaseNotes] = useState('Higienizado e conferido pelo Gestor de Telefonia.');
@@ -182,6 +182,9 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
   const uniqueDepartments = Array.from(new Set(devices.map(d => d.currentDepartment).filter(Boolean))) as string[];
   const uniqueBrands = Array.from(new Set(devices.map(d => d.brand)));
 
+  const totalPages = Math.ceil(filteredDevices.length / pageSize) || 1;
+  const paginatedDevices = filteredDevices.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
   const handleDelete = (id: string, tag: string) => {
     if (!canRemoveDevice) {
       alert('Apenas o Super Admin pode remover aparelhos.');
@@ -212,7 +215,7 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
     }
   };
 
-  const deviceMovements = detailDevice 
+  const deviceMovements = detailDevice
     ? dataService.getMovements().filter(m => m.deviceId === detailDevice.id)
     : [];
 
@@ -222,7 +225,6 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
 
   return (
     <div className="space-y-5">
-      {/* Search and Filters Bar */}
       <div className="radius-lg border border-border-subtle bg-surface-card shadow-sm p-4 space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="relative flex-1 max-w-md">
@@ -236,6 +238,109 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
             />
           </div>
 
+          <div
+            ref={filterMenuRef}
+            className="relative"
+          >
+            <button
+              type="button"
+              onClick={() => setIsFilterMenuOpen((open) => !open)}
+              aria-expanded={isFilterMenuOpen}
+              aria-haspopup="menu"
+              className="inline-flex items-center gap-2 radius-lg border border-border-subtle bg-surface-card px-2.5 py-1 text-text-muted font-medium focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+            >
+              <Filter className="w-3 h-3 text-text-muted" />
+              <span>Filtros</span>
+              {(
+                stockFilter !== 'todos' ||
+                statusFilter !== 'todos' ||
+                departmentFilter !== 'todos' ||
+                brandFilter !== 'todos'
+              ) && (
+                <Badge variant="info" size="sm" className="text-[10px]">
+                  ativos
+                </Badge>
+              )}
+            </button>
+
+            {isFilterMenuOpen && (
+              <div
+                className="absolute z-40 mt-1 w-72 overflow-hidden radius-lg border border-border-subtle bg-surface-card shadow-lg py-2"
+              >
+                <div className="px-3 py-2 space-y-3 border-b border-border-subtle pb-2">
+                  <div>
+                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-1">Custódia</label>
+                    <select
+                      value={stockFilter}
+                      onChange={(e) => setStockFilter(e.target.value as any)}
+                      className="w-full h-9 text-xs radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                    >
+                      <option value="todos">Todas</option>
+                      <option value="em_estoque">No Estoque</option>
+                      <option value="com_colaborador">Em Uso com Colaborador</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-1">Status</label>
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                      className="w-full h-9 text-xs radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                    >
+                      <option value="todos">Todos</option>
+                      {catalogs.deviceStatuses.map((item) => (
+                        <option key={item.id} value={item.name}>{item.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-1">Departamento</label>
+                    <select
+                      value={departmentFilter}
+                      onChange={(e) => setDepartmentFilter(e.target.value)}
+                      className="w-full h-9 text-xs radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                    >
+                      <option value="todos">Todos</option>
+                      {uniqueDepartments.map((dept) => (
+                        <option key={dept} value={dept}>{dept}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-1">Marca</label>
+                    <select
+                      value={brandFilter}
+                      onChange={(e) => setBrandFilter(e.target.value)}
+                      className="w-full h-9 text-xs radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                    >
+                      <option value="todos">Todas</option>
+                      {uniqueBrands.map((b) => (
+                        <option key={b} value={b}>{b}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="px-3 py-2 flex justify-end gap-2">
+                  <Button variant="ghost" size="sm" onClick={() => setIsFilterMenuOpen(false)}>Fechar</Button>
+                  {(statusFilter !== 'todos' || stockFilter !== 'todos' || departmentFilter !== 'todos' || brandFilter !== 'todos') && (
+                    <Button variant="ghost" size="sm" onClick={() => {
+                      setStatusFilter('todos');
+                      setStockFilter('todos');
+                      setDepartmentFilter('todos');
+                      setBrandFilter('todos');
+                    }}>
+                      Limpar filtros
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="flex items-center gap-2">
             <Button variant="primary" size="sm" onClick={() => onOpenDeviceModal()} className="flex items-center gap-1.5 shrink-0">
               <Plus className="w-3.5 h-3.5" />
@@ -244,130 +349,33 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
           </div>
         </div>
 
-        {/* Filtro geral (dropdown) */}
-        <div
-          ref={filterMenuRef}
-          className="flex flex-wrap items-center gap-2 pt-2 border-t border-border-subtle text-xs"
-        >
-          <button
-            type="button"
-            onClick={() => setIsFilterMenuOpen((open) => !open)}
-            aria-expanded={isFilterMenuOpen}
-            aria-haspopup="menu"
-            className="inline-flex items-center gap-2 radius-lg border border-border-subtle bg-surface-card px-2.5 py-1 text-text-muted font-medium focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
-          >
-            <Filter className="w-3 h-3 text-text-muted" />
-            <span>Filtros</span>
-            {(
-              stockFilter !== 'todos' ||
-              statusFilter !== 'todos' ||
-              departmentFilter !== 'todos' ||
-              brandFilter !== 'todos'
-            ) && (
-              <Badge variant="info" size="sm" className="text-[10px]">
-                ativos
-              </Badge>
-            )}
-          </button>
-
-          {isFilterMenuOpen && (
-            <div
-              className="absolute z-40 mt-1 w-72 overflow-hidden radius-lg border border-border-subtle bg-surface-card shadow-lg py-2"
-            >
-              <div className="px-3 py-2 space-y-3 border-b border-border-subtle pb-2">
-                <div>
-                  <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-1">
-                    Custódia
-                  </label>
-                  <select
-                    value={stockFilter}
-                    onChange={(e) => setStockFilter(e.target.value as any)}
-                    className="w-full h-9 text-xs radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
-                  >
-                    <option value="todos">Todas</option>
-                    <option value="em_estoque">No Estoque</option>
-                    <option value="com_colaborador">Em Uso com Colaborador</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-1">
-                    Status
-                  </label>
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="w-full h-9 text-xs radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
-                  >
-                    <option value="todos">Todos</option>
-                    {catalogs.deviceStatuses.map((item) => (
-                      <option key={item.id} value={item.name}>{item.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-1">
-                    Departamento
-                  </label>
-                  <select
-                    value={departmentFilter}
-                    onChange={(e) => setDepartmentFilter(e.target.value)}
-                    className="w-full h-9 text-xs radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
-                  >
-                    <option value="todos">Todos</option>
-                    {uniqueDepartments.map((dept) => (
-                      <option key={dept} value={dept}>{dept}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-1">
-                    Marca
-                  </label>
-                  <select
-                    value={brandFilter}
-                    onChange={(e) => setBrandFilter(e.target.value)}
-                    className="w-full h-9 text-xs radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
-                  >
-                    <option value="todos">Todas</option>
-                    {uniqueBrands.map((b) => (
-                      <option key={b} value={b}>{b}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="px-3 py-2 flex justify-end gap-2">
-                <Button variant="ghost" size="sm" onClick={() => setIsFilterMenuOpen(false)}>
-                  Fechar
-                </Button>
-                {(statusFilter !== 'todos' || stockFilter !== 'todos' || departmentFilter !== 'todos' || brandFilter !== 'todos') && (
-                  <Button variant="ghost" size="sm" onClick={() => {
-                    setStatusFilter('todos');
-                    setStockFilter('todos');
-                    setDepartmentFilter('todos');
-                    setBrandFilter('todos');
-                  }}>
-                    Limpar filtros
-                  </Button>
-                )}
-              </div>
-            </div>
-          )}
-
-          <div className="ml-auto flex items-center gap-1 text-text-muted">
+        <div className="flex items-center justify-between w-full pt-2 border-t border-border-subtle text-xs">
+          <div className="flex items-center gap-1 text-text-muted">
             <span className="text-[11px]">Exibindo</span>
-            <span className="text-[11px] font-semibold text-text-primary tabular-nums">{filteredDevices.length}</span>
+            <span className="text-[11px] font-semibold text-text-primary tabular-nums">{Math.min(currentPage * pageSize, filteredDevices.length)}</span>
             <span className="text-[11px]">de</span>
-            <span className="text-[11px] font-semibold text-text-primary tabular-nums">{devices.length}</span>
+            <span className="text-[11px] font-semibold text-text-primary tabular-nums">{filteredDevices.length}</span>
             <span className="text-[11px]">aparelhos</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label className="text-[11px] text-text-muted">Por página:</label>
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="w-auto h-9 text-[11px] radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary font-medium focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+            >
+              {pageSizes.map((size) => (
+                <option key={size} value={size}>{size}</option>
+              ))}
+            </select>
           </div>
         </div>
       </div>
 
-      {/* Main Table */}
       <div className="radius-lg border border-border-subtle bg-surface-card shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
@@ -383,35 +391,30 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-border-subtle">
-              {filteredDevices.map((device) => (
-                <tr 
-                  key={device.id} 
+              {paginatedDevices.map((device) => (
+                <tr
+                  key={device.id}
                   className="hover:bg-surface-subtle transition-colors group cursor-pointer"
                   onClick={() => setDetailDevice(device)}
                 >
-                  {/* Tag */}
                   <td className="py-3 px-4 font-code font-bold text-text-primary whitespace-nowrap">
                     {device.assetTag}
                   </td>
 
-                  {/* Brand & Model */}
                   <td className="py-3 px-4 font-medium text-text-primary">
                     <div>{device.model}</div>
                     <span className="text-[11px] text-text-muted font-code">S/N: {device.serialNumber}</span>
                     <span className="block text-[11px] text-text-muted">Setor: {device.sector || 'Não informado'}</span>
                   </td>
 
-                  {/* IMEI */}
                   <td className="py-3 px-4 font-code text-text-muted whitespace-nowrap tabular-nums">
                     {formatImei(device.imei1)}
                   </td>
 
-                  {/* Status */}
                   <td className="py-3 px-4">
                     <StatusBadge status={device.status} type="device" />
                   </td>
 
-                  {/* Custódia / Responsável */}
                   <td className="py-3 px-4">
                     {device.status === inUseStatus && device.currentCollaboratorName ? (
                       <div>
@@ -428,14 +431,12 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
                     )}
                   </td>
 
-                  {/* Linha */}
                   <td className="py-3 px-4 font-code text-text-muted whitespace-nowrap tabular-nums">
                     {device.associatedPhoneNumber || (
                       <span className="text-text-muted italic font-body">Sem linha</span>
                     )}
                   </td>
 
-                  {/* Actions */}
                   <td className="py-3 px-4 text-right space-x-1 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                     <button
                       title="Ver Linha do Tempo e Detalhes"
@@ -445,7 +446,6 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
                       <Eye className="w-3.5 h-3.5" />
                     </button>
 
-                    {/* Ação se Aguardando Avaliação: Liberar para Estoque Disponível */}
                     {device.status === evaluationStatus && (
                       <button
                         title="Conferir e Liberar Ativo para Estoque Disponível"
@@ -490,7 +490,36 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
         </div>
       </div>
 
-      {/* QUICK RELEASE MODAL (Aprovação de Estoque após avaliação) */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between gap-3 px-4 py-3">
+          <div className="flex items-center gap-2 text-[11px] text-text-muted">
+            <span>Página {currentPage} de {totalPages}</span>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="flex items-center gap-1"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="flex items-center gap-1"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+        </div>
+      )}
+
       {releasingDevice && (
         <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
           <div className="fixed inset-0 bg-brand-navy-dark/45 backdrop-blur-sm" onClick={() => setReleasingDevice(null)} />
@@ -507,9 +536,7 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
               </p>
 
               <div>
-                <label className="block text-xs font-medium text-text-muted mb-1.5">
-                  Estado de Conservação Aferido
-                </label>
+                <label className="block text-xs font-medium text-text-muted mb-1.5">Estado de Conservação Aferido</label>
                 <select
                   value={releaseCondition}
                   onChange={(e) => setReleaseCondition(e.target.value as DeviceCondition)}
@@ -522,9 +549,7 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-text-muted mb-1.5">
-                  Anotações da Conferência
-                </label>
+                <label className="block text-xs font-medium text-text-muted mb-1.5">Anotações da Conferência</label>
                 <input
                   type="text"
                   value={releaseNotes}
@@ -546,7 +571,6 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
         </div>
       )}
 
-      {/* DEVICE DETAILS DRAWER COM LINHA DO TEMPO CRONOLÓGICA DAS PASSAGENS POR ESTOQUE */}
       {detailDevice && (
         <DeviceDetail
           device={{

@@ -14,6 +14,8 @@ import {
   ArrowUpRight,
   CheckCircle2,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   ClipboardList,
   Filter,
   Info,
@@ -194,6 +196,12 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ currentUser }) => {
   const [loadError, setLoadError] = useState('');
   const [selectedRequest, setSelectedRequest] = useState<RequestRecord | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const filterMenuRef = useRef<HTMLDivElement>(null);
+
+  const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const pageSizes = [10, 25, 50, 100];
 
   useEffect(() => {
     let mounted = true;
@@ -212,6 +220,25 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ currentUser }) => {
     return () => document.removeEventListener('mousedown', closeOnOutsideClick);
   }, [menuOpen]);
 
+  // Fecha o dropdown de filtros ao clicar fora ou pressionar Esc
+  useEffect(() => {
+    if (!isFilterMenuOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (filterMenuRef.current && !filterMenuRef.current.contains(event.target as Node)) {
+        setIsFilterMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsFilterMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isFilterMenuOpen]);
+
   const visibleRequests = useMemo(() => {
     const query = search.trim().toLocaleLowerCase('pt-BR');
     return requests
@@ -227,6 +254,9 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ currentUser }) => {
       })
       .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
   }, [requests, search, typeFilter, statusFilter, startDate, endDate]);
+
+  const totalPages = Math.ceil(visibleRequests.length / pageSize) || 1;
+  const paginatedRequests = visibleRequests.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const handleCreated = (request: RequestRecord) => {
     setRequests((previous) => [request, ...previous.filter((item) => item.id !== request.id)]);
@@ -288,38 +318,126 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ currentUser }) => {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border-subtle text-xs">
-          <span className="text-text-muted font-medium flex items-center gap-1 mr-1"><Filter className="w-3 h-3 text-text-muted" />Filtros:</span>
-          <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} className="w-auto radius-base border border-border-subtle bg-surface-card px-2.5 py-1 text-text-muted font-medium focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15">
-            <option value="todos">Tipo: Todos</option>
-            <option value="Entrega">Entrega</option>
-            <option value="Devolução">Devolução</option>
-            <option value="Transferência">Transferência</option>
-            <option value="Troca">Troca de Aparelho</option>
-          </select>
-          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="w-auto radius-base border border-border-subtle bg-surface-card px-2.5 py-1 text-text-muted font-medium focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15">
-            <option value="todos">Status: Todos</option>
-            <option value="Pendente de aprovação">Pendente de aprovação</option>
-            <option value="Aprovada">Aprovada</option>
-            <option value="Recusada">Recusada</option>
-          </select>
-          <div className="flex items-center gap-1 text-text-muted">
-            <span className="text-[11px]">De:</span>
-            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="radius-base border border-border-subtle bg-surface-card px-2 py-0.5 text-xs text-text-primary font-code focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15" />
-          </div>
-          <div className="flex items-center gap-1 text-text-muted">
-            <span className="text-[11px]">Até:</span>
-            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="radius-base border border-border-subtle bg-surface-card px-2 py-0.5 text-xs text-text-primary font-code focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15" />
-          </div>
-          {(typeFilter !== 'todos' || statusFilter !== 'todos' || startDate || endDate) && (
-            <Button variant="ghost" size="sm" onClick={resetFilters}>Limpar Filtros</Button>
+        <div
+          ref={filterMenuRef}
+          className="relative"
+        >
+          <button
+            type="button"
+            onClick={() => setIsFilterMenuOpen((open) => !open)}
+            aria-expanded={isFilterMenuOpen}
+            aria-haspopup="menu"
+            className="inline-flex items-center gap-2 radius-lg border border-border-subtle bg-surface-card px-2.5 py-1 text-text-muted font-medium focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+          >
+            <Filter className="w-3 h-3 text-text-muted" />
+            <span>Filtros</span>
+            {(
+              typeFilter !== 'todos' ||
+              statusFilter !== 'todos' ||
+              startDate ||
+              endDate
+            ) && (
+              <Badge variant="info" size="sm" className="text-[10px]">
+                ativos
+              </Badge>
+            )}
+          </button>
+
+          {isFilterMenuOpen && (
+            <div
+              className="absolute z-40 mt-1 w-80 overflow-hidden radius-lg border border-border-subtle bg-surface-card shadow-lg py-2"
+            >
+              <div className="px-3 py-2 space-y-3 border-b border-border-subtle pb-2">
+                <div>
+                  <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-1">Tipo</label>
+                  <select
+                    value={typeFilter}
+                    onChange={(e) => setTypeFilter(e.target.value)}
+                    className="w-full h-9 text-xs radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                  >
+                    <option value="todos">Todos</option>
+                    <option value="Entrega">Entrega</option>
+                    <option value="Devolução">Devolução</option>
+                    <option value="Transferência">Transferência</option>
+                    <option value="Troca">Troca de Aparelho</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-1">Status</label>
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="w-full h-9 text-xs radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                  >
+                    <option value="todos">Todos</option>
+                    <option value="Pendente de aprovação">Pendente de aprovação</option>
+                    <option value="Aprovada">Aprovada</option>
+                    <option value="Recusada">Recusada</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-1 text-text-muted">
+                  <span className="text-[11px]">De:</span>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="radius-base border border-border-subtle bg-surface-card px-2 py-0.5 text-xs text-text-primary font-code focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                  />
+                </div>
+
+                <div className="flex items-center gap-1 text-text-muted">
+                  <span className="text-[11px]">Até:</span>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="radius-base border border-border-subtle bg-surface-card px-2 py-0.5 text-xs text-text-primary font-code focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                  />
+                </div>
+              </div>
+
+              <div className="px-3 py-2 flex justify-end gap-2">
+                <Button variant="ghost" size="sm" onClick={() => setIsFilterMenuOpen(false)}>Fechar</Button>
+                {(typeFilter !== 'todos' || statusFilter !== 'todos' || startDate || endDate) && (
+                  <Button variant="ghost" size="sm" onClick={() => {
+                    setTypeFilter('todos');
+                    setStatusFilter('todos');
+                    setStartDate('');
+                    setEndDate('');
+                  }}>
+                    Limpar filtros
+                  </Button>
+                )}
+              </div>
+            </div>
           )}
-          <div className="ml-auto flex items-center gap-1 text-text-muted">
+        </div>
+
+        <div className="flex items-center justify-between w-full pt-2 border-t border-border-subtle text-xs">
+          <div className="flex items-center gap-1 text-text-muted">
             <span className="text-[11px]">Exibindo</span>
-            <span className="text-[11px] font-semibold text-text-primary tabular-nums">{visibleRequests.length}</span>
+            <span className="text-[11px] font-semibold text-text-primary tabular-nums">{Math.min(currentPage * pageSize, visibleRequests.length)}</span>
             <span className="text-[11px]">de</span>
-            <span className="text-[11px] font-semibold text-text-primary tabular-nums">{requests.length}</span>
+            <span className="text-[11px] font-semibold text-text-primary tabular-nums">{visibleRequests.length}</span>
             <span className="text-[11px]">solicitações</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label className="text-[11px] text-text-muted">Por página:</label>
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="w-auto h-9 text-[11px] radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary font-medium focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+            >
+              {pageSizes.map((size) => (
+                <option key={size} value={size}>{size}</option>
+              ))}
+            </select>
           </div>
         </div>
       </div>
@@ -339,7 +457,7 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ currentUser }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-border-subtle">
-              {visibleRequests.map((request) => (
+              {paginatedRequests.map((request) => (
                 <tr key={request.id} className="hover:bg-surface-subtle transition-colors group cursor-pointer" onClick={() => setSelectedRequest(request)}>
                   <td className="py-3 px-4 whitespace-nowrap">
                     <span className="font-code font-bold text-text-primary block">{request.id}</span>
@@ -379,6 +497,36 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ currentUser }) => {
           </table>
         </div>
       </div>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between gap-3 px-4 py-3">
+          <div className="flex items-center gap-2 text-[11px] text-text-muted">
+            <span>Página {currentPage} de {totalPages}</span>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="flex items-center gap-1"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="flex items-center gap-1"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       {selectedRequest && (
         <Modal

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { PhoneLine, Carrier, LineStatus, Device, Catalogs } from '../types';
 import { dataService } from '../services/dataStorage';
 import { formatDate, formatCurrency, formatPhone, matchesPhoneSearch } from '../utils/formatters';
@@ -18,6 +18,8 @@ import {
   X,
   CheckCircle2,
   Clock,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { Button } from '../components/button';
 import { Badge } from '../components/badge';
@@ -35,10 +37,15 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
   const [carrierFilter, setCarrierFilter] = useState<string>('todos');
   const [associationFilter, setAssociationFilter] = useState<'todos' | 'com_aparelho' | 'sem_aparelho'>('todos');
 
-  // Detail view
+  const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
+  const filterMenuRef = useRef<HTMLDivElement>(null);
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const pageSizes = [10, 25, 50, 100];
+
   const [detailLine, setDetailLine] = useState<PhoneLine | null>(null);
 
-  // Association quick modal
   const [associatingLine, setAssociatingLine] = useState<PhoneLine | null>(null);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
 
@@ -69,6 +76,9 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
 
     return true;
   });
+
+  const totalPages = Math.ceil(filteredLines.length / pageSize) || 1;
+  const paginatedLines = filteredLines.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const handleDelete = (id: string, phone: string) => {
     if (window.confirm(`Deseja excluir a linha telefônica ${phone}?`)) {
@@ -108,7 +118,6 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
 
   return (
     <div className="space-y-5">
-      {/* Search and Filters */}
       <div className="radius-lg border border-border-subtle bg-surface-card shadow-sm p-4 space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="relative flex-1 max-w-md">
@@ -122,63 +131,128 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
             />
           </div>
 
-          <button
-            onClick={() => onOpenLineModal()}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 radius-lg text-xs font-medium text-white bg-brand-blue-action hover:bg-brand-blue-action-hover shadow-sm transition-colors shrink-0"
+          <div
+            ref={filterMenuRef}
+            className="relative"
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Nova Linha</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setIsFilterMenuOpen((open) => !open)}
+              aria-expanded={isFilterMenuOpen}
+              aria-haspopup="menu"
+              className="inline-flex items-center gap-2 radius-lg border border-border-subtle bg-surface-card px-2.5 py-1 text-text-muted font-medium focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+            >
+              <Filter className="w-3 h-3 text-text-muted" />
+              <span>Filtros</span>
+              {(
+                statusFilter !== 'todos' ||
+                carrierFilter !== 'todos' ||
+                associationFilter !== 'todos'
+              ) && (
+                <Badge variant="info" size="sm" className="text-[10px]">
+                  ativos
+                </Badge>
+              )}
+            </button>
+
+            {isFilterMenuOpen && (
+              <div
+                className="absolute z-40 mt-1 w-72 overflow-hidden radius-lg border border-border-subtle bg-surface-card shadow-lg py-2"
+              >
+                <div className="px-3 py-2 space-y-3 border-b border-border-subtle pb-2">
+                  <div>
+                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-1">Status</label>
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                      className="w-full h-9 text-xs radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                    >
+                      <option value="todos">Todos</option>
+                      {catalogs.lineStatuses.map((item) => (
+                        <option key={item.id} value={item.name}>{item.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-1">Operadora</label>
+                    <select
+                      value={carrierFilter}
+                      onChange={(e) => setCarrierFilter(e.target.value)}
+                      className="w-full h-9 text-xs radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                    >
+                      <option value="todos">Todas</option>
+                      <option value="Vivo">Vivo</option>
+                      <option value="Claro">Claro</option>
+                      <option value="TIM">TIM</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-1">Vínculo</label>
+                    <select
+                      value={associationFilter}
+                      onChange={(e) => setAssociationFilter(e.target.value as any)}
+                      className="w-full h-9 text-xs radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                    >
+                      <option value="todos">Todos</option>
+                      <option value="com_aparelho">Com Aparelho Associado</option>
+                      <option value="sem_aparelho">Sem Aparelho (Chip Livre / BYOD)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="px-3 py-2 flex justify-end gap-2">
+                  <Button variant="ghost" size="sm" onClick={() => setIsFilterMenuOpen(false)}>Fechar</Button>
+                  {(statusFilter !== 'todos' || carrierFilter !== 'todos' || associationFilter !== 'todos') && (
+                    <Button variant="ghost" size="sm" onClick={() => {
+                      setStatusFilter('todos');
+                      setCarrierFilter('todos');
+                      setAssociationFilter('todos');
+                    }}>
+                      Limpar filtros
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button variant="primary" size="sm" onClick={() => onOpenLineModal()} className="flex items-center gap-1.5 shrink-0">
+              <Plus className="w-3.5 h-3.5" />
+              <span>Nova Linha</span>
+            </Button>
+          </div>
         </div>
 
-        {/* Filter controls */}
-        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border-subtle text-xs">
-          <span className="text-text-muted font-medium flex items-center gap-1 mr-1">
-            <Filter className="w-3 h-3 text-text-muted" />
-            Filtros:
-          </span>
-
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-auto radius-base border border-border-subtle bg-surface-card px-2.5 py-1 text-text-muted font-medium focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
-          >
-            <option value="todos">Status: Todos</option>
-            {catalogs.lineStatuses.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}
-          </select>
-
-          <select
-            value={carrierFilter}
-            onChange={(e) => setCarrierFilter(e.target.value)}
-            className="w-auto radius-base border border-border-subtle bg-surface-card px-2.5 py-1 text-text-muted font-medium focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
-          >
-            <option value="todos">Operadora: Todas</option>
-            <option value="Vivo">Vivo</option>
-            <option value="Claro">Claro</option>
-            <option value="TIM">TIM</option>
-          </select>
-
-          <select
-            value={associationFilter}
-            onChange={(e) => setAssociationFilter(e.target.value as any)}
-            className="w-auto radius-base border border-border-subtle bg-surface-card px-2.5 py-1 text-text-muted font-medium focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
-          >
-            <option value="todos">Vínculo: Todos</option>
-            <option value="com_aparelho">Com Aparelho Associado</option>
-            <option value="sem_aparelho">Sem Aparelho (Chip Livre / BYOD)</option>
-          </select>
-
-          <div className="ml-auto flex items-center gap-1 text-text-muted">
+        <div className="flex items-center justify-between w-full pt-2 border-t border-border-subtle text-xs">
+          <div className="flex items-center gap-1 text-text-muted">
             <span className="text-[11px]">Exibindo</span>
-            <span className="text-[11px] font-semibold text-text-primary tabular-nums">{filteredLines.length}</span>
+            <span className="text-[11px] font-semibold text-text-primary tabular-nums">{Math.min(currentPage * pageSize, filteredLines.length)}</span>
             <span className="text-[11px]">de</span>
-            <span className="text-[11px] font-semibold text-text-primary tabular-nums">{lines.length}</span>
+            <span className="text-[11px] font-semibold text-text-primary tabular-nums">{filteredLines.length}</span>
             <span className="text-[11px]">linhas</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label className="text-[11px] text-text-muted">Por página:</label>
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="w-auto h-9 text-[11px] radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary font-medium focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+            >
+              {pageSizes.map((size) => (
+                <option key={size} value={size}>{size}</option>
+              ))}
+            </select>
           </div>
         </div>
       </div>
 
-      {/* Main Table */}
       <div className="radius-lg border border-border-subtle bg-surface-card shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-[11px] border-collapse">
@@ -195,38 +269,32 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-border-subtle">
-              {filteredLines.map((line) => (
-                <tr 
-                  key={line.id} 
+              {paginatedLines.map((line) => (
+                <tr
+                  key={line.id}
                   className="hover:bg-surface-subtle transition-colors group cursor-pointer"
                   onClick={() => setDetailLine(line)}
                 >
-                  {/* Phone */}
                   <td className="py-3 px-4 font-code font-bold text-text-primary whitespace-nowrap">
                     {formatPhone(line.phoneNumber)}
                   </td>
 
-                  {/* Carrier */}
                   <td className="py-3 px-4 font-semibold text-text-primary">
                     {line.carrier}
                   </td>
 
-                  {/* Plan */}
                   <td className="py-3 px-4 text-text-muted max-w-[200px] truncate">
                     {line.planName || 'Não informado'}
                   </td>
 
-                  {/* Cost */}
                   <td className="py-3 px-4 font-code text-text-muted tabular-nums">
                     {formatCurrency(line.monthlyCost)}
                   </td>
 
-                  {/* Status */}
                   <td className="py-3 px-4">
                     <StatusBadge status={line.status} type="line" />
                   </td>
 
-                  {/* Device */}
                   <td className="py-3 px-4">
                     {line.associatedDeviceTag ? (
                       <Badge variant="info" size="sm" showDot className="text-[11px]">
@@ -238,7 +306,6 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
                     )}
                   </td>
 
-                  {/* Collaborator */}
                   <td className="py-3 px-4">
                     {line.currentCollaboratorName ? (
                       <div>
@@ -252,7 +319,6 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
                     )}
                   </td>
 
-                  {/* Actions */}
                   <td className="py-3 px-4 text-right space-x-1 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                     <button
                       title="Ver Detalhes"
@@ -311,7 +377,36 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
         </div>
       </div>
 
-      {/* QUICK ASSOCIATION MODAL */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between gap-3 px-4 py-3">
+          <div className="flex items-center gap-2 text-[11px] text-text-muted">
+            <span>Página {currentPage} de {totalPages}</span>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="flex items-center gap-1"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="flex items-center gap-1"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+        </div>
+      )}
+
       {associatingLine && (
         <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
           <div className="fixed inset-0 bg-brand-navy-dark/45 backdrop-blur-sm" onClick={() => setAssociatingLine(null)} />
@@ -355,7 +450,6 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
         </div>
       )}
 
-      {/* LINE DETAIL MODAL */}
       {detailLine && (
         <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
           <div className="fixed inset-0 bg-brand-navy-dark/45 backdrop-blur-sm" onClick={() => setDetailLine(null)} />
@@ -415,8 +509,8 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
               </div>
 
               {detailLine.notes && (
-                <div className="text-[11px] p-3 radius-base bg-surface-subtle text-text-muted">
-                  <span className="font-semibold block mb-0.5">Observações:</span>
+                <div className="text-[11px] p-3 radius-base bg-surface-subtle border border-border-subtle text-text-muted">
+                  <span className="font-medium block mb-0.5">Observações:</span>
                   {detailLine.notes}
                 </div>
               )}
