@@ -54,31 +54,29 @@ interface FilterTriggerProps {
   label?: string;
 }
 
-export const FilterTrigger: React.FC<FilterTriggerProps> = ({
-  isOpen,
-  activeCount,
-  onToggle,
-  label = 'Filtros',
-}) => {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-expanded={isOpen}
-      aria-haspopup="menu"
-      className="inline-flex items-center gap-2 radius-base border border-border-subtle bg-surface-card px-2.5 py-1.5 text-text-muted font-medium text-xs focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15 hover:bg-surface-subtle transition-colors"
-    >
-      <FilterIcon className="w-3.5 h-3.5 text-text-muted" />
-      <span>{label}</span>
-      {activeCount > 0 && (
-        <Badge variant="info" size="sm" className="text-[10px]">
-          {activeCount} ativos
-        </Badge>
-      )}
-      {isOpen && <X className="w-3.5 h-3.5 text-text-muted" />}
-    </button>
-  );
-};
+export const FilterTrigger = React.forwardRef<HTMLButtonElement, FilterTriggerProps>(
+  ({ isOpen, activeCount, onToggle, label = 'Filtros' }, ref) => {
+    return (
+      <button
+        ref={ref}
+        type="button"
+        onClick={onToggle}
+        aria-expanded={isOpen}
+        aria-haspopup="menu"
+        className="inline-flex items-center gap-2 radius-base border border-border-subtle bg-surface-card px-2.5 py-1.5 text-text-muted font-medium text-xs focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15 hover:bg-surface-subtle transition-colors"
+      >
+        <FilterIcon className="w-3.5 h-3.5 text-text-muted" />
+        <span>{label}</span>
+        {activeCount > 0 && (
+          <Badge variant="info" size="sm" className="text-[10px]">
+            {activeCount} ativos
+          </Badge>
+        )}
+        {isOpen && <X className="w-3.5 h-3.5 text-text-muted" />}
+      </button>
+    );
+  }
+);
 
 interface FilterFieldProps {
   label: string;

@@ -253,107 +253,6 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
             />
           </div>
 
-          <div
-            ref={filterMenuRef}
-            className="relative"
-          >
-            <FilterTrigger
-              isOpen={isFilterMenuOpen}
-              activeCount={[
-                statusFilter !== 'todos',
-                carrierFilter !== 'todos',
-                associationFilter !== 'todos',
-              ].filter(Boolean).length}
-              onToggle={() => setIsFilterMenuOpen((open) => !open)}
-            />
-
-            {isFilterMenuOpen && filterPosition && (
-              <div
-                className="z-50 overflow-hidden radius-lg border border-border-subtle bg-surface-card shadow-xl"
-                style={{
-                  position: 'fixed',
-                  zIndex: 50,
-                  top: filterPosition.top,
-                  left: filterPosition.left,
-                  minWidth: 260,
-                }}
-              >
-                <div className="px-3 py-2 space-y-3 border-b border-border-subtle pb-2">
-                  <div>
-                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted">
-                      Status
-                    </label>
-                    <select
-                      value={statusFilter}
-                      onChange={(e) => setStatusFilter(e.target.value)}
-                      className="w-full h-9 text-xs field px-2.5 py-1.5"
-                    >
-                      <option value="todos">Todos</option>
-                      {catalogs.lineStatuses.map((item) => (
-                        <option key={item.id} value={item.name}>{item.name}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted">
-                      Operadora
-                    </label>
-                    <select
-                      value={carrierFilter}
-                      onChange={(e) => setCarrierFilter(e.target.value)}
-                      className="w-full h-9 text-xs field px-2.5 py-1.5"
-                    >
-                      <option value="todos">Todas</option>
-                      <option value="Vivo">Vivo</option>
-                      <option value="Claro">Claro</option>
-                      <option value="TIM">TIM</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted">
-                      Vínculo
-                    </label>
-                    <select
-                      value={associationFilter}
-                      onChange={(e) => setAssociationFilter(e.target.value as any)}
-                      className="w-full h-9 text-xs field px-2.5 py-1.5"
-                    >
-                      <option value="todos">Todos</option>
-                      <option value="com_aparelho">Com Aparelho Associado</option>
-                      <option value="sem_aparelho">Sem Aparelho (Chip Livre / BYOD)</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="px-3 py-2 flex justify-end gap-2">
-                  <Button variant="ghost" size="sm" onClick={() => setIsFilterMenuOpen(false)}>
-                    Fechar
-                  </Button>
-                  {[
-                    statusFilter !== 'todos',
-                    carrierFilter !== 'todos',
-                    associationFilter !== 'todos',
-                  ].filter(Boolean).length > 0 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setStatusFilter('todos');
-                        setCarrierFilter('todos');
-                        setAssociationFilter('todos');
-                      }}
-                      className="text-status-danger-fg hover:text-status-danger-fg/80"
-                    >
-                      Limpar filtros
-                    </Button>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-
           <div className="flex items-center gap-2">
             <Button variant="primary" size="sm" onClick={() => onOpenLineModal()} className="flex items-center gap-1.5 shrink-0">
               <Plus className="w-3.5 h-3.5" />
@@ -371,20 +270,33 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
             <span className="text-[11px]">linhas</span>
           </div>
 
-          <div className="flex items-center gap-2">
-            <label className="text-[11px] text-text-muted">Por página:</label>
-            <select
-              value={pageSize}
-              onChange={(e) => {
-                setPageSize(Number(e.target.value));
-                setCurrentPage(1);
-              }}
-              className="w-auto h-9 text-[11px] field px-2 py-1 font-medium"
-            >
-              {pageSizes.map((size) => (
-                <option key={size} value={size}>{size}</option>
-              ))}
-            </select>
+          <div className="flex items-center gap-3">
+            <div ref={filterMenuRef}>
+              <FilterTrigger
+                isOpen={isFilterMenuOpen}
+                activeCount={[
+                  statusFilter !== 'todos',
+                  carrierFilter !== 'todos',
+                  associationFilter !== 'todos',
+                ].filter(Boolean).length}
+                onToggle={() => setIsFilterMenuOpen((open) => !open)}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-[11px] text-text-muted">Por página:</label>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="w-auto h-9 text-[11px] field px-2 py-1 font-medium"
+              >
+                {pageSizes.map((size) => (
+                  <option key={size} value={size}>{size}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
       </div>

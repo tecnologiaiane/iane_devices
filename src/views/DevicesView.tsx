@@ -354,126 +354,6 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
             />
           </div>
 
-          <div
-            ref={filterMenuRef}
-            className="relative"
-          >
-            <FilterTrigger
-              isOpen={isFilterMenuOpen}
-              activeCount={[
-                stockFilter !== 'todos',
-                statusFilter !== 'todos',
-                departmentFilter !== 'todos',
-                brandFilter !== 'todos',
-              ].filter(Boolean).length}
-              onToggle={() => setIsFilterMenuOpen((open) => !open)}
-            />
-
-            {isFilterMenuOpen && filterPosition && (
-              <div
-                className="z-50 overflow-hidden radius-lg border border-border-subtle bg-surface-card shadow-xl"
-                style={{
-                  position: 'fixed',
-                  zIndex: 50,
-                  top: filterPosition.top,
-                  left: filterPosition.left,
-                  minWidth: 260,
-                }}
-              >
-                <div className="px-3 py-2 space-y-3 border-b border-border-subtle pb-2">
-                  <div>
-                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted">
-                      Custódia
-                    </label>
-                    <select
-                      value={stockFilter}
-                      onChange={(e) => setStockFilter(e.target.value as any)}
-                      className="w-full h-9 text-xs field px-2.5 py-1.5"
-                    >
-                      <option value="todos">Todas</option>
-                      <option value="em_estoque">No Estoque</option>
-                      <option value="com_colaborador">Em Uso com Colaborador</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted">
-                      Status
-                    </label>
-                    <select
-                      value={statusFilter}
-                      onChange={(e) => setStatusFilter(e.target.value)}
-                      className="w-full h-9 text-xs field px-2.5 py-1.5"
-                    >
-                      <option value="todos">Todos</option>
-                      {catalogs.deviceStatuses.map((item) => (
-                        <option key={item.id} value={item.name}>{item.name}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted">
-                      Departamento
-                    </label>
-                    <select
-                      value={departmentFilter}
-                      onChange={(e) => setDepartmentFilter(e.target.value)}
-                      className="w-full h-9 text-xs field px-2.5 py-1.5"
-                    >
-                      <option value="todos">Todos</option>
-                      {uniqueDepartments.map((dept) => (
-                        <option key={dept} value={dept}>{dept}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted">
-                      Marca
-                    </label>
-                    <select
-                      value={brandFilter}
-                      onChange={(e) => setBrandFilter(e.target.value)}
-                      className="w-full h-9 text-xs field px-2.5 py-1.5"
-                    >
-                      <option value="todos">Todas</option>
-                      {uniqueBrands.map((b) => (
-                        <option key={b} value={b}>{b}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="px-3 py-2 flex justify-end gap-2">
-                  <Button variant="ghost" size="sm" onClick={() => setIsFilterMenuOpen(false)}>
-                    Fechar
-                  </Button>
-                  {[
-                    stockFilter !== 'todos',
-                    statusFilter !== 'todos',
-                    departmentFilter !== 'todos',
-                    brandFilter !== 'todos',
-                  ].filter(Boolean).length > 0 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setStatusFilter('todos');
-                        setStockFilter('todos');
-                        setDepartmentFilter('todos');
-                        setBrandFilter('todos');
-                      }}
-                      className="text-status-danger-fg hover:text-status-danger-fg/80"
-                    >
-                      Limpar filtros
-                    </Button>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-
           <div className="flex items-center gap-2">
             <Button variant="primary" size="sm" onClick={() => onOpenDeviceModal()} className="flex items-center gap-1.5 shrink-0">
               <Plus className="w-3.5 h-3.5" />
@@ -491,20 +371,34 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
             <span className="text-[11px]">aparelhos</span>
           </div>
 
-          <div className="flex items-center gap-2">
-            <label className="text-[11px] text-text-muted">Por página:</label>
-            <select
-              value={pageSize}
-              onChange={(e) => {
-                setPageSize(Number(e.target.value));
-                setCurrentPage(1);
-              }}
-              className="w-auto h-9 text-[11px] field px-2 py-1 font-medium"
-            >
-              {pageSizes.map((size) => (
-                <option key={size} value={size}>{size}</option>
-              ))}
-            </select>
+          <div className="flex items-center gap-3">
+            <div ref={filterMenuRef}>
+              <FilterTrigger
+                isOpen={isFilterMenuOpen}
+                activeCount={[
+                  stockFilter !== 'todos',
+                  statusFilter !== 'todos',
+                  departmentFilter !== 'todos',
+                  brandFilter !== 'todos',
+                ].filter(Boolean).length}
+                onToggle={() => setIsFilterMenuOpen((open) => !open)}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-[11px] text-text-muted">Por página:</label>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="w-auto h-9 text-[11px] field px-2 py-1 font-medium"
+              >
+                {pageSizes.map((size) => (
+                  <option key={size} value={size}>{size}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
       </div>
