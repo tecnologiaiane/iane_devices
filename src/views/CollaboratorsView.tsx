@@ -5,11 +5,11 @@ import { formatDate } from '../utils/formatters';
 import { StatusBadge } from '../components/StatusBadge';
 import { Button } from '../components/button';
 import { Badge } from '../components/badge';
+import { FilterDropdown, FilterTrigger } from '../components/FilterDropdown';
 import { DataTable, type DataTableColumn } from '../components/DataTable';
 import {
   Users,
   Search,
-  Filter,
   Plus,
   Eye,
   Edit2,
@@ -44,6 +44,16 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
 
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
   const filterMenuRef = useRef<HTMLDivElement>(null);
+  const [filterPosition, setFilterPosition] = useState<{ top: number; left: number } | null>(null);
+
+  useEffect(() => {
+    if (!isFilterMenuOpen || !filterMenuRef.current) {
+      setFilterPosition(null);
+      return;
+    }
+    const rect = filterMenuRef.current.getBoundingClientRect();
+    setFilterPosition({ top: rect.bottom + 4, left: rect.left });
+  }, [isFilterMenuOpen]);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -212,36 +222,35 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
             ref={filterMenuRef}
             className="relative"
           >
-            <button
-              type="button"
-              onClick={() => setIsFilterMenuOpen((open) => !open)}
-              aria-expanded={isFilterMenuOpen}
-              aria-haspopup="menu"
-              className="inline-flex items-center gap-2 radius-lg border border-border-subtle bg-surface-card px-2.5 py-1 text-text-muted font-medium focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
-            >
-              <Filter className="w-3 h-3 text-text-muted" />
-              <span>Filtros</span>
-              {(
-                departmentFilter !== 'todos' ||
-                statusFilter !== 'todos'
-              ) && (
-                <Badge variant="info" size="sm" className="text-[10px]">
-                  ativos
-                </Badge>
-              )}
-            </button>
+            <FilterTrigger
+              isOpen={isFilterMenuOpen}
+              activeCount={[
+                departmentFilter !== 'todos',
+                statusFilter !== 'todos',
+              ].filter(Boolean).length}
+              onToggle={() => setIsFilterMenuOpen((open) => !open)}
+            />
 
-            {isFilterMenuOpen && (
+            {isFilterMenuOpen && filterPosition && (
               <div
-                className="absolute z-40 mt-1 w-72 overflow-hidden radius-lg border border-border-subtle bg-surface-card shadow-lg py-2"
+                className="z-50 overflow-hidden radius-lg border border-border-subtle bg-surface-card shadow-xl"
+                style={{
+                  position: 'fixed',
+                  zIndex: 50,
+                  top: filterPosition.top,
+                  left: filterPosition.left,
+                  minWidth: 260,
+                }}
               >
                 <div className="px-3 py-2 space-y-3 border-b border-border-subtle pb-2">
                   <div>
-                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-1">Departamento</label>
+                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+                      Departamento
+                    </label>
                     <select
                       value={departmentFilter}
                       onChange={(e) => setDepartmentFilter(e.target.value)}
-                      className="w-full h-9 text-xs field px-2 py-1"
+                      className="w-full h-9 text-xs field px-2.5 py-1.5"
                     >
                       <option value="todos">Todos</option>
                       {uniqueDepartments.map((dept) => (
@@ -251,11 +260,13 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-1">Status</label>
+                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+                      Status
+                    </label>
                     <select
                       value={statusFilter}
                       onChange={(e) => setStatusFilter(e.target.value)}
-                      className="w-full h-9 text-xs field px-2 py-1"
+                      className="w-full h-9 text-xs field px-2.5 py-1.5"
                     >
                       <option value="todos">Todos</option>
                       <option value="Ativo">Ativo</option>
@@ -267,12 +278,22 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
                 </div>
 
                 <div className="px-3 py-2 flex justify-end gap-2">
-                  <Button variant="ghost" size="sm" onClick={() => setIsFilterMenuOpen(false)}>Fechar</Button>
-                  {(departmentFilter !== 'todos' || statusFilter !== 'todos') && (
-                    <Button variant="ghost" size="sm" onClick={() => {
-                      setDepartmentFilter('todos');
-                      setStatusFilter('todos');
-                    }}>
+                  <Button variant="ghost" size="sm" onClick={() => setIsFilterMenuOpen(false)}>
+                    Fechar
+                  </Button>
+                  {[
+                    departmentFilter !== 'todos',
+                    statusFilter !== 'todos',
+                  ].filter(Boolean).length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setDepartmentFilter('todos');
+                        setStatusFilter('todos');
+                      }}
+                      className="text-status-danger-fg hover:text-status-danger-fg/80"
+                    >
                       Limpar filtros
                     </Button>
                   )}

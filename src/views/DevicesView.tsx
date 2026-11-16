@@ -8,7 +8,6 @@ import { QrCode } from '../components/QrCode';
 import {
   Smartphone,
   Search,
-  Filter,
   Plus,
   Eye,
   Edit2,
@@ -31,6 +30,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../components/button';
 import { Badge } from '../components/badge';
+import { FilterDropdown, FilterTrigger } from '../components/FilterDropdown';
 import { DataTable, type DataTableColumn } from '../components/DataTable';
 
 interface DevicesViewProps {
@@ -56,6 +56,16 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
 
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
   const filterMenuRef = useRef<HTMLDivElement>(null);
+  const [filterPosition, setFilterPosition] = useState<{ top: number; left: number } | null>(null);
+
+  useEffect(() => {
+    if (!isFilterMenuOpen || !filterMenuRef.current) {
+      setFilterPosition(null);
+      return;
+    }
+    const rect = filterMenuRef.current.getBoundingClientRect();
+    setFilterPosition({ top: rect.bottom + 4, left: rect.left });
+  }, [isFilterMenuOpen]);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -348,38 +358,37 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
             ref={filterMenuRef}
             className="relative"
           >
-            <button
-              type="button"
-              onClick={() => setIsFilterMenuOpen((open) => !open)}
-              aria-expanded={isFilterMenuOpen}
-              aria-haspopup="menu"
-              className="inline-flex items-center gap-2 radius-lg border border-border-subtle bg-surface-card px-2.5 py-1 text-text-muted font-medium focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
-            >
-              <Filter className="w-3 h-3 text-text-muted" />
-              <span>Filtros</span>
-              {(
-                stockFilter !== 'todos' ||
-                statusFilter !== 'todos' ||
-                departmentFilter !== 'todos' ||
-                brandFilter !== 'todos'
-              ) && (
-                <Badge variant="info" size="sm" className="text-[10px]">
-                  ativos
-                </Badge>
-              )}
-            </button>
+            <FilterTrigger
+              isOpen={isFilterMenuOpen}
+              activeCount={[
+                stockFilter !== 'todos',
+                statusFilter !== 'todos',
+                departmentFilter !== 'todos',
+                brandFilter !== 'todos',
+              ].filter(Boolean).length}
+              onToggle={() => setIsFilterMenuOpen((open) => !open)}
+            />
 
-            {isFilterMenuOpen && (
+            {isFilterMenuOpen && filterPosition && (
               <div
-                className="absolute z-40 mt-1 w-72 overflow-hidden radius-lg border border-border-subtle bg-surface-card shadow-lg py-2"
+                className="z-50 overflow-hidden radius-lg border border-border-subtle bg-surface-card shadow-xl"
+                style={{
+                  position: 'fixed',
+                  zIndex: 50,
+                  top: filterPosition.top,
+                  left: filterPosition.left,
+                  minWidth: 260,
+                }}
               >
                 <div className="px-3 py-2 space-y-3 border-b border-border-subtle pb-2">
                   <div>
-                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-1">Custódia</label>
+                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+                      Custódia
+                    </label>
                     <select
                       value={stockFilter}
                       onChange={(e) => setStockFilter(e.target.value as any)}
-                      className="w-full h-9 text-xs field px-2 py-1"
+                      className="w-full h-9 text-xs field px-2.5 py-1.5"
                     >
                       <option value="todos">Todas</option>
                       <option value="em_estoque">No Estoque</option>
@@ -388,11 +397,13 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-1">Status</label>
+                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+                      Status
+                    </label>
                     <select
                       value={statusFilter}
                       onChange={(e) => setStatusFilter(e.target.value)}
-                      className="w-full h-9 text-xs field px-2 py-1"
+                      className="w-full h-9 text-xs field px-2.5 py-1.5"
                     >
                       <option value="todos">Todos</option>
                       {catalogs.deviceStatuses.map((item) => (
@@ -402,11 +413,13 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-1">Departamento</label>
+                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+                      Departamento
+                    </label>
                     <select
                       value={departmentFilter}
                       onChange={(e) => setDepartmentFilter(e.target.value)}
-                      className="w-full h-9 text-xs field px-2 py-1"
+                      className="w-full h-9 text-xs field px-2.5 py-1.5"
                     >
                       <option value="todos">Todos</option>
                       {uniqueDepartments.map((dept) => (
@@ -416,11 +429,13 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-1">Marca</label>
+                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+                      Marca
+                    </label>
                     <select
                       value={brandFilter}
                       onChange={(e) => setBrandFilter(e.target.value)}
-                      className="w-full h-9 text-xs field px-2 py-1"
+                      className="w-full h-9 text-xs field px-2.5 py-1.5"
                     >
                       <option value="todos">Todas</option>
                       {uniqueBrands.map((b) => (
@@ -431,14 +446,26 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
                 </div>
 
                 <div className="px-3 py-2 flex justify-end gap-2">
-                  <Button variant="ghost" size="sm" onClick={() => setIsFilterMenuOpen(false)}>Fechar</Button>
-                  {(statusFilter !== 'todos' || stockFilter !== 'todos' || departmentFilter !== 'todos' || brandFilter !== 'todos') && (
-                    <Button variant="ghost" size="sm" onClick={() => {
-                      setStatusFilter('todos');
-                      setStockFilter('todos');
-                      setDepartmentFilter('todos');
-                      setBrandFilter('todos');
-                    }}>
+                  <Button variant="ghost" size="sm" onClick={() => setIsFilterMenuOpen(false)}>
+                    Fechar
+                  </Button>
+                  {[
+                    stockFilter !== 'todos',
+                    statusFilter !== 'todos',
+                    departmentFilter !== 'todos',
+                    brandFilter !== 'todos',
+                  ].filter(Boolean).length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setStatusFilter('todos');
+                        setStockFilter('todos');
+                        setDepartmentFilter('todos');
+                        setBrandFilter('todos');
+                      }}
+                      className="text-status-danger-fg hover:text-status-danger-fg/80"
+                    >
                       Limpar filtros
                     </Button>
                   )}
