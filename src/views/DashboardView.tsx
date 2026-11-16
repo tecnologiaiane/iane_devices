@@ -7,6 +7,7 @@ import { NavTab } from '../components/Sidebar';
 import { Catalogs, User } from '../types';
 import { Button } from '../components/button';
 import { Badge } from '../components/badge';
+import { Accordion } from '../components/Accordion';
 import {
   Smartphone,
   PhoneCall,
@@ -22,8 +23,6 @@ import {
   Tag,
   FileText,
   FileWarning,
-  ChevronDown,
-  ChevronUp,
 } from 'lucide-react';
 
 interface DashboardViewProps {
@@ -197,9 +196,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
     }, {})
   ).sort((a, b) => b[1] - a[1]);
 
-  const [attentionOpen, setAttentionOpen] = useState(false);
-  const [movementsOpen, setMovementsOpen] = useState(false);
-
   const evaluatingDevices = devices.filter((d) => d.status === evaluationStatus);
   const maintenanceDevices = devices.filter((d) => d.status === maintenanceStatus);
   const attentionDevices = [...evaluatingDevices, ...maintenanceDevices];
@@ -327,8 +323,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
           </div>
 
           <div className="flex flex-col sm:flex-row items-center gap-6">
-            <div className="relative w-72 h-72 shrink-0 overflow-visible">
-              <svg viewBox="-70 -70 280 280" className="w-72 h-72 -rotate-90 overflow-visible" role="img" aria-label="Distribuição dos aparelhos por status">
+            <div className="relative w-40 h-40 shrink-0">
+              <svg viewBox="0 0 140 140" className="w-40 h-40 -rotate-90" role="img" aria-label="Distribuição dos aparelhos por status">
                 <circle cx="70" cy="70" r={DONUT_RADIUS} fill="none" stroke="var(--color-border-subtle)" strokeWidth="16" />
                 {donutArcs.map((arc) => (
                   <circle
@@ -344,50 +340,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
                     strokeLinecap="round"
                   />
                 ))}
-                {/* Linhas de conexão com labels externos posicionados no fim da linha */}
-                {donutArcs.map((arc) => {
-                  const startAngle = -Math.PI / 2 + arc.offset / DONUT_RADIUS;
-                  const endAngle = startAngle + arc.dash / DONUT_RADIUS;
-                  const midAngle = (startAngle + endAngle) / 2;
-                  const isLeft = midAngle < -Math.PI / 2 || midAngle > Math.PI / 2;
-                  const x1 = 70 + DONUT_RADIUS * Math.cos(midAngle);
-                  const y1 = 70 + DONUT_RADIUS * Math.sin(midAngle);
-                  const x2 = 70 + (DONUT_RADIUS + 18) * Math.cos(midAngle);
-                  const y2 = 70 + (DONUT_RADIUS + 18) * Math.sin(midAngle);
-                  const x3 = x2 + (isLeft ? -34 : 34);
-                  const segment = statusSegments.find((s) => s.label === arc.label);
-                  const count = segment?.count ?? 0;
-                  const pct = percent(count);
-                  return (
-                    <React.Fragment key={`label-${arc.label}`}>
-                      <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="var(--color-border-strong)" strokeWidth="1" strokeDasharray="2,2" />
-                      <line x1={x2} y1={y2} x2={x3} y2={y2} stroke="var(--color-border-strong)" strokeWidth="1" strokeDasharray="2,2" />
-                      <circle cx={x3} cy={y2} r={2.5} fill={arc.color} />
-                      <text
-                        x={x3}
-                        y={y2 - 5}
-                        fontSize="10"
-                        fill={arc.color}
-                        textAnchor={isLeft ? 'end' : 'start'}
-                        dominantBaseline="middle"
-                        fontFamily="var(--font-sans)"
-                      >
-                        {arc.label}
-                      </text>
-                      <text
-                        x={x3}
-                        y={y2 + 7}
-                        fontSize="9"
-                        fill="var(--color-text-muted)"
-                        textAnchor={isLeft ? 'end' : 'start'}
-                        dominantBaseline="middle"
-                        fontFamily="var(--font-sans)"
-                      >
-                        {count} ({pct}%)
-                      </text>
-                    </React.Fragment>
-                  );
-                })}
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <span className="text-2xl font-bold font-code tabular-nums text-text-primary">
@@ -395,6 +347,23 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
                 </span>
                 <span className="text-[10px] text-text-muted uppercase tracking-wider">aparelhos</span>
               </div>
+            </div>
+
+            <div className="flex-1 w-full space-y-2">
+              {statusSegments.map((segment) => (
+                <div key={segment.label} className="flex items-center justify-between gap-2 text-[11px]">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: segment.color }} />
+                    <span className="text-text-muted truncate">{segment.label}</span>
+                  </div>
+                  <span className="font-code text-text-muted tabular-nums shrink-0">
+                    {segment.count} <span className="text-text-muted">({percent(segment.count)}%)</span>
+                  </span>
+                </div>
+              ))}
+              {statusSegments.length === 0 && (
+                <p className="text-[11px] text-text-muted">Nenhum aparelho cadastrado ainda.</p>
+              )}
             </div>
           </div>
         </div>
@@ -622,149 +591,109 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
 
       {/* Listas operacionais */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="radius-lg border border-border-subtle bg-surface-card shadow-sm overflow-hidden">
-          <div
-            className="flex items-center justify-between px-5 py-3.5 cursor-pointer hover:bg-surface-subtle transition-colors border-b border-border-subtle"
-            onClick={(e) => {
-              e.stopPropagation();
-              setAttentionOpen(!attentionOpen);
-            }}
-          >
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-status-warning-fg" />
-              <h2 className="text-sm font-semibold text-text-primary">Atenção necessária</h2>
-            </div>
-            <span className={`text-[11px] font-medium ${attentionOpen ? 'text-brand-blue-action' : 'text-text-muted'}`}>
-              {attentionDevices.length} aparelho(s)
-            </span>
-            {attentionOpen ? (
-              <ChevronUp className="w-4 h-4 text-text-muted" />
-            ) : (
-              <ChevronDown className="w-4 h-4 text-text-muted" />
-            )}
-          </div>
-
-          {attentionOpen && (
-            <div className="p-4 space-y-2.5">
-              {attentionDevices.slice(0, 6).map((device) => (
-                <div
-                  key={device.id}
-                  className={`p-3 radius-base border flex items-start justify-between gap-3 ${
-                    device.status === maintenanceStatus
-                      ? 'bg-status-warning-bg/50 border-status-warning-border'
-                      : 'bg-surface-subtle border-border-subtle'
-                  }`}
-                >
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-bold text-text-primary font-code text-[11px]">{device.assetTag}</span>
-                      <StatusBadge status={device.status} type="device" size="sm" />
-                    </div>
-                    <p className="text-[11px] text-text-muted truncate">
-                      {device.model}
-                      {device.notes ? ` · ${device.notes}` : ''}
-                    </p>
+        <Accordion
+          title="Atenção necessária"
+          icon={<AlertTriangle className="w-4 h-4 text-status-warning-fg" />}
+        >
+          <div className="space-y-2.5">
+            {attentionDevices.slice(0, 6).map((device) => (
+              <div
+                key={device.id}
+                className={`p-3 radius-base border flex items-start justify-between gap-3 ${
+                  device.status === maintenanceStatus
+                    ? 'bg-status-warning-bg/50 border-status-warning-border'
+                    : 'bg-surface-subtle border-border-subtle'
+                }`}
+              >
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-text-primary font-code text-[11px]">{device.assetTag}</span>
+                    <StatusBadge status={device.status} type="device" size="sm" />
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => onNavigate('dispositivos')}
-                    className="text-[11px] font-semibold text-brand-blue-action hover:underline shrink-0"
-                  >
-                    Abrir
-                  </button>
-                </div>
-              ))}
-
-              {attentionDevices.length === 0 && (
-                <div className="py-6 text-center">
-                  <CheckCircle2 className="w-8 h-8 text-status-success-fg mx-auto mb-2" />
-                  <p className="text-xs font-semibold text-text-primary">Nenhuma pendência no estoque</p>
-                  <p className="text-[11px] text-text-muted mt-0.5">
-                    Não há aparelhos aguardando avaliação ou em manutenção.
+                  <p className="text-[11px] text-text-muted truncate">
+                    {device.model}
+                    {device.notes ? ` · ${device.notes}` : ''}
                   </p>
                 </div>
-              )}
-
-              {attentionDevices.length > 6 && (
                 <button
                   type="button"
                   onClick={() => onNavigate('dispositivos')}
-                  className="mt-3 w-full py-2 text-[11px] font-semibold text-brand-blue-action bg-surface-subtle hover:bg-surface-card radius-base transition-colors"
+                  className="text-[11px] font-semibold text-brand-blue-action hover:underline shrink-0"
                 >
-                  Ver todos os {attentionDevices.length} aparelhos
+                  Abrir
                 </button>
-              )}
-            </div>
-          )}
-        </div>
+              </div>
+            ))}
 
-        <div className="radius-lg border border-border-subtle bg-surface-card shadow-sm overflow-hidden">
-          <div
-            className="flex items-center justify-between px-5 py-3.5 cursor-pointer hover:bg-surface-subtle transition-colors border-b border-border-subtle"
-            onClick={(e) => {
-              e.stopPropagation();
-              setMovementsOpen(!movementsOpen);
-            }}
-          >
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-text-muted" />
-              <h2 className="text-sm font-semibold text-text-primary">Últimas movimentações</h2>
-            </div>
-            <span className={`text-[11px] font-medium ${movementsOpen ? 'text-brand-blue-action' : 'text-text-muted'}`}>
-              {movements.length}
-            </span>
-            {movementsOpen ? (
-              <ChevronUp className="w-4 h-4 text-text-muted" />
-            ) : (
-              <ChevronDown className="w-4 h-4 text-text-muted" />
+            {attentionDevices.length === 0 && (
+              <div className="py-6 text-center">
+                <CheckCircle2 className="w-8 h-8 text-status-success-fg mx-auto mb-2" />
+                <p className="text-xs font-semibold text-text-primary">Nenhuma pendência no estoque</p>
+                <p className="text-[11px] text-text-muted mt-0.5">
+                  Não há aparelhos aguardando avaliação ou em manutenção.
+                </p>
+              </div>
+            )}
+
+            {attentionDevices.length > 6 && (
+              <button
+                type="button"
+                onClick={() => onNavigate('dispositivos')}
+                className="mt-3 w-full py-2 text-[11px] font-semibold text-brand-blue-action bg-surface-subtle hover:bg-surface-card radius-base transition-colors"
+              >
+                Ver todos os {attentionDevices.length} aparelhos
+              </button>
             )}
           </div>
+        </Accordion>
 
-          {movementsOpen && (
-            <div className="p-4 divide-y divide-border-subtle">
-              {movements.slice(0, 6).map((movement) => (
-                <div key={movement.id} className="py-2.5 flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-2.5 min-w-0">
-                    <span
-                      className={`mt-0.5 w-7 h-7 radius-base flex items-center justify-center shrink-0 ${
-                        movement.type === 'Entrega'
-                          ? 'bg-status-success-bg text-status-success-fg'
-                          : movement.type === 'Devolução'
-                            ? 'bg-status-warning-bg text-status-warning-fg'
-                            : 'bg-surface-subtle text-brand-blue-action'
-                      }`}
-                    >
-                      <ArrowLeftRight className="w-3.5 h-3.5" />
-                    </span>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-[11px] font-semibold text-text-primary">{movement.type}</span>
-                        <span className="text-[11px] font-code font-bold text-brand-blue-action">
-                          {movement.deviceTag || movement.phoneNumber || 'Ativo'}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-text-muted truncate">
-                        {stockDisplayName(movement.originCollaboratorName)} →{' '}
-                        {stockDisplayName(movement.destinationCollaboratorName)}
-                      </p>
+        <Accordion
+          title="Últimas movimentações"
+          icon={<Clock className="w-4 h-4 text-text-muted" />}
+        >
+          <div className="divide-y divide-border-subtle">
+            {movements.slice(0, 6).map((movement) => (
+              <div key={movement.id} className="py-2.5 flex items-start justify-between gap-3">
+                <div className="flex items-start gap-2.5 min-w-0">
+                  <span
+                    className={`mt-0.5 w-7 h-7 radius-base flex items-center justify-center shrink-0 ${
+                      movement.type === 'Entrega'
+                        ? 'bg-status-success-bg text-status-success-fg'
+                        : movement.type === 'Devolução'
+                          ? 'bg-status-warning-bg text-status-warning-fg'
+                          : 'bg-surface-subtle text-brand-blue-action'
+                    }`}
+                  >
+                    <ArrowLeftRight className="w-3.5 h-3.5" />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[11px] font-semibold text-text-primary">{movement.type}</span>
+                      <span className="text-[11px] font-code font-bold text-brand-blue-action">
+                        {movement.deviceTag || movement.phoneNumber || 'Ativo'}
+                      </span>
                     </div>
+                    <p className="text-[11px] text-text-muted truncate">
+                      {stockDisplayName(movement.originCollaboratorName)} →{' '}
+                      {stockDisplayName(movement.destinationCollaboratorName)}
+                    </p>
                   </div>
-                  <span className="text-[11px] font-code text-text-muted shrink-0">{formatDate(movement.date)}</span>
                 </div>
-              ))}
+                <span className="text-[11px] font-code text-text-muted shrink-0">{formatDate(movement.date)}</span>
+              </div>
+            ))}
 
-              {movements.length === 0 && (
-                <div className="py-6 text-center">
-                  <ArrowLeftRight className="w-8 h-8 text-border-strong mx-auto mb-2" />
-                  <p className="text-xs font-semibold text-text-primary">Nenhuma movimentação registrada</p>
-                  <p className="text-[11px] text-text-muted mt-0.5">
-                    As entregas, devoluções e transferências aparecerão aqui.
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+            {movements.length === 0 && (
+              <div className="py-6 text-center">
+                <ArrowLeftRight className="w-8 h-8 text-border-strong mx-auto mb-2" />
+                <p className="text-xs font-semibold text-text-primary">Nenhuma movimentação registrada</p>
+                <p className="text-[11px] text-text-muted mt-0.5">
+                  As entregas, devoluções e transferências aparecerão aqui.
+                </p>
+              </div>
+            )}
+          </div>
+        </Accordion>
       </div>
 
       {/* Aviso de termos pendentes para administradores */}
