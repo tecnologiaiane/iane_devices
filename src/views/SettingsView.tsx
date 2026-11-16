@@ -924,7 +924,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 											setResetAcknowledged(e.target.value.trim().toUpperCase() === 'ZERAR');
 										}}
 										placeholder="Digite ZERAR para confirmar"
-										className="w-full h-10 text-xs radius-base border border-border-subtle bg-surface-card px-3 py-2 text-text-primary font-code focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15 uppercase"
+										className="w-full h-10 text-xs field px-3 py-2 font-code uppercase"
 									/>
 									<label className="flex items-center gap-2 text-[11px] text-status-danger-fg/80 cursor-pointer select-none">
 										<input
@@ -963,20 +963,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 							<form onSubmit={handleSaveUser} className="space-y-3">
 								<div>
 									<label className="block text-[11px] font-medium text-text-muted mb-1.5">Nome Completo *</label>
-									<input type="text" value={formFullName} onChange={(e) => setFormFullName(e.target.value)} placeholder="Carlos Eduardo Mendes" className="w-full h-10 text-xs radius-base border border-border-subtle bg-surface-card px-3 py-2 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15" required />
+									<input type="text" value={formFullName} onChange={(e) => setFormFullName(e.target.value)} placeholder="Carlos Eduardo Mendes" className="w-full h-10 text-xs field px-3 py-2" required />
 								</div>
 								<div>
 									<label className="block text-[11px] font-medium text-text-muted mb-1.5">Nome de Usuário *</label>
-									<input type="text" value={formUsername} onChange={(e) => setFormUsername(e.target.value)} placeholder="carlos.mendes" className="w-full h-10 text-xs radius-base border border-border-subtle bg-surface-card px-3 py-2 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15" required />
+									<input type="text" value={formUsername} onChange={(e) => setFormUsername(e.target.value)} placeholder="carlos.mendes" className="w-full h-10 text-xs field px-3 py-2" required />
 								</div>
 								<div>
 									<label className="block text-[11px] font-medium text-text-muted mb-1.5">E-mail</label>
-									<input type="email" value={formEmail} onChange={(e) => setFormEmail(e.target.value)} placeholder="carlos@empresa.com.br" className="w-full h-10 text-xs radius-base border border-border-subtle bg-surface-card px-3 py-2 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15" />
+									<input type="email" value={formEmail} onChange={(e) => setFormEmail(e.target.value)} placeholder="carlos@empresa.com.br" className="w-full h-10 text-xs field px-3 py-2" />
 								</div>
 								<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 									<div>
 										<label className="block text-[11px] font-medium text-text-muted mb-1.5">Papel *</label>
-										<select value={formRole} onChange={(e) => handleRoleChange(e.target.value as UserRole)} className="w-full h-10 text-xs radius-base border border-border-subtle bg-surface-card px-3 py-2 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15" required>
+										<select value={formRole} onChange={(e) => handleRoleChange(e.target.value as UserRole)} className="w-full h-10 text-xs field px-3 py-2" required>
 											<option value="admin">Administrador</option>
 											<option value="gestor">Gestor de Telefonia</option>
 											<option value="operador">Operador de TI/RH</option>
@@ -985,7 +985,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 									</div>
 									<div>
 										<label className="block text-[11px] font-medium text-text-muted mb-1.5">Status</label>
-										<select value={formActive ? 'true' : 'false'} onChange={(e) => setFormActive(e.target.value === 'true')} className="w-full h-10 text-xs radius-base border border-border-subtle bg-surface-card px-3 py-2 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15">
+										<select value={formActive ? 'true' : 'false'} onChange={(e) => setFormActive(e.target.value === 'true')} className="w-full h-10 text-xs field px-3 py-2">
 											<option value="true">Ativo</option>
 											<option value="false">Inativo</option>
 										</select>
@@ -1000,7 +1000,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 												value={formPassword}
 												onChange={(e) => setFormPassword(e.target.value)}
 												placeholder="•••••• (mín. 6 caracteres)"
-												className="w-full h-10 text-xs radius-base border border-border-subtle bg-surface-card px-3 py-2 pr-10 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+												className="w-full h-10 text-xs field px-3 py-2 pr-10"
 												required
 											/>
 											<button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary">

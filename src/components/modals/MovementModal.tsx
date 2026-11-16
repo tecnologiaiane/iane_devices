@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react'
 import { Modal } from '../Modal'
+import { fieldClass } from '../field'
 import { Device, PhoneLine, Collaborator, DeviceCondition, DocumentTerm, RequestRecord, TermType, CatalogItem } from '../../types'
 import { dataService } from '../../services/dataStorage'
 import { todayISO } from '../../utils/dates'
@@ -529,7 +530,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
 	const selTrocaNewDev = devices.find(d => d.id === trocaNewDeviceId);
 	const selectedTerms = availableTerms.filter((term) => selectedTermIds.includes(term.id));
 
-	const inputClass = 'w-full h-10 text-xs radius-base border border-border-subtle bg-surface-card px-3 py-2 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15';
+	const inputClass = `${fieldClass} h-10 px-3 py-2`;
 	const selectClass = inputClass;
 	const labelClass = 'block text-xs font-medium text-text-muted mb-1.5';
 	const sectionCard = 'p-3 radius-base border border-border-subtle bg-surface-subtle space-y-2';

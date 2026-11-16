@@ -55,7 +55,7 @@ export function QrCode({ value, size = 200, alt = 'QR Code' }: QrCodeProps) {
 		>
 			<title>{alt}</title>
 			<rect width={qr.dimension} height={qr.dimension} fill="#ffffff" />
-			<path d={qr.path} fill="#0F1238" />
+			<path d={qr.path} fill="#0A1F3C" />
 		</svg>
 	)
 }

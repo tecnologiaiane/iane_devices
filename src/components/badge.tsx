@@ -3,7 +3,7 @@ import { twMerge } from 'tailwind-merge'
 import type { ComponentProps } from 'react'
 
 export const badgeVariants = tv({
-	base: 'inline-flex items-center gap-1.5 rounded-full border font-medium tracking-tight whitespace-nowrap',
+	base: 'inline-flex items-center gap-1.5 rounded-full border font-medium whitespace-nowrap',
 	variants: {
 		variant: {
 			default: 'border-border-subtle bg-surface-subtle text-text-muted',
@@ -14,7 +14,7 @@ export const badgeVariants = tv({
 		},
 		size: {
 			sm: 'h-6 px-2 py-0.5 text-[11px] font-semibold',
-			md: 'h-7 px-2.5 py-0.5 text-xs font-semibold',
+			md: 'h-6 px-2.5 py-0.5 text-[11px] font-semibold',
 		},
 	},
 	defaultVariants: { variant: 'default', size: 'md' },
@@ -42,7 +42,7 @@ export function Badge({
 		>
 			{showDot && (
 				<span
-					className="shrink-0 w-1.5 h-1.5 rounded-full bg-current opacity-60"
+					className="shrink-0 w-1.5 h-1.5 rounded-full bg-current"
 					aria-hidden="true"
 				/>
 			)}

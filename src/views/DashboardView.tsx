@@ -254,7 +254,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
           <div className="flex flex-col sm:flex-row items-center gap-5">
             <div className="relative w-40 h-40 shrink-0">
               <svg viewBox="0 0 140 140" className="w-40 h-40 -rotate-90" role="img" aria-label="Distribuição dos aparelhos por status">
-                <circle cx="70" cy="70" r={DONUT_RADIUS} fill="none" stroke="#ECEFF6" strokeWidth="16" />
+                <circle cx="70" cy="70" r={DONUT_RADIUS} fill="none" stroke="var(--color-border-subtle)" strokeWidth="16" />
                 {donutArcs.map((arc) => (
                   <circle
                     key={arc.label}

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Check, ChevronDown, Search, X } from 'lucide-react'
 import { matchesPhoneSearch } from '../utils/formatters'
+import { fieldClass } from './field'
 
 export interface SearchableOption {
 	value: string
@@ -8,8 +9,8 @@ export interface SearchableOption {
 	phoneSearch?: string
 }
 
-const fieldClass =
-	'w-full text-xs radius-base border border-border-subtle bg-surface-card px-3 py-2 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15'
+const fieldStyles =
+	`${fieldClass} h-10 px-3`
 
 interface SearchableSelectProps {
 	value: string
@@ -59,7 +60,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
 					setQuery('')
 					setOpen((current) => !current)
 				}}
-				className={`${fieldClass} flex items-center justify-between gap-2 text-left disabled:bg-surface-subtle disabled:text-text-muted`}
+				className={`${fieldStyles} flex items-center justify-between gap-2 text-left disabled:bg-surface-subtle disabled:text-text-muted`}
 			>
 				<span className={selected ? 'truncate' : 'truncate text-text-muted'}>
 					{selected?.label || placeholder}
@@ -77,7 +78,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
 							value={query}
 							onChange={(event) => setQuery(event.target.value)}
 							placeholder="Pesquisar..."
-							className={`${fieldClass} pl-8`}
+							className={`${fieldStyles} pl-8`}
 						/>
 					</div>
 					<div role="listbox" className="max-h-52 overflow-y-auto py-1">
@@ -143,7 +144,7 @@ export const SearchableMultiSelect: React.FC<SearchableMultiSelectProps> = ({
 	return (
 		<div ref={root} className="relative">
 			<div
-				className={`${fieldClass} flex min-h-[40px] flex-wrap items-center gap-1.5`}
+				className={`${fieldStyles} flex min-h-[40px] flex-wrap items-center gap-1.5`}
 			>
 				{values.map((value) => (
 					<span key={value} className="inline-flex items-center gap-1 radius-full border border-brand-blue-action/30 bg-brand-blue-action/10 px-2 py-0.5 text-[11px] font-medium text-brand-blue-action">
@@ -184,7 +185,7 @@ export const SearchableMultiSelect: React.FC<SearchableMultiSelectProps> = ({
 							value={query}
 							onChange={(event) => setQuery(event.target.value)}
 							placeholder="Pesquisar..."
-							className={`${fieldClass} pl-8`}
+							className={`${fieldStyles} pl-8`}
 						/>
 					</div>
 					<div role="listbox" aria-multiselectable="true" className="max-h-52 overflow-y-auto py-1">

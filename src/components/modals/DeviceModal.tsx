@@ -173,7 +173,7 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
 							value={assetTag}
 							onChange={(e) => setAssetTag(e.target.value.toUpperCase())}
 							placeholder="Ex: CEL-015"
-							className="w-full h-10 text-xs radius-base border border-border-subtle bg-surface-card px-3 py-2 text-text-primary font-code focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15 uppercase"
+							className="w-full h-10 text-xs field px-3 py-2 font-code uppercase"
 							required
 						/>
 					</div>
@@ -202,7 +202,7 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
 							onChange={(e) => setImei1(e.target.value.replace(/\D/g, ''))}
 							placeholder="Opcional - 14 a 17 dígitos"
 							maxLength={17}
-							className="w-full h-10 text-xs radius-base border border-border-subtle bg-surface-card px-3 py-2 text-text-primary font-code focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+							className="w-full h-10 text-xs field px-3 py-2 font-code"
 						/>
 					</div>
 				</div>
@@ -223,7 +223,7 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
 						<select
 							value={condition}
 							onChange={(e) => setCondition(e.target.value as DeviceCondition)}
-							className="w-full h-10 text-xs radius-base border border-border-subtle bg-surface-card px-3 py-2 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+							className="w-full h-10 text-xs field px-3 py-2"
 						>
 							<option value="Novo">Novo (Na caixa / Sem uso)</option>
 							<option value="Excelente">Excelente (Sem arranhões)</option>
@@ -241,7 +241,7 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
 							type="date"
 							value={purchaseDate}
 							onChange={(e) => setPurchaseDate(e.target.value)}
-							className="w-full h-10 text-xs radius-base border border-border-subtle bg-surface-card px-3 py-2 text-text-primary font-code focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+							className="w-full h-10 text-xs field px-3 py-2 font-code"
 						/>
 					</div>
 
@@ -253,7 +253,7 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
 							value={purchaseValue}
 							onChange={(e) => setPurchaseValue(e.target.value)}
 							placeholder="Ex: 2499.00"
-							className="w-full h-10 text-xs radius-base border border-border-subtle bg-surface-card px-3 py-2 text-text-primary font-code focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+							className="w-full h-10 text-xs field px-3 py-2 font-code"
 						/>
 					</div>
 				</div>
@@ -265,7 +265,7 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
 							value={status}
 							disabled={deviceToEdit?.status === inUseStatus}
 							onChange={(e) => setStatus(e.target.value as DeviceStatus)}
-							className="w-full h-10 text-xs radius-base border border-border-subtle bg-surface-card px-3 py-2 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15 disabled:bg-surface-subtle"
+							className="w-full h-10 text-xs field px-3 py-2 disabled:bg-surface-subtle"
 						>
 							{deviceStatusOptions.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}
 						</select>
@@ -289,7 +289,7 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
 						value={notes}
 						onChange={(e) => setNotes(e.target.value)}
 						placeholder="Acessórios inclusos, histórico de notas fiscais, restrições operacionais..."
-						className="w-full h-24 text-xs radius-base border border-border-subtle bg-surface-card px-3 py-2 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15 resize-none"
+						className="w-full h-24 text-xs field px-3 py-2 resize-none"
 					/>
 				</div>
 

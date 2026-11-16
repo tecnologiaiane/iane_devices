@@ -6,96 +6,97 @@
      Fonte absoluta de verdade: DESIGN.md
      ============================================================ */
 
-  /* --- Cores de marca (estrutura) --- */
-  --color-brand-navy-dark: #0F1238;
-  --color-brand-navy-base: #1A1450;
-  --color-brand-blue-action: #0A6EF0;
-  --color-brand-blue-action-hover: #0858C2;
-  --color-brand-sky-glow: #3FC6F5;
-  --color-brand-sun: #FFD91A;
+  /* --- Cores de marca (estrutura) — IANE v3.6 --- */
+  --color-brand-navy-dark: #0A1F3C;
+  --color-brand-navy-base: #122B4E;
+  --color-brand-blue-action: #146EF5;
+  --color-brand-blue-action-hover: #0E5ACB;
+  --color-brand-sky-glow: #38BDF8;
+  --color-brand-sun: #FFD60A;
+  --color-brand-sun-hover: #EFC700;
 
   /* --- Superfícies (canvas/cards) --- */
-  --color-surface-canvas: #F6F8FF;
+  --color-surface-canvas: #F6F9FC;
   --color-surface-card: #FFFFFF;
-  --color-surface-subtle: #EDF1FC;
+  --color-surface-subtle: #F1F5F9;
 
   /* --- Bordas --- */
-  --color-border-subtle: #DCE2F5;
-  --color-border-strong: #7C84AA;
+  --color-border-subtle: #E3E8EE;
+  --color-border-strong: #94A3B8;
 
   /* --- Textos --- */
-  --color-text-primary: #0F1238;
-  --color-text-muted: #4B5378;
+  --color-text-primary: #0A2540;
+  --color-text-muted: #64748B;
 
   /* --- Semântica de status --- */
-  --color-status-success-bg: #E6F8F0;
-  --color-status-success-fg: #0E7043;
-  --color-status-success-border: #A3E5C7;
-  --color-status-warning-bg: #FFF8E6;
-  --color-status-warning-fg: #8A5A00;
-  --color-status-warning-border: #FFE08F;
-  --color-status-danger-bg: #FEECEB;
+  --color-status-success-bg: #ECFDF3;
+  --color-status-success-fg: #027A48;
+  --color-status-success-border: #ABEFC6;
+  --color-status-warning-bg: #FFFAEB;
+  --color-status-warning-fg: #B54708;
+  --color-status-warning-border: #FEDF89;
+  --color-status-danger-bg: #FEF3F2;
   --color-status-danger-fg: #B42318;
   --color-status-danger-border: #FECDCA;
-  --color-status-info-bg: #EBF3FE;
+  --color-status-info-bg: #EFF8FF;
   --color-status-info-fg: #175CD3;
   --color-status-info-border: #B2DDFF;
 
   /* --- Marca legada (mantida para retrocompatibilidade) --- */
-  --color-iane-50: #EBF6FD;
-  --color-iane-100: #D3EBF9;
-  --color-iane-200: #A9D7F2;
-  --color-iane-300: #6FBDE9;
-  --color-iane-400: #2FA0DE;
-  --color-iane-500: #148DD2;
-  --color-iane-600: #0178C8;
-  --color-iane-700: #0162A3;
-  --color-iane-800: #064D80;
-  --color-sky: #57C3E9;
+  --color-iane-50: #EFF6FF;
+  --color-iane-100: #DBEAFE;
+  --color-iane-200: #BFDBFE;
+  --color-iane-300: #93C5FD;
+  --color-iane-400: #60A5FA;
+  --color-iane-500: #3B82F6;
+  --color-iane-600: #146EF5;
+  --color-iane-700: #0E5ACB;
+  --color-iane-800: #0A47A0;
+  --color-sky: #38BDF8;
 
-  --color-navy-700: #433E8C;
-  --color-navy-800: #322D78;
-  --color-navy-900: #262161;
-  --color-navy-950: #17143F;
+  --color-navy-700: #1E3A5F;
+  --color-navy-800: #16304F;
+  --color-navy-900: #12263F;
+  --color-navy-950: #0A1F3C;
 
-  --color-sun-50: #FFFBD6;
-  --color-sun-100: #FFF6A3;
-  --color-sun-300: #F8EC76;
-  --color-sun-400: #F5E230;
-  --color-sun-500: #E7C800;
+  --color-sun-50: #FFFCEB;
+  --color-sun-100: #FFF7C2;
+  --color-sun-300: #FDE68A;
+  --color-sun-400: #FFD60A;
+  --color-sun-500: #EAB308;
 
-  --color-gold-600: #B47E00;
-  --color-gold-700: #8A5F00;
+  --color-gold-600: #B45309;
+  --color-gold-700: #92400E;
 
   /* Neutros legados (substituem slate-*) */
-  --color-ink-50: #F5F7FB;
-  --color-ink-100: #ECEFF6;
-  --color-ink-200: #DDE2EE;
-  --color-ink-300: #C5CCDD;
-  --color-ink-400: #98A1BB;
-  --color-ink-500: #6B7494;
-  --color-ink-600: #4F5776;
-  --color-ink-700: #3A4160;
-  --color-ink-800: #272C4A;
-  --color-ink-900: #1A1D38;
+  --color-ink-50: #F8FAFC;
+  --color-ink-100: #F1F5F9;
+  --color-ink-200: #E3E8EE;
+  --color-ink-300: #CBD5E1;
+  --color-ink-400: #94A3B8;
+  --color-ink-500: #64748B;
+  --color-ink-600: #475569;
+  --color-ink-700: #334155;
+  --color-ink-800: #1E293B;
+  --color-ink-900: #0A2540;
 
-  /* --- Tipografia (DESIGN.md v3.5) --- */
-  --font-sans: 'Manrope', system-ui, sans-serif;
-  --font-body: 'Hanken Grotesk', system-ui, sans-serif;
+  /* --- Tipografia (IANE v3.6) --- */
+  --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-body: 'IBM Plex Sans', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 
-  /* --- Raios de borda (DESIGN.md v3.5) --- */
-  --radius-base: 0.5rem;    /* 8px — inputs, selects, tabelas */
-  --radius-lg: 1rem;        /* 16px — cards, widgets, modais */
-  --radius-xl: 1.5rem;      /* 24px — painéis de impacto */
+  /* --- Raios de borda (IANE v3.6 — acabamento crisp) --- */
+  --radius-base: 0.5rem;    /* 8px — inputs, selects, tabelas, botões */
+  --radius-lg: 0.75rem;     /* 12px — cards, widgets, modais */
+  --radius-xl: 1rem;        /* 16px — painéis de impacto */
   --radius-full: 9999px;    /* pílulas, badges, chips */
 
-  /* --- Elevação (satin micro-borders + camadas) --- */
-  --shadow-xs: 0 1px 2px rgb(38 33 97 / .08);
-  --shadow-sm: 0 1px 3px 0 rgb(15 18 56 / 0.03), 0 1px 2px -1px rgb(15 18 56 / 0.02);
-  --shadow-md: 0 4px 6px -1px rgb(15 18 56 / 0.06), 0 2px 4px -2px rgb(15 18 56 / 0.04);
-  --shadow-lg: 0 10px 15px -3px rgb(15 18 56 / 0.08), 0 4px 6px -4px rgb(15 18 56 / 0.03);
-  --shadow-xl: 0 20px 25px -5px rgb(15 18 56 / 0.12), 0 8px 10px -6px rgb(15 18 56 / 0.04);
+  /* --- Elevação (sutil, baseada em borda) --- */
+  --shadow-xs: 0 1px 2px rgb(16 24 40 / 0.05);
+  --shadow-sm: 0 1px 3px rgb(16 24 40 / 0.08), 0 1px 2px rgb(16 24 40 / 0.04);
+  --shadow-md: 0 4px 8px -2px rgb(16 24 40 / 0.08), 0 2px 4px -2px rgb(16 24 40 / 0.04);
+  --shadow-lg: 0 12px 16px -4px rgb(16 24 40 / 0.08), 0 4px 6px -2px rgb(16 24 40 / 0.03);
+  --shadow-xl: 0 20px 24px -4px rgb(16 24 40 / 0.10), 0 8px 8px -4px rgb(16 24 40 / 0.04);
 }
 
 @layer base {
@@ -105,7 +106,7 @@
   }
 
   :focus-visible {
-    outline: 3px solid var(--color-brand-sun);
+    outline: 2px solid var(--color-brand-blue-action);
     outline-offset: 2px;
   }
 
@@ -127,7 +128,7 @@
 }
 
 @layer components {
-  /* Raios de borda — DESIGN.md v3.5 */
+  /* Raios de borda — IANE v3.6 */
   .radius-base {
     border-radius: var(--radius-base);
   }
@@ -140,6 +141,13 @@
   .radius-full {
     border-radius: var(--radius-full);
   }
+
+  /* Campo base único (input/select/textarea) — acabamento v3.6 */
+  .field {
+    @apply w-full rounded-base border border-border-subtle bg-surface-card text-xs text-text-primary placeholder:text-text-muted transition-colors;
+    @apply focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15;
+    @apply disabled:cursor-not-allowed disabled:bg-surface-subtle disabled:text-text-muted;
+  }
 }
 
 /* Custom subtle scrollbar */
@@ -151,11 +159,11 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #C5CCDD;
+  background: #CBD5E1;
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #98A1BB;
+  background: #94A3B8;
 }
 
 @media print {

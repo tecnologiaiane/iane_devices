@@ -100,7 +100,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
 	const sizeClasses =
 		size === 'sm'
 			? 'h-6 px-2 py-0.5 text-[11px] font-semibold'
-			: 'h-7 px-2.5 py-0.5 text-xs font-semibold'
+			: 'h-6 px-2.5 py-0.5 text-[11px] font-semibold'
 
 	return (
 		<span
@@ -108,7 +108,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
 			data-semantic={semantic}
 			data-size={size}
 			className={twMerge(
-				'inline-flex items-center gap-1.5 rounded-full border font-medium tracking-tight whitespace-nowrap shrink-0',
+				'inline-flex items-center gap-1.5 rounded-full border font-medium whitespace-nowrap shrink-0',
 				semanticStyles[semantic],
 				sizeClasses,
 				className,
@@ -117,7 +117,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
 		>
 			{showDot && (
 				<span
-					className="shrink-0 w-1.5 h-1.5 rounded-full bg-current opacity-60"
+					className="shrink-0 w-1.5 h-1.5 rounded-full bg-current"
 					aria-hidden="true"
 				/>
 			)}

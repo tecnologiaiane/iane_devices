@@ -145,7 +145,7 @@ export const CollaboratorModal: React.FC<CollaboratorModalProps> = ({
 							value={fullName}
 							onChange={(e) => setFullName(e.target.value)}
 							placeholder="Ex: Carlos Eduardo Mendes"
-							className="w-full h-10 text-xs radius-base border border-border-subtle bg-surface-card px-3 py-2 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+							className="w-full h-10 text-xs field px-3 py-2"
 							required
 						/>
 					</div>
@@ -157,7 +157,7 @@ export const CollaboratorModal: React.FC<CollaboratorModalProps> = ({
 							value={registrationNumber}
 							onChange={(e) => setRegistrationNumber(e.target.value.toUpperCase())}
 							placeholder="Ex: MAT-1024"
-							className="w-full h-10 text-xs radius-base border border-border-subtle bg-surface-card px-3 py-2 text-text-primary font-code focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15 uppercase"
+							className="w-full h-10 text-xs field px-3 py-2 font-code uppercase"
 						/>
 					</div>
 				</div>
@@ -190,7 +190,7 @@ export const CollaboratorModal: React.FC<CollaboratorModalProps> = ({
 						<select
 							value={status}
 							onChange={(e) => setStatus(e.target.value as CollaboratorStatus)}
-							className="w-full h-10 text-xs radius-base border border-border-subtle bg-surface-card px-3 py-2 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+							className="w-full h-10 text-xs field px-3 py-2"
 						>
 							<option value="Ativo">Ativo (Em atividade regular)</option>
 							<option value="Férias">Férias</option>
@@ -208,7 +208,7 @@ export const CollaboratorModal: React.FC<CollaboratorModalProps> = ({
 							value={position}
 							onChange={(e) => setPosition(e.target.value)}
 							placeholder="Ex: Gerente Regional de Vendas"
-							className="w-full h-10 text-xs radius-base border border-border-subtle bg-surface-card px-3 py-2 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+							className="w-full h-10 text-xs field px-3 py-2"
 						/>
 					</div>
 
@@ -219,7 +219,7 @@ export const CollaboratorModal: React.FC<CollaboratorModalProps> = ({
 							value={corporateEmail}
 							onChange={(e) => setCorporateEmail(e.target.value)}
 							placeholder="nome.sobrenome@empresa.com.br"
-							className="w-full h-10 text-xs radius-base border border-border-subtle bg-surface-card px-3 py-2 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+							className="w-full h-10 text-xs field px-3 py-2"
 						/>
 					</div>
 				</div>
@@ -232,7 +232,7 @@ export const CollaboratorModal: React.FC<CollaboratorModalProps> = ({
 							value={contactPhone}
 							onChange={(e) => setContactPhone(e.target.value)}
 							placeholder="(11) 99999-0000"
-							className="w-full h-10 text-xs radius-base border border-border-subtle bg-surface-card px-3 py-2 text-text-primary font-code focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+							className="w-full h-10 text-xs field px-3 py-2 font-code"
 						/>
 					</div>
 
@@ -244,7 +244,7 @@ export const CollaboratorModal: React.FC<CollaboratorModalProps> = ({
 							onChange={(e) => setCpf(e.target.value)}
 							placeholder="000.000.000-00"
 							maxLength={14}
-							className="w-full h-10 text-xs radius-base border border-border-subtle bg-surface-card px-3 py-2 text-text-primary font-code focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+							className="w-full h-10 text-xs field px-3 py-2 font-code"
 						/>
 					</div>
 				</div>
@@ -256,7 +256,7 @@ export const CollaboratorModal: React.FC<CollaboratorModalProps> = ({
 						value={notes}
 						onChange={(e) => setNotes(e.target.value)}
 						placeholder="Informações adicionais de lotação ou histórico..."
-						className="w-full h-24 text-xs radius-base border border-border-subtle bg-surface-card px-3 py-2 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15 resize-none"
+						className="w-full h-24 text-xs field px-3 py-2 resize-none"
 					/>
 				</div>
 

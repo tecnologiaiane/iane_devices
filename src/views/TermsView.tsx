@@ -295,7 +295,7 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm, onPrintTerm })
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar termo por código, colaborador, tag do aparelho ou linha..."
-              className="w-full pl-9 pr-3 py-2 text-xs radius-base border border-border-subtle bg-surface-card placeholder-text-muted text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+              className="w-full h-9 pl-9 pr-3 text-xs field"
             />
           </div>
 
@@ -350,7 +350,7 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm, onPrintTerm })
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className="w-full h-9 text-xs radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                    className="w-full h-9 text-xs field px-2 py-1"
                   >
                     <option value="todos">Todos</option>
                     <option value="Assinado">Assinado</option>
@@ -364,7 +364,7 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm, onPrintTerm })
                   <select
                     value={typeFilter}
                     onChange={(e) => setTypeFilter(e.target.value)}
-                    className="w-full h-9 text-xs radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                    className="w-full h-9 text-xs field px-2 py-1"
                   >
                     <option value="todos">Todos</option>
                     <option value="Termo de Entrega">Termo de Entrega</option>
@@ -406,7 +406,7 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm, onPrintTerm })
                 setPageSize(Number(e.target.value));
                 setCurrentPage(1);
               }}
-              className="w-auto h-9 text-[11px] radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary font-medium focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+              className="w-auto h-9 text-[11px] field px-2 py-1 font-medium"
             >
               {pageSizes.map((size) => (
                 <option key={size} value={size}>{size}</option>
@@ -621,7 +621,7 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm, onPrintTerm })
                 value={manualTerm.code || ''}
                 onChange={(e) => setManualTerm({ ...manualTerm, code: e.target.value })}
                 placeholder="Ex: TERMO-ENT-2026-001"
-                className="w-full h-10 text-xs radius-base border border-border-subtle bg-surface-card px-3 py-2 text-text-primary font-code focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                className="w-full h-10 text-xs field px-3 py-2 font-code"
               />
             </div>
 
@@ -632,7 +632,7 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm, onPrintTerm })
               <select
                 value={manualTerm.type || 'Termo de Entrega'}
                 onChange={(e) => setManualTerm({ ...manualTerm, type: e.target.value as TermType })}
-                className="w-full h-10 text-xs radius-base border border-border-subtle bg-surface-card px-3 py-2 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                className="w-full h-10 text-xs field px-3 py-2"
               >
                 <option value="Termo de Entrega">Termo de Entrega</option>
                 <option value="Termo de Devolução">Termo de Devolução</option>
@@ -647,7 +647,7 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm, onPrintTerm })
               <select
                 value={manualTerm.status || 'Assinado'}
                 onChange={(e) => setManualTerm({ ...manualTerm, status: e.target.value as TermStatus })}
-                className="w-full h-10 text-xs radius-base border border-border-subtle bg-surface-card px-3 py-2 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                className="w-full h-10 text-xs field px-3 py-2"
               >
                 <option value="Assinado">Assinado</option>
                 <option value="Pendente de Assinatura">Pendente de Assinatura</option>
@@ -663,7 +663,7 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm, onPrintTerm })
                 type="date"
                 value={manualTerm.date || ''}
                 onChange={(e) => setManualTerm({ ...manualTerm, date: e.target.value })}
-                className="w-full h-10 text-xs radius-base border border-border-subtle bg-surface-card px-3 py-2 text-text-primary font-code focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                className="w-full h-10 text-xs field px-3 py-2 font-code"
               />
             </div>
           </div>
@@ -677,7 +677,7 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm, onPrintTerm })
               value={manualTerm.title || ''}
               onChange={(e) => setManualTerm({ ...manualTerm, title: e.target.value })}
               placeholder="Ex: Termo de Entrega de Aparelho"
-              className="w-full h-10 text-xs radius-base border border-border-subtle bg-surface-card px-3 py-2 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+              className="w-full h-10 text-xs field px-3 py-2"
             />
           </div>
 

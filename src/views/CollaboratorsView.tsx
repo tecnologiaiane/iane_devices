@@ -106,7 +106,7 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar colaborador por nome, matrícula, cargo ou e-mail..."
-              className="w-full pl-9 pr-3 py-2 text-xs radius-base border border-border-subtle bg-surface-card placeholder-text-muted text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+              className="w-full h-9 pl-9 pr-3 text-xs field"
             />
           </div>
 
@@ -143,7 +143,7 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
                     <select
                       value={departmentFilter}
                       onChange={(e) => setDepartmentFilter(e.target.value)}
-                      className="w-full h-9 text-xs radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                      className="w-full h-9 text-xs field px-2 py-1"
                     >
                       <option value="todos">Todos</option>
                       {uniqueDepartments.map((dept) => (
@@ -157,7 +157,7 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
                     <select
                       value={statusFilter}
                       onChange={(e) => setStatusFilter(e.target.value)}
-                      className="w-full h-9 text-xs radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                      className="w-full h-9 text-xs field px-2 py-1"
                     >
                       <option value="todos">Todos</option>
                       <option value="Ativo">Ativo</option>
@@ -208,7 +208,7 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
                 setPageSize(Number(e.target.value));
                 setCurrentPage(1);
               }}
-              className="w-auto h-9 text-[11px] radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary font-medium focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+              className="w-auto h-9 text-[11px] field px-2 py-1 font-medium"
             >
               {pageSizes.map((size) => (
                 <option key={size} value={size}>{size}</option>

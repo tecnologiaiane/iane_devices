@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
 import { Sidebar, NavTab } from './components/Sidebar';
 import { Device, PhoneLine, Collaborator, DocumentTerm, MovementType, RequestRecord, User } from './types';
 import { dataService } from './services/dataStorage';
@@ -56,9 +55,24 @@ const TermViewerModal = React.lazy(() =>
 );
 
 const ViewFallback: React.FC = () => (
-  <div className="flex items-center justify-center gap-3 py-24 text-ink-400" role="status">
-    <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
-    <span className="text-sm font-medium">Carregando…</span>
+  <div className="animate-pulse space-y-4" role="status" aria-label="Carregando…">
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} className="h-24 radius-lg border border-border-subtle bg-surface-card p-4">
+          <div className="h-3 w-24 rounded bg-surface-subtle" />
+          <div className="mt-3 h-6 w-16 rounded bg-surface-subtle" />
+        </div>
+      ))}
+    </div>
+    <div className="radius-lg border border-border-subtle bg-surface-card p-4">
+      <div className="h-3 w-32 rounded bg-surface-subtle" />
+      <div className="mt-4 space-y-2">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="h-8 rounded bg-surface-subtle/70" />
+        ))}
+      </div>
+    </div>
+    <span className="sr-only">Carregando…</span>
   </div>
 );
 
@@ -385,7 +399,7 @@ export default function App() {
         }`}
       >
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
-          <h1 className="text-2xl sm:text-3xl font-bold text-ink-900 tracking-tight mb-5">
+          <h1 className="text-xl sm:text-2xl font-semibold text-text-primary tracking-[-0.01em] mb-5">
             {PAGE_TITLES[activeTab]}
           </h1>
           <React.Suspense fallback={<ViewFallback />}>

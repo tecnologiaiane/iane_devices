@@ -246,7 +246,7 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar por código (MOV-... ou TRF-...), aparelho, linha ou colaborador..."
-              className="w-full pl-9 pr-3 py-2 text-xs radius-base border border-border-subtle bg-surface-card placeholder-text-muted text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+              className="w-full h-9 pl-9 pr-3 text-xs field"
             />
           </div>
 
@@ -317,7 +317,7 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
                   <select
                     value={typeFilter}
                     onChange={(e) => setTypeFilter(e.target.value)}
-                    className="w-full h-9 text-xs radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                    className="w-full h-9 text-xs field px-2 py-1"
                   >
                     <option value="todos">Todos</option>
                     <option value="Entrega">Entrega (Estoque → Colaborador)</option>
@@ -335,7 +335,7 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="radius-base border border-border-subtle bg-surface-card px-2 py-0.5 text-xs text-text-primary font-code focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                    className="field px-2 py-0.5 font-code"
                   />
                 </div>
 
@@ -345,7 +345,7 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    className="radius-base border border-border-subtle bg-surface-card px-2 py-0.5 text-xs text-text-primary font-code focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                    className="field px-2 py-0.5 font-code"
                   />
                 </div>
               </div>
@@ -383,7 +383,7 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
                 setPageSize(Number(e.target.value));
                 setCurrentPage(1);
               }}
-              className="w-auto h-9 text-[11px] radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary font-medium focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+              className="w-auto h-9 text-[11px] field px-2 py-1 font-medium"
             >
               {pageSizes.map((size) => (
                 <option key={size} value={size}>{size}</option>
@@ -683,7 +683,7 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
             {requestError && <p role="alert" className="rounded-lg border border-status-danger-border bg-status-danger-bg p-3 text-xs text-status-danger-fg">{requestError}</p>}
             <label className="block text-[11px] font-medium text-text-muted">
               Motivo da recusa (opcional)
-              <textarea value={rejectionReason} onChange={(event) => setRejectionReason(event.target.value)} rows={3} className="mt-1 w-full radius-base border border-border-subtle bg-surface-card px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15" />
+              <textarea value={rejectionReason} onChange={(event) => setRejectionReason(event.target.value)} rows={3} className="mt-1 w-full field px-3 py-2" />
             </label>
             <div className="flex justify-end gap-2">
               <Button variant="ghost" size="sm" onClick={() => setRequestToReject(null)} disabled={isRejecting}>

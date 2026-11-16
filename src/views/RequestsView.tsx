@@ -116,7 +116,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ value, options, pla
           setOpen(true);
         }}
         placeholder={placeholder}
-        className="w-full h-10 text-xs radius-base border border-border-subtle bg-surface-card px-3 py-2 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+        className="w-full h-10 text-xs field px-3 py-2"
       />
       {open && (
         <div role="listbox" className="absolute z-30 mt-1 max-h-56 w-full overflow-y-auto radius-lg border border-border-subtle bg-surface-card py-1 shadow-md">
@@ -293,7 +293,7 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ currentUser }) => {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Buscar por tipo, solicitante, colaborador ou detalhes..."
-              className="w-full pl-9 pr-3 py-2 text-xs radius-base border border-border-subtle bg-surface-card placeholder-text-muted text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+              className="w-full h-9 pl-9 pr-3 text-xs field"
             />
           </div>
           <div className="relative shrink-0" ref={menuRef}>
@@ -353,7 +353,7 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ currentUser }) => {
                   <select
                     value={typeFilter}
                     onChange={(e) => setTypeFilter(e.target.value)}
-                    className="w-full h-9 text-xs radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                    className="w-full h-9 text-xs field px-2 py-1"
                   >
                     <option value="todos">Todos</option>
                     <option value="Entrega">Entrega</option>
@@ -368,7 +368,7 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ currentUser }) => {
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className="w-full h-9 text-xs radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                    className="w-full h-9 text-xs field px-2 py-1"
                   >
                     <option value="todos">Todos</option>
                     <option value="Pendente de aprovação">Pendente de aprovação</option>
@@ -383,7 +383,7 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ currentUser }) => {
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="radius-base border border-border-subtle bg-surface-card px-2 py-0.5 text-xs text-text-primary font-code focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                    className="field px-2 py-0.5 font-code"
                   />
                 </div>
 
@@ -393,7 +393,7 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ currentUser }) => {
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    className="radius-base border border-border-subtle bg-surface-card px-2 py-0.5 text-xs text-text-primary font-code focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                    className="field px-2 py-0.5 font-code"
                   />
                 </div>
               </div>
@@ -432,7 +432,7 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ currentUser }) => {
                 setPageSize(Number(e.target.value));
                 setCurrentPage(1);
               }}
-              className="w-auto h-9 text-[11px] radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary font-medium focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+              className="w-auto h-9 text-[11px] field px-2 py-1 font-medium"
             >
               {pageSizes.map((size) => (
                 <option key={size} value={size}>{size}</option>

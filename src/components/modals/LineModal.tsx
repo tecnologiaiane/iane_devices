@@ -152,7 +152,7 @@ export const LineModal: React.FC<LineModalProps> = ({
 							onChange={(e) => handlePhoneChange(e.target.value)}
 							placeholder="(11) 98765-4321"
 							maxLength={15}
-							className="w-full h-10 text-xs radius-base border border-border-subtle bg-surface-card px-3 py-2 text-text-primary font-code focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+							className="w-full h-10 text-xs field px-3 py-2 font-code"
 							required
 						/>
 					</div>
@@ -164,7 +164,7 @@ export const LineModal: React.FC<LineModalProps> = ({
 						<select
 							value={carrier}
 							onChange={(e) => setCarrier(e.target.value as Carrier)}
-							className="w-full h-10 text-xs radius-base border border-border-subtle bg-surface-card px-3 py-2 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+							className="w-full h-10 text-xs field px-3 py-2"
 						>
 							{CARRIERS.map((c) => (
 								<option key={c} value={c}>{c}</option>
@@ -181,7 +181,7 @@ export const LineModal: React.FC<LineModalProps> = ({
 							value={planName}
 							onChange={(e) => setPlanName(e.target.value)}
 							placeholder="Ex: Total 50GB + Voz Ilimitada"
-							className="w-full h-10 text-xs radius-base border border-border-subtle bg-surface-card px-3 py-2 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+							className="w-full h-10 text-xs field px-3 py-2"
 						/>
 					</div>
 
@@ -193,7 +193,7 @@ export const LineModal: React.FC<LineModalProps> = ({
 							value={monthlyCost}
 							onChange={(e) => setMonthlyCost(e.target.value)}
 							placeholder="Ex: 79.90"
-							className="w-full h-10 text-xs radius-base border border-border-subtle bg-surface-card px-3 py-2 text-text-primary font-code focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+							className="w-full h-10 text-xs field px-3 py-2 font-code"
 						/>
 					</div>
 				</div>
@@ -206,7 +206,7 @@ export const LineModal: React.FC<LineModalProps> = ({
 						<select
 							value={status}
 							onChange={(e) => setStatus(e.target.value as LineStatus)}
-							className="w-full h-10 text-xs radius-base border border-border-subtle bg-surface-card px-3 py-2 text-text-primary font-medium focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+							className="w-full h-10 text-xs field px-3 py-2 font-medium"
 						>
 							{lineStatusOptions.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}
 						</select>
@@ -230,7 +230,7 @@ export const LineModal: React.FC<LineModalProps> = ({
 							type="date"
 							value={activationDate}
 							onChange={(e) => setActivationDate(e.target.value)}
-							className="w-full h-10 text-xs radius-base border border-border-subtle bg-surface-card px-3 py-2 text-text-primary font-code focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+							className="w-full h-10 text-xs field px-3 py-2 font-code"
 						/>
 					</div>
 
@@ -242,7 +242,7 @@ export const LineModal: React.FC<LineModalProps> = ({
 							onChange={(e) => setIccid(e.target.value.replace(/\D/g, ''))}
 							placeholder="20 dígitos numéricos do chip"
 							maxLength={22}
-							className="w-full h-10 text-xs radius-base border border-border-subtle bg-surface-card px-3 py-2 text-text-primary font-code focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+							className="w-full h-10 text-xs field px-3 py-2 font-code"
 						/>
 					</div>
 				</div>
@@ -254,7 +254,7 @@ export const LineModal: React.FC<LineModalProps> = ({
 						value={notes}
 						onChange={(e) => setNotes(e.target.value)}
 						placeholder="Informações contratuais, franquias especiais, roaming..."
-						className="w-full h-24 text-xs radius-base border border-border-subtle bg-surface-card px-3 py-2 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15 resize-none"
+						className="w-full h-24 text-xs field px-3 py-2 resize-none"
 					/>
 				</div>
 

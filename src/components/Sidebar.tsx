@@ -293,7 +293,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 									title={isExpanded ? undefined : item.label}
 									aria-label={isExpanded ? undefined : item.label}
 									aria-current={isActive ? 'page' : undefined}
-									className={`group relative w-full h-11 flex items-center rounded-lg text-[13px] transition-colors cursor-pointer ${
+									className={`group relative w-full h-11 flex items-center rounded-base text-[13px] transition-colors cursor-pointer ${
 										isExpanded ? 'px-4 gap-3' : 'justify-center px-0'
 									} ${
 										isActive
@@ -379,7 +379,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 							}}
 							aria-expanded={isNewsOpen}
 							title={isExpanded ? undefined : 'Novidades'}
-							className={`group w-full h-11 flex items-center gap-3 rounded-lg text-[13px] text-text-muted hover:bg-brand-navy-base hover:text-white transition-colors cursor-pointer ${
+							className={`group w-full h-11 flex items-center gap-3 rounded-base text-[13px] text-text-muted hover:bg-brand-navy-base hover:text-white transition-colors cursor-pointer ${
 								isExpanded ? 'px-4' : 'justify-center px-0'
 							}`}
 						>
@@ -446,7 +446,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 							aria-haspopup="menu"
 							aria-expanded={isUserMenuOpen}
 							title={isExpanded ? 'Abrir opções do usuário' : userFullName}
-							className={`w-full flex items-center rounded-lg p-1.5 hover:bg-brand-navy-base transition-colors cursor-pointer ${
+							className={`w-full flex items-center rounded-base p-1.5 hover:bg-brand-navy-base transition-colors cursor-pointer ${
 								isExpanded ? 'gap-2.5' : 'justify-center'
 							}`}
 						>

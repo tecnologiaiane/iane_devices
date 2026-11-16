@@ -112,7 +112,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
 									}
 								}}
 								placeholder="Digite seu Login"
-								className={`w-full h-10 radius-base border border-border-subtle bg-surface-card px-3 py-2 text-text-primary placeholder-text-muted focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15 ${
+								className={`w-full h-10 field px-3 py-2 ${
 									usernameError ? 'border-status-danger-border' : ''
 								}`}
 							/>
@@ -145,7 +145,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
 									}
 								}}
 								placeholder="Digite sua Senha"
-								className={`w-full h-10 radius-base border border-border-subtle bg-surface-card pl-3 pr-10 py-2 text-text-primary placeholder-text-muted focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15 ${
+								className={`w-full h-10 field pl-3 pr-10 py-2 ${
 									passwordError ? 'border-status-danger-border' : ''
 								}`}
 							/>

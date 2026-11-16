@@ -59,10 +59,16 @@ const urlencodedParserLarge = express.urlencoded({ extended: true, limit: '50mb'
 // ----------------------------------------------------------------------------
 const CSP = [
   "default-src 'self'",
-  "script-src 'self'",
+  // Em desenvolvimento o Vite injeta o preamble do React Refresh inline e
+  // abre um WebSocket de HMR; em produção a política permanece restritiva.
+  isProduction
+    ? "script-src 'self'"
+    : "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "img-src 'self' data: blob:",
-  "connect-src 'self' https://fonts.googleapis.com",
+  isProduction
+    ? "connect-src 'self' https://fonts.googleapis.com"
+    : "connect-src 'self' ws: wss: https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
   "object-src 'self'",
   "frame-src 'self' blob:",
@@ -2456,7 +2462,7 @@ app.get(['/report/device/:id', '/report/d/:token'], async (req, res) => {
   const id = legacyId || decryptReportId(req.params.token || '');
 
   if (!id) {
-    res.status(404).send('<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Dispositivo não encontrado</title></head><body style="font-family:sans-serif;padding:2rem;color:#374151"><h1>Dispositivo não encontrado</h1><p>O código escaneado não corresponde a nenhum aparelho cadastrado no GELIN.</p></body></html>');
+    res.status(404).send('<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Dispositivo não encontrado</title></head><body style="font-family:sans-serif;padding:2rem;color:#374151"><h1>Dispositivo não encontrado</h1><p>O código escaneado não corresponde a nenhum aparelho cadastrado no IANE.</p></body></html>');
     return;
   }
 
@@ -2478,7 +2484,7 @@ app.get(['/report/device/:id', '/report/d/:token'], async (req, res) => {
   }
 
   if (!device) {
-    res.status(404).send('<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Dispositivo não encontrado</title></head><body style="font-family:sans-serif;padding:2rem;color:#374151"><h1>Dispositivo não encontrado</h1><p>O código escaneado não corresponde a nenhum aparelho cadastrado no GELIN.</p></body></html>');
+    res.status(404).send('<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Dispositivo não encontrado</title></head><body style="font-family:sans-serif;padding:2rem;color:#374151"><h1>Dispositivo não encontrado</h1><p>O código escaneado não corresponde a nenhum aparelho cadastrado no IANE.</p></body></html>');
     return;
   }
 
@@ -2512,7 +2518,7 @@ app.get(['/report/device/:id', '/report/d/:token'], async (req, res) => {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Relatório do Aparelho · ${esc(device.assetTag)} · GELIN</title>
+<title>Relatório do Aparelho · ${esc(device.assetTag)} · IANE</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=Source+Code+Pro:wght@400;600&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }

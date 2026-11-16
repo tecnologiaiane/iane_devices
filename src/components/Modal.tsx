@@ -90,7 +90,7 @@ export const Modal: React.FC<ModalProps> = ({
 			{/* Backdrop — véu translúcido navy */ }
 			<div
 				data-slot="modal-backdrop"
-				className="absolute inset-0 bg-[#0F1238]/45 backdrop-blur-sm transition-opacity"
+				className="absolute inset-0 bg-[#0A1F3C]/50 backdrop-blur-[2px] transition-opacity"
 				onClick={onClose}
 				aria-hidden="true"
 			/>
@@ -111,7 +111,7 @@ export const Modal: React.FC<ModalProps> = ({
 					<div
 						data-slot="modal-header"
 						className={twMerge(
-							'flex shrink-0 items-start justify-between gap-3 border-b border-border-subtle bg-surface-subtle px-5 py-4 sm:px-6',
+							'flex shrink-0 items-start justify-between gap-3 border-b border-border-subtle bg-surface-card px-5 py-4 sm:px-6',
 						)}
 					>
 						<div className="flex flex-col gap-0.5">
@@ -135,7 +135,7 @@ export const Modal: React.FC<ModalProps> = ({
 								data-slot="modal-close"
 								onClick={onClose}
 								aria-label="Fechar"
-								className="-mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border-transparent bg-transparent text-text-muted transition-colors hover:bg-surface-subtle hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy-base"
+								className="-mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-base border-transparent bg-transparent text-text-muted transition-colors hover:bg-surface-subtle hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue-action/30"
 							>
 								<X className="h-4 w-4" aria-hidden="true" />
 							</button>

@@ -127,7 +127,7 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar por número, operadora, plano, colaborador..."
-              className="w-full pl-9 pr-3 py-2 text-xs radius-base border border-border-subtle bg-surface-card placeholder-text-muted text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+              className="w-full h-9 pl-9 pr-3 text-xs field"
             />
           </div>
 
@@ -165,7 +165,7 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
                     <select
                       value={statusFilter}
                       onChange={(e) => setStatusFilter(e.target.value)}
-                      className="w-full h-9 text-xs radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                      className="w-full h-9 text-xs field px-2 py-1"
                     >
                       <option value="todos">Todos</option>
                       {catalogs.lineStatuses.map((item) => (
@@ -179,7 +179,7 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
                     <select
                       value={carrierFilter}
                       onChange={(e) => setCarrierFilter(e.target.value)}
-                      className="w-full h-9 text-xs radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                      className="w-full h-9 text-xs field px-2 py-1"
                     >
                       <option value="todos">Todas</option>
                       <option value="Vivo">Vivo</option>
@@ -193,7 +193,7 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
                     <select
                       value={associationFilter}
                       onChange={(e) => setAssociationFilter(e.target.value as any)}
-                      className="w-full h-9 text-xs radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                      className="w-full h-9 text-xs field px-2 py-1"
                     >
                       <option value="todos">Todos</option>
                       <option value="com_aparelho">Com Aparelho Associado</option>
@@ -243,7 +243,7 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
                 setPageSize(Number(e.target.value));
                 setCurrentPage(1);
               }}
-              className="w-auto h-9 text-[11px] radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary font-medium focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+              className="w-auto h-9 text-[11px] field px-2 py-1 font-medium"
             >
               {pageSizes.map((size) => (
                 <option key={size} value={size}>{size}</option>
@@ -426,7 +426,7 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
                 <select
                   value={selectedDeviceId}
                   onChange={(e) => setSelectedDeviceId(e.target.value)}
-                  className="w-full h-10 text-xs radius-base border border-border-subtle bg-surface-card px-3 py-2 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                  className="w-full h-10 text-xs field px-3 py-2"
                 >
                   <option value="">-- Selecione o aparelho --</option>
                   {availableDevices.map((d) => (

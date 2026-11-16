@@ -234,7 +234,7 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar por IMEI, Tag, Modelo, S/N ou Colaborador..."
-              className="w-full pl-9 pr-3 py-2 text-xs radius-base border border-border-subtle bg-surface-card placeholder-text-muted text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+              className="w-full h-9 pl-9 pr-3 text-xs field"
             />
           </div>
 
@@ -273,7 +273,7 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
                     <select
                       value={stockFilter}
                       onChange={(e) => setStockFilter(e.target.value as any)}
-                      className="w-full h-9 text-xs radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                      className="w-full h-9 text-xs field px-2 py-1"
                     >
                       <option value="todos">Todas</option>
                       <option value="em_estoque">No Estoque</option>
@@ -286,7 +286,7 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
                     <select
                       value={statusFilter}
                       onChange={(e) => setStatusFilter(e.target.value)}
-                      className="w-full h-9 text-xs radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                      className="w-full h-9 text-xs field px-2 py-1"
                     >
                       <option value="todos">Todos</option>
                       {catalogs.deviceStatuses.map((item) => (
@@ -300,7 +300,7 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
                     <select
                       value={departmentFilter}
                       onChange={(e) => setDepartmentFilter(e.target.value)}
-                      className="w-full h-9 text-xs radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                      className="w-full h-9 text-xs field px-2 py-1"
                     >
                       <option value="todos">Todos</option>
                       {uniqueDepartments.map((dept) => (
@@ -314,7 +314,7 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
                     <select
                       value={brandFilter}
                       onChange={(e) => setBrandFilter(e.target.value)}
-                      className="w-full h-9 text-xs radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                      className="w-full h-9 text-xs field px-2 py-1"
                     >
                       <option value="todos">Todas</option>
                       {uniqueBrands.map((b) => (
@@ -366,7 +366,7 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
                 setPageSize(Number(e.target.value));
                 setCurrentPage(1);
               }}
-              className="w-auto h-9 text-[11px] radius-base border border-border-subtle bg-surface-card px-2 py-1 text-text-primary font-medium focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+              className="w-auto h-9 text-[11px] field px-2 py-1 font-medium"
             >
               {pageSizes.map((size) => (
                 <option key={size} value={size}>{size}</option>
@@ -540,7 +540,7 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
                 <select
                   value={releaseCondition}
                   onChange={(e) => setReleaseCondition(e.target.value as DeviceCondition)}
-                  className="w-full h-10 text-xs radius-base border border-border-subtle bg-surface-card px-3 py-2 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                  className="w-full h-10 text-xs field px-3 py-2"
                 >
                   <option value="Excelente">Excelente (Sem marcas)</option>
                   <option value="Bom">Bom (Sinais leves)</option>
@@ -554,7 +554,7 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
                   type="text"
                   value={releaseNotes}
                   onChange={(e) => setReleaseNotes(e.target.value)}
-                  className="w-full h-10 text-xs radius-base border border-border-subtle bg-surface-card px-3 py-2 text-text-primary focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
+                  className="w-full h-10 text-xs field px-3 py-2"
                 />
               </div>
 
