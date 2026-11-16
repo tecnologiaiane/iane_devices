@@ -22,6 +22,8 @@ import {
   Tag,
   FileText,
   FileWarning,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 
 interface DashboardViewProps {
@@ -187,6 +189,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
 
   const maxDepartmentCount = devicesByDepartment[0]?.[1] || 1;
 
+  const devicesByUnit = Object.entries(
+    devices.reduce<Record<string, number>>((acc, device) => {
+      const unit = device.unit?.trim() || 'Não informada';
+      acc[unit] = (acc[unit] || 0) + 1;
+      return acc;
+    }, {})
+  ).sort((a, b) => b[1] - a[1]);
+
+  const [attentionOpen, setAttentionOpen] = useState(false);
+  const [movementsOpen, setMovementsOpen] = useState(false);
+
   const evaluatingDevices = devices.filter((d) => d.status === evaluationStatus);
   const maintenanceDevices = devices.filter((d) => d.status === maintenanceStatus);
   const attentionDevices = [...evaluatingDevices, ...maintenanceDevices];
@@ -331,6 +344,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
                     strokeLinecap="round"
                   />
                 ))}
+                {/* Linhas de conexão para labels externos */}
+                {donutArcs.map((arc, i) => {
+                  const startAngle = -Math.PI / 2 + arc.offset / DONUT_RADIUS;
+                  const endAngle = startAngle + arc.dash / DONUT_RADIUS;
+                  const midAngle = (startAngle + endAngle) / 2;
+                  const x1 = 70 + DONUT_RADIUS * Math.cos(midAngle);
+                  const y1 = 70 + DONUT_RADIUS * Math.sin(midAngle);
+                  const x2 = 70 + (DONUT_RADIUS + 22) * Math.cos(midAngle);
+                  const y2 = 70 + (DONUT_RADIUS + 22) * Math.sin(midAngle);
+                  const x3 = x2 + (midAngle < -Math.PI / 2 || midAngle > Math.PI / 2 ? -30 : 30);
+                  return (
+                    <React.Fragment key={`line-${arc.label}`}>
+                      <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="var(--color-border-strong)" strokeWidth="1" strokeDasharray="2,2" />
+                      <line x1={x2} y1={y2} x2={x3} y2={y2} stroke="var(--color-border-strong)" strokeWidth="1" strokeDasharray="2,2" />
+                      <circle cx={x3} cy={y2} r={2.5} fill={arc.color} />
+                    </React.Fragment>
+                  );
+                })}
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <span className="text-2xl font-bold font-code tabular-nums text-text-primary">
@@ -341,17 +372,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
             </div>
 
             <div className="flex-1 w-full space-y-2">
-              {statusSegments.map((segment) => (
-                <div key={segment.label} className="flex items-center justify-between gap-2 text-[11px]">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: segment.color }} />
-                    <span className="text-text-muted truncate">{segment.label}</span>
+              {statusSegments.map((segment, i) => {
+                const startAngle = -Math.PI / 2 + (donutArcs.find(a => a.label === segment.label)?.offset ?? 0) / DONUT_RADIUS;
+                const endAngle = startAngle + (donutArcs.find(a => a.label === segment.label)?.dash ?? 0) / DONUT_RADIUS;
+                const midAngle = (startAngle + endAngle) / 2;
+                const isRight = midAngle >= -Math.PI / 2 && midAngle <= Math.PI / 2;
+                return (
+                  <div key={segment.label} className="flex items-start justify-between gap-2 text-[11px] group">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: segment.color }} />
+                      <span className="text-text-muted truncate">{segment.label}</span>
+                    </div>
+                    <div className={`flex items-end gap-1 shrink-0 ${isRight ? 'text-left ml-2' : 'text-right mr-2'}`}>
+                      <span className="font-code font-bold text-text-primary tabular-nums">{segment.count}</span>
+                      <span className="text-text-muted">({percent(segment.count)}%)</span>
+                    </div>
                   </div>
-                  <span className="font-code text-text-muted tabular-nums shrink-0">
-                    {segment.count} <span className="text-text-muted">({percent(segment.count)}%)</span>
-                  </span>
-                </div>
-              ))}
+                );
+              })}
               {statusSegments.length === 0 && (
                 <p className="text-[11px] text-text-muted">Nenhum aparelho cadastrado ainda.</p>
               )}
@@ -514,6 +552,36 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
           </div>
         </div>
 
+        <div className="radius-lg border border-border-subtle bg-surface-card shadow-sm p-5">
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <h2 className="text-sm font-semibold text-text-primary">Aparelhos por Unidade</h2>
+              <p className="text-[11px] text-text-muted">Onde cada aparelho está alocado (ex: IANE PB)</p>
+            </div>
+            <Building2 className="w-4 h-4 text-text-muted" />
+          </div>
+
+          <div className="space-y-3">
+            {devicesByUnit.slice(0, 6).map(([unit, count]) => (
+              <div key={unit} className="space-y-1.5">
+                <div className="flex items-center justify-between text-[11px] gap-2">
+                  <span className="font-medium text-text-muted truncate">{unit}</span>
+                  <span className="font-code font-bold text-text-primary tabular-nums shrink-0">{count}</span>
+                </div>
+                <div className="w-full h-2 bg-surface-subtle rounded-full overflow-hidden border border-border-subtle/50">
+                  <div
+                    className="h-full bg-brand-navy-base rounded-full transition-all duration-500 ease-out"
+                    style={{ width: `${Math.round((count / Math.max(1, devicesByUnit[0]?.[1] || 1)) * 100)}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+            {devicesByUnit.length === 0 && (
+              <p className="text-[11px] text-text-muted">Nenhuma unidade definida.</p>
+            )}
+          </div>
+        </div>
+
         <div className="radius-lg border border-border-subtle bg-surface-card shadow-sm flex flex-col">
           <div className="px-5 pt-5 pb-3 flex items-start justify-between">
             <div>
@@ -552,123 +620,142 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
 
       {/* Listas operacionais */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="radius-lg border border-border-subtle bg-surface-card shadow-sm p-5">
-          <div className="flex items-center justify-between mb-3">
+        <div className="radius-lg border border-border-subtle bg-surface-card shadow-sm overflow-hidden">
+          <div
+            className="flex items-center justify-between px-5 py-3.5 cursor-pointer hover:bg-surface-subtle transition-colors border-b border-border-subtle"
+            onClick={() => setAttentionOpen(!attentionOpen)}
+          >
             <div className="flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-status-warning-fg" />
               <h2 className="text-sm font-semibold text-text-primary">Atenção necessária</h2>
             </div>
-            <span className="text-[11px] text-text-muted font-medium">
+            <span className={`text-[11px] font-medium ${attentionOpen ? 'text-brand-blue-action' : 'text-text-muted'}`}>
               {attentionDevices.length} aparelho(s)
             </span>
+            {attentionOpen ? (
+              <ChevronUp className="w-4 h-4 text-text-muted" />
+            ) : (
+              <ChevronDown className="w-4 h-4 text-text-muted" />
+            )}
           </div>
 
-          <div className="space-y-2.5">
-            {attentionDevices.slice(0, 6).map((device) => (
-              <div
-                key={device.id}
-                className={`p-3 radius-base border flex items-start justify-between gap-3 ${
-                  device.status === maintenanceStatus
-                    ? 'bg-status-warning-bg/50 border-status-warning-border'
-                    : 'bg-surface-subtle border-border-subtle'
-                }`}
-              >
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-bold text-text-primary font-code text-[11px]">{device.assetTag}</span>
-                    <StatusBadge status={device.status} type="device" size="sm" />
+          {attentionOpen && (
+            <div className="p-4 space-y-2.5">
+              {attentionDevices.slice(0, 6).map((device) => (
+                <div
+                  key={device.id}
+                  className={`p-3 radius-base border flex items-start justify-between gap-3 ${
+                    device.status === maintenanceStatus
+                      ? 'bg-status-warning-bg/50 border-status-warning-border'
+                      : 'bg-surface-subtle border-border-subtle'
+                  }`}
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-text-primary font-code text-[11px]">{device.assetTag}</span>
+                      <StatusBadge status={device.status} type="device" size="sm" />
+                    </div>
+                    <p className="text-[11px] text-text-muted truncate">
+                      {device.model}
+                      {device.notes ? ` · ${device.notes}` : ''}
+                    </p>
                   </div>
-                  <p className="text-[11px] text-text-muted truncate">
-                    {device.model}
-                    {device.notes ? ` · ${device.notes}` : ''}
+                  <button
+                    type="button"
+                    onClick={() => onNavigate('dispositivos')}
+                    className="text-[11px] font-semibold text-brand-blue-action hover:underline shrink-0"
+                  >
+                    Abrir
+                  </button>
+                </div>
+              ))}
+
+              {attentionDevices.length === 0 && (
+                <div className="py-6 text-center">
+                  <CheckCircle2 className="w-8 h-8 text-status-success-fg mx-auto mb-2" />
+                  <p className="text-xs font-semibold text-text-primary">Nenhuma pendência no estoque</p>
+                  <p className="text-[11px] text-text-muted mt-0.5">
+                    Não há aparelhos aguardando avaliação ou em manutenção.
                   </p>
                 </div>
+              )}
+
+              {attentionDevices.length > 6 && (
                 <button
                   type="button"
                   onClick={() => onNavigate('dispositivos')}
-                  className="text-[11px] font-semibold text-brand-blue-action hover:underline shrink-0"
+                  className="mt-3 w-full py-2 text-[11px] font-semibold text-brand-blue-action bg-surface-subtle hover:bg-surface-card radius-base transition-colors"
                 >
-                  Abrir
+                  Ver todos os {attentionDevices.length} aparelhos
                 </button>
-              </div>
-            ))}
-
-            {attentionDevices.length === 0 && (
-              <div className="py-6 text-center">
-                <CheckCircle2 className="w-8 h-8 text-status-success-fg mx-auto mb-2" />
-                <p className="text-xs font-semibold text-text-primary">Nenhuma pendência no estoque</p>
-                <p className="text-[11px] text-text-muted mt-0.5">
-                  Não há aparelhos aguardando avaliação ou em manutenção.
-                </p>
-              </div>
-            )}
-
-            {attentionDevices.length > 6 && (
-              <button
-                type="button"
-                onClick={() => onNavigate('dispositivos')}
-                className="mt-3 w-full py-2 text-[11px] font-semibold text-brand-blue-action bg-surface-subtle hover:bg-surface-card radius-base transition-colors"
-              >
-                Ver todos os {attentionDevices.length} aparelhos
-              </button>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </div>
 
-        <div className="radius-lg border border-border-subtle bg-surface-card shadow-sm p-5">
-          <div className="flex items-center justify-between mb-3">
+        <div className="radius-lg border border-border-subtle bg-surface-card shadow-sm overflow-hidden">
+          <div
+            className="flex items-center justify-between px-5 py-3.5 cursor-pointer hover:bg-surface-subtle transition-colors border-b border-border-subtle"
+            onClick={() => setMovementsOpen(!movementsOpen)}
+          >
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4 text-text-muted" />
               <h2 className="text-sm font-semibold text-text-primary">Últimas movimentações</h2>
             </div>
-            <Button variant="ghost" size="sm" onClick={() => onNavigate('movimentacoes')} className="flex items-center gap-1">
-              Ver todas ({movements.length})
-              <ArrowRight className="w-3 h-3" />
-            </Button>
-          </div>
-
-          <div className="divide-y divide-border-subtle">
-            {movements.slice(0, 6).map((movement) => (
-              <div key={movement.id} className="py-2.5 flex items-start justify-between gap-3">
-                <div className="flex items-start gap-2.5 min-w-0">
-                  <span
-                    className={`mt-0.5 w-7 h-7 radius-base flex items-center justify-center shrink-0 ${
-                      movement.type === 'Entrega'
-                        ? 'bg-status-success-bg text-status-success-fg'
-                        : movement.type === 'Devolução'
-                          ? 'bg-status-warning-bg text-status-warning-fg'
-                          : 'bg-surface-subtle text-brand-blue-action'
-                    }`}
-                  >
-                    <ArrowLeftRight className="w-3.5 h-3.5" />
-                  </span>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-[11px] font-semibold text-text-primary">{movement.type}</span>
-                      <span className="text-[11px] font-code font-bold text-brand-blue-action">
-                        {movement.deviceTag || movement.phoneNumber || 'Ativo'}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-text-muted truncate">
-                      {stockDisplayName(movement.originCollaboratorName)} →{' '}
-                      {stockDisplayName(movement.destinationCollaboratorName)}
-                    </p>
-                  </div>
-                </div>
-                <span className="text-[11px] font-code text-text-muted shrink-0">{formatDate(movement.date)}</span>
-              </div>
-            ))}
-
-            {movements.length === 0 && (
-              <div className="py-6 text-center">
-                <ArrowLeftRight className="w-8 h-8 text-border-strong mx-auto mb-2" />
-                <p className="text-xs font-semibold text-text-primary">Nenhuma movimentação registrada</p>
-                <p className="text-[11px] text-text-muted mt-0.5">
-                  As entregas, devoluções e transferências aparecerão aqui.
-                </p>
-              </div>
+            <span className={`text-[11px] font-medium ${movementsOpen ? 'text-brand-blue-action' : 'text-text-muted'}`}>
+              {movements.length}
+            </span>
+            {movementsOpen ? (
+              <ChevronUp className="w-4 h-4 text-text-muted" />
+            ) : (
+              <ChevronDown className="w-4 h-4 text-text-muted" />
             )}
           </div>
+
+          {movementsOpen && (
+            <div className="p-4 divide-y divide-border-subtle">
+              {movements.slice(0, 6).map((movement) => (
+                <div key={movement.id} className="py-2.5 flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-2.5 min-w-0">
+                    <span
+                      className={`mt-0.5 w-7 h-7 radius-base flex items-center justify-center shrink-0 ${
+                        movement.type === 'Entrega'
+                          ? 'bg-status-success-bg text-status-success-fg'
+                          : movement.type === 'Devolução'
+                            ? 'bg-status-warning-bg text-status-warning-fg'
+                            : 'bg-surface-subtle text-brand-blue-action'
+                      }`}
+                    >
+                      <ArrowLeftRight className="w-3.5 h-3.5" />
+                    </span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[11px] font-semibold text-text-primary">{movement.type}</span>
+                        <span className="text-[11px] font-code font-bold text-brand-blue-action">
+                          {movement.deviceTag || movement.phoneNumber || 'Ativo'}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-text-muted truncate">
+                        {stockDisplayName(movement.originCollaboratorName)} →{' '}
+                        {stockDisplayName(movement.destinationCollaboratorName)}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-code text-text-muted shrink-0">{formatDate(movement.date)}</span>
+                </div>
+              ))}
+
+              {movements.length === 0 && (
+                <div className="py-6 text-center">
+                  <ArrowLeftRight className="w-8 h-8 text-border-strong mx-auto mb-2" />
+                  <p className="text-xs font-semibold text-text-primary">Nenhuma movimentação registrada</p>
+                  <p className="text-[11px] text-text-muted mt-0.5">
+                    As entregas, devoluções e transferências aparecerão aqui.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

@@ -153,7 +153,7 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
 			onClose={onClose}
 			title={deviceToEdit ? `Editar Aparelho: ${deviceToEdit.assetTag}` : 'Cadastrar Novo Aparelho Celular'}
 			subtitle="Registro patrimonial de smartphone corporativo"
-			maxWidth="xl"
+			maxWidth="lg"
 		>
 			<form onSubmit={handleSubmit} className="space-y-4">
 				{errorMessage && (
@@ -195,7 +195,7 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
 
 				<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 					<div>
-						<label className="block text-xs font-medium text-text-muted mb-1.5">IMEI</label>
+						<label className="block text-xs font-medium text-text-muted mb-1.5">IMEI 1</label>
 						<input
 							type="text"
 							value={imei1}
@@ -205,19 +205,30 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
 							className="w-full h-10 text-xs field px-3 py-2 font-code"
 						/>
 					</div>
-				</div>
-
-				<div>
-					<label className="block text-xs font-medium text-text-muted mb-1.5">Setor</label>
-					<SearchableSelect value={sector} onChange={setSector} options={catalogOptions(catalogs.sectors, sector)} placeholder="Não especificado" />
-				</div>
-
-				<div>
-					<label className="block text-xs font-medium text-text-muted mb-1.5">Unidade</label>
-					<SearchableSelect value={unit} onChange={setUnit} options={catalogOptions(catalogs.units, unit)} placeholder="Selecione a unidade (opcional)" />
+					<div>
+						<label className="block text-xs font-medium text-text-muted mb-1.5">IMEI 2</label>
+						<input
+							type="text"
+							value={imei2}
+							onChange={(e) => setImei2(e.target.value.replace(/\D/g, ''))}
+							placeholder="Opcional - 14 a 17 dígitos"
+							maxLength={17}
+							className="w-full h-10 text-xs field px-3 py-2 font-code"
+						/>
+					</div>
 				</div>
 
 				<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+					<div>
+						<label className="block text-xs font-medium text-text-muted mb-1.5">Número de Série</label>
+						<input
+							type="text"
+							value={serialNumber}
+							onChange={(e) => setSerialNumber(e.target.value.toUpperCase())}
+							placeholder="Opcional"
+							className="w-full h-10 text-xs field px-3 py-2 font-code uppercase"
+						/>
+					</div>
 					<div>
 						<label className="block text-xs font-medium text-text-muted mb-1.5">Estado de Conservação</label>
 						<select
@@ -236,6 +247,21 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
 
 				<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 					<div>
+						<label className="block text-xs font-medium text-text-muted mb-1.5">Departamento</label>
+						<SearchableSelect value={currentDepartment} onChange={setCurrentDepartment} options={catalogOptions(catalogs.departments, currentDepartment)} placeholder="Não especificado / Pool Geral" />
+					</div>
+					<div>
+						<label className="block text-xs font-medium text-text-muted mb-1.5">Setor</label>
+						<SearchableSelect value={sector} onChange={setSector} options={catalogOptions(catalogs.sectors, sector)} placeholder="Não especificado" />
+					</div>
+				</div>
+
+				<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+					<div>
+						<label className="block text-xs font-medium text-text-muted mb-1.5">Unidade</label>
+						<SearchableSelect value={unit} onChange={setUnit} options={catalogOptions(catalogs.units, unit)} placeholder="Selecione a unidade (opcional)" />
+					</div>
+					<div>
 						<label className="block text-xs font-medium text-text-muted mb-1.5">Data de Aquisição</label>
 						<input
 							type="date"
@@ -244,7 +270,9 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
 							className="w-full h-10 text-xs field px-3 py-2 font-code"
 						/>
 					</div>
+				</div>
 
+				<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 					<div>
 						<label className="block text-xs font-medium text-text-muted mb-1.5">Valor de Aquisição (R$)</label>
 						<input
@@ -256,9 +284,6 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
 							className="w-full h-10 text-xs field px-3 py-2 font-code"
 						/>
 					</div>
-				</div>
-
-				<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 					<div>
 						<label className="block text-xs font-medium text-text-muted mb-1.5">Status do Ativo</label>
 						<select
@@ -274,11 +299,6 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
 								Para alterar status de aparelho "Em uso", realize a movimentação de Devolução.
 							</p>
 						)}
-					</div>
-
-					<div>
-						<label className="block text-xs font-medium text-text-muted mb-1.5">Departamento Destinado</label>
-						<SearchableSelect value={currentDepartment} onChange={setCurrentDepartment} options={catalogOptions(catalogs.departments, currentDepartment)} placeholder="Não especificado / Pool Geral" />
 					</div>
 				</div>
 
