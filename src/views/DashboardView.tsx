@@ -327,8 +327,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
           </div>
 
           <div className="flex flex-col sm:flex-row items-center gap-6">
-            <div className="relative w-40 h-40 shrink-0">
-              <svg viewBox="0 0 140 140" className="w-40 h-40 -rotate-90" role="img" aria-label="Distribuição dos aparelhos por status">
+            <div className="relative w-64 h-64 shrink-0 overflow-visible">
+              <svg viewBox="-40 -40 220 220" className="w-64 h-64 -rotate-90 overflow-visible" role="img" aria-label="Distribuição dos aparelhos por status">
                 <circle cx="70" cy="70" r={DONUT_RADIUS} fill="none" stroke="var(--color-border-subtle)" strokeWidth="16" />
                 {donutArcs.map((arc) => (
                   <circle
@@ -351,9 +351,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
                   const midAngle = (startAngle + endAngle) / 2;
                   const x1 = 70 + DONUT_RADIUS * Math.cos(midAngle);
                   const y1 = 70 + DONUT_RADIUS * Math.sin(midAngle);
-                  const x2 = 70 + (DONUT_RADIUS + 22) * Math.cos(midAngle);
-                  const y2 = 70 + (DONUT_RADIUS + 22) * Math.sin(midAngle);
-                  const x3 = x2 + (midAngle < -Math.PI / 2 || midAngle > Math.PI / 2 ? -30 : 30);
+                  const x2 = 70 + (DONUT_RADIUS + 20) * Math.cos(midAngle);
+                  const y2 = 70 + (DONUT_RADIUS + 20) * Math.sin(midAngle);
+                  const x3 = x2 + (midAngle < -Math.PI / 2 || midAngle > Math.PI / 2 ? -34 : 34);
                   return (
                     <React.Fragment key={`line-${arc.label}`}>
                       <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="var(--color-border-strong)" strokeWidth="1" strokeDasharray="2,2" />
@@ -623,7 +623,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
         <div className="radius-lg border border-border-subtle bg-surface-card shadow-sm overflow-hidden">
           <div
             className="flex items-center justify-between px-5 py-3.5 cursor-pointer hover:bg-surface-subtle transition-colors border-b border-border-subtle"
-            onClick={() => setAttentionOpen(!attentionOpen)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setAttentionOpen(!attentionOpen);
+            }}
           >
             <div className="flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-status-warning-fg" />
@@ -696,7 +699,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
         <div className="radius-lg border border-border-subtle bg-surface-card shadow-sm overflow-hidden">
           <div
             className="flex items-center justify-between px-5 py-3.5 cursor-pointer hover:bg-surface-subtle transition-colors border-b border-border-subtle"
-            onClick={() => setMovementsOpen(!movementsOpen)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setMovementsOpen(!movementsOpen);
+            }}
           >
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4 text-text-muted" />
