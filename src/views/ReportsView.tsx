@@ -4,6 +4,7 @@ import { formatDate, formatCurrency, formatImei, downloadCsv } from '../utils/fo
 import { todayISO } from '../utils/dates';
 import { StatusBadge } from '../components/StatusBadge';
 import { Button } from '../components/button';
+import { DataTable, type DataTableColumn } from '../components/DataTable';
 import {
   BarChart3,
   Download,
@@ -229,268 +230,515 @@ export const ReportsView: React.FC = () => {
 
 				{/* 1. Inventário Geral */}
 				{selectedReport === 'inventario_completo' && (
-					<div className="overflow-x-auto">
-						<table className="w-full text-left text-[11px] border-collapse">
-							<thead className="bg-surface-subtle border-b border-border-subtle text-text-muted uppercase font-semibold tracking-wider">
-								<tr>
-									<th className="py-2.5 px-3">Tag</th>
-									<th className="py-2.5 px-3">Marca / Modelo</th>
-									<th className="py-2.5 px-3">IMEI 1</th>
-									<th className="py-2.5 px-3">S/N</th>
-									<th className="py-2.5 px-3">Status</th>
-									<th className="py-2.5 px-3">Responsável</th>
-									<th className="py-2.5 px-3">Linha</th>
-									<th className="py-2.5 px-3">Setor</th>
-									<th className="py-2.5 px-3 text-right">Valor Compra</th>
-								</tr>
-							</thead>
-							<tbody className="divide-y divide-border-subtle">
-								{devices.map((d) => (
-									<tr key={d.id} className="hover:bg-surface-subtle transition-colors">
-										<td className="py-2.5 px-3 font-code font-bold text-text-primary">{d.assetTag}</td>
-										<td className="py-2.5 px-3 font-medium text-text-primary">{d.model}</td>
-										<td className="py-2.5 px-3 font-code text-text-muted">{formatImei(d.imei1)}</td>
-										<td className="py-2.5 px-3 font-code text-text-muted">{d.serialNumber}</td>
-										<td className="py-2.5 px-3"><StatusBadge status={d.status} type="device" size="sm" /></td>
-										<td className="py-2.5 px-3">{d.currentCollaboratorName || <span className="text-text-muted italic font-body">Disponível</span>}</td>
-										<td className="py-2.5 px-3 font-code">{d.associatedPhoneNumber || '-'}</td>
-										<td className="py-2.5 px-3">{d.currentDepartment || '-'}</td>
-										<td className="py-2.5 px-3 text-right font-code tabular-nums">{formatCurrency(d.purchaseValue)}</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
-					</div>
+					<DataTable
+						caption="Inventário geral de aparelhos"
+						columns={[
+							{
+								key: 'assetTag',
+								header: 'Tag',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 font-code font-bold text-text-primary',
+								render: (d: any) => d.assetTag,
+							},
+							{
+								key: 'model',
+								header: 'Marca / Modelo',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 font-medium text-text-primary',
+								render: (d: any) => d.model,
+							},
+							{
+								key: 'imei1',
+								header: 'IMEI 1',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 font-code text-text-muted',
+								render: (d: any) => formatImei(d.imei1),
+							},
+							{
+								key: 'serialNumber',
+								header: 'S/N',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 font-code text-text-muted',
+								render: (d: any) => d.serialNumber,
+							},
+							{
+								key: 'status',
+								header: 'Status',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3',
+								render: (d: any) => <StatusBadge status={d.status} type="device" size="sm" />,
+							},
+							{
+								key: 'responsavel',
+								header: 'Responsável',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3',
+								render: (d: any) => d.currentCollaboratorName || <span className="text-text-muted italic font-body">Disponível</span>,
+							},
+							{
+								key: 'linha',
+								header: 'Linha',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 font-code',
+								render: (d: any) => d.associatedPhoneNumber || '-',
+							},
+							{
+								key: 'setor',
+								header: 'Setor',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3',
+								render: (d: any) => d.currentDepartment || '-',
+							},
+							{
+								key: 'purchaseValue',
+								header: 'Valor Compra',
+								headerClassName: 'py-2.5 px-3 text-right',
+								cellClassName: 'py-2.5 px-3 text-right font-code tabular-nums',
+								render: (d: any) => formatCurrency(d.purchaseValue),
+							},
+						]}
+						rows={devices}
+						rowKey={(d: any) => d.id}
+						empty={<div className="p-4 text-center text-text-muted">Nenhum aparelho encontrado.</div>}
+					/>
 				)}
 
 				{/* 2. Por Colaborador */}
 				{selectedReport === 'por_colaborador' && (
-					<div className="overflow-x-auto">
-						<table className="w-full text-left text-[11px] border-collapse">
-							<thead className="bg-surface-subtle border-b border-border-subtle text-text-muted uppercase font-semibold tracking-wider">
-								<tr>
-									<th className="py-2.5 px-3">Colaborador</th>
-									<th className="py-2.5 px-3">Matrícula</th>
-									<th className="py-2.5 px-3">Departamento</th>
-									<th className="py-2.5 px-3">Cargo</th>
-									<th className="py-2.5 px-3">Aparelho Tag</th>
-									<th className="py-2.5 px-3">Modelo</th>
-									<th className="py-2.5 px-3">IMEI</th>
-									<th className="py-2.5 px-3">Linha</th>
-								</tr>
-							</thead>
-							<tbody className="divide-y divide-border-subtle">
-								{devices.filter(d => d.currentCollaboratorId).map(d => {
-									const col = collabs.find(c => c.id === d.currentCollaboratorId);
-									return (
-										<tr key={d.id} className="hover:bg-surface-subtle transition-colors">
-											<td className="py-2.5 px-3 font-medium text-text-primary">{d.currentCollaboratorName || ''}</td>
-											<td className="py-2.5 px-3 font-code text-text-muted">{col?.registrationNumber || ''}</td>
-											<td className="py-2.5 px-3 text-text-muted">{d.currentDepartment || ''}</td>
-											<td className="py-2.5 px-3 text-text-muted">{col?.position || ''}</td>
-											<td className="py-2.5 px-3 font-code text-text-primary">{d.assetTag}</td>
-											<td className="py-2.5 px-3 text-text-muted">{d.model}</td>
-											<td className="py-2.5 px-3 font-code text-text-muted">{d.imei1}</td>
-											<td className="py-2.5 px-3 font-code">{d.associatedPhoneNumber || ''}</td>
-										</tr>
-									);
-								})}
-							</tbody>
-						</table>
-					</div>
+					<DataTable
+						caption="Aparelhos atribuídos por colaborador"
+						columns={[
+							{
+								key: 'colaborador',
+								header: 'Colaborador',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 font-medium text-text-primary',
+								render: (d: any) => d.currentCollaboratorName || '',
+							},
+							{
+								key: 'matricula',
+								header: 'Matrícula',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 font-code text-text-muted',
+								render: (d: any) => {
+									const col = collabs.find((c: any) => c.id === d.currentCollaboratorId);
+									return col?.registrationNumber || '';
+								},
+							},
+							{
+								key: 'departamento',
+								header: 'Departamento',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 text-text-muted',
+								render: (d: any) => d.currentDepartment || '',
+							},
+							{
+								key: 'cargo',
+								header: 'Cargo',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 text-text-muted',
+								render: (d: any) => {
+									const col = collabs.find((c: any) => c.id === d.currentCollaboratorId);
+									return col?.position || '';
+								},
+							},
+							{
+								key: 'assetTag',
+								header: 'Aparelho Tag',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 font-code text-text-primary',
+								render: (d: any) => d.assetTag,
+							},
+							{
+								key: 'modelo',
+								header: 'Modelo',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 text-text-muted',
+								render: (d: any) => d.model,
+							},
+							{
+								key: 'imei',
+								header: 'IMEI',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 font-code text-text-muted',
+								render: (d: any) => d.imei1,
+							},
+							{
+								key: 'linha',
+								header: 'Linha',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 font-code',
+								render: (d: any) => d.associatedPhoneNumber || '',
+							},
+						]}
+						rows={devices.filter((d: any) => d.currentCollaboratorId)}
+						rowKey={(d: any) => d.id}
+						empty={<div className="p-4 text-center text-text-muted">Nenhum aparelho atribuído a colaboradores.</div>}
+					/>
 				)}
 
 				{/* 3. Disponíveis */}
 				{selectedReport === 'disponiveis' && (
-					<div className="overflow-x-auto">
-						<table className="w-full text-left text-[11px] border-collapse">
-							<thead className="bg-surface-subtle border-b border-border-subtle text-text-muted uppercase font-semibold tracking-wider">
-								<tr>
-									<th className="py-2.5 px-3">Tag</th>
-									<th className="py-2.5 px-3">Marca / Modelo</th>
-									<th className="py-2.5 px-3">IMEI 1</th>
-									<th className="py-2.5 px-3">S/N</th>
-									<th className="py-2.5 px-3">Condição</th>
-									<th className="py-2.5 px-3">Departamento</th>
-									<th className="py-2.5 px-3 text-right">Valor Compra</th>
-								</tr>
-							</thead>
-							<tbody className="divide-y divide-border-subtle">
-								{devices.filter(d => d.status === 'Disponível').map(d => (
-									<tr key={d.id} className="hover:bg-surface-subtle transition-colors">
-										<td className="py-2.5 px-3 font-code font-bold text-text-primary">{d.assetTag}</td>
-										<td className="py-2.5 px-3 font-medium text-text-primary">{d.model}</td>
-										<td className="py-2.5 px-3 font-code text-text-muted">{formatImei(d.imei1)}</td>
-										<td className="py-2.5 px-3 font-code text-text-muted">{d.serialNumber}</td>
-										<td className="py-2.5 px-3"><StatusBadge status={d.condition} type="condition" size="sm" /></td>
-										<td className="py-2.5 px-3 text-text-muted">{d.currentDepartment || '-'}</td>
-										<td className="py-2.5 px-3 text-right font-code tabular-nums">{formatCurrency(d.purchaseValue)}</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
-					</div>
+					<DataTable
+						caption="Aparelhos livres / disponíveis em estoque"
+						columns={[
+							{
+								key: 'assetTag',
+								header: 'Tag',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 font-code font-bold text-text-primary',
+								render: (d: any) => d.assetTag,
+							},
+							{
+								key: 'modelo',
+								header: 'Marca / Modelo',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 font-medium text-text-primary',
+								render: (d: any) => d.model,
+							},
+							{
+								key: 'imei1',
+								header: 'IMEI 1',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 font-code text-text-muted',
+								render: (d: any) => formatImei(d.imei1),
+							},
+							{
+								key: 'serialNumber',
+								header: 'S/N',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 font-code text-text-muted',
+								render: (d: any) => d.serialNumber,
+							},
+							{
+								key: 'condicao',
+								header: 'Condição',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3',
+								render: (d: any) => <StatusBadge status={d.condition} type="condition" size="sm" />,
+							},
+							{
+								key: 'departamento',
+								header: 'Departamento',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 text-text-muted',
+								render: (d: any) => d.currentDepartment || '-',
+							},
+							{
+								key: 'purchaseValue',
+								header: 'Valor Compra',
+								headerClassName: 'py-2.5 px-3 text-right',
+								cellClassName: 'py-2.5 px-3 text-right font-code tabular-nums',
+								render: (d: any) => formatCurrency(d.purchaseValue),
+							},
+						]}
+						rows={devices.filter((d: any) => d.status === 'Disponível')}
+						rowKey={(d: any) => d.id}
+						empty={<div className="p-4 text-center text-text-muted">Nenhum aparelho disponível em estoque.</div>}
+					/>
 				)}
 
 				{/* 4. Linhas por Status */}
 				{selectedReport === 'linhas_status' && (
-					<div className="overflow-x-auto">
-						<table className="w-full text-left text-[11px] border-collapse">
-							<thead className="bg-surface-subtle border-b border-border-subtle text-text-muted uppercase font-semibold tracking-wider">
-								<tr>
-									<th className="py-2.5 px-3">Número</th>
-									<th className="py-2.5 px-3">Operadora</th>
-									<th className="py-2.5 px-3">Plano</th>
-									<th className="py-2.5 px-3">Custo Mensal</th>
-									<th className="py-2.5 px-3">Status</th>
-									<th className="py-2.5 px-3">Aparelho Tag</th>
-									<th className="py-2.5 px-3">Responsável</th>
-									<th className="py-2.5 px-3">Departamento</th>
-								</tr>
-							</thead>
-							<tbody className="divide-y divide-border-subtle">
-								{lines.map(l => (
-									<tr key={l.id} className="hover:bg-surface-subtle transition-colors">
-										<td className="py-2.5 px-3 font-code text-text-primary">{l.phoneNumber}</td>
-										<td className="py-2.5 px-3 font-medium text-text-primary">{l.carrier}</td>
-										<td className="py-2.5 px-3 text-text-muted">{l.planName || ''}</td>
-										<td className="py-2.5 px-3 font-code tabular-nums text-text-muted">{l.monthlyCost ? l.monthlyCost.toFixed(2) : ''}</td>
-										<td className="py-2.5 px-3"><StatusBadge status={l.status} type="line" size="sm" /></td>
-										<td className="py-2.5 px-3 font-code text-text-muted">{l.associatedDeviceTag || ''}</td>
-										<td className="py-2.5 px-3 text-text-muted">{l.currentCollaboratorName || ''}</td>
-										<td className="py-2.5 px-3 text-text-muted">{l.department || ''}</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
-					</div>
+					<DataTable
+						caption="Linhas telefônicas por operadora e status"
+						columns={[
+							{
+								key: 'phoneNumber',
+								header: 'Número',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 font-code text-text-primary',
+								render: (l: any) => l.phoneNumber,
+							},
+							{
+								key: 'carrier',
+								header: 'Operadora',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 font-medium text-text-primary',
+								render: (l: any) => l.carrier,
+							},
+							{
+								key: 'planName',
+								header: 'Plano',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 text-text-muted',
+								render: (l: any) => l.planName || '',
+							},
+							{
+								key: 'monthlyCost',
+								header: 'Custo Mensal',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 font-code tabular-nums text-text-muted',
+								render: (l: any) => (l.monthlyCost ? l.monthlyCost.toFixed(2) : ''),
+							},
+							{
+								key: 'status',
+								header: 'Status',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3',
+								render: (l: any) => <StatusBadge status={l.status} type="line" size="sm" />,
+							},
+							{
+								key: 'deviceTag',
+								header: 'Aparelho Tag',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 font-code text-text-muted',
+								render: (l: any) => l.associatedDeviceTag || '',
+							},
+							{
+								key: 'responsavel',
+								header: 'Responsável',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 text-text-muted',
+								render: (l: any) => l.currentCollaboratorName || '',
+							},
+							{
+								key: 'departamento',
+								header: 'Departamento',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 text-text-muted',
+								render: (l: any) => l.department || '',
+							},
+						]}
+						rows={lines}
+						rowKey={(l: any) => l.id}
+						empty={<div className="p-4 text-center text-text-muted">Nenhuma linha telefônica encontrada.</div>}
+					/>
 				)}
 
 				{/* 5. Linhas Sem Aparelho */}
 				{selectedReport === 'linhas_sem_aparelho' && (
-					<div className="overflow-x-auto">
-						<table className="w-full text-left text-[11px] border-collapse">
-							<thead className="bg-surface-subtle border-b border-border-subtle text-text-muted uppercase font-semibold tracking-wider">
-								<tr>
-									<th className="py-2.5 px-3">Número</th>
-									<th className="py-2.5 px-3">Operadora</th>
-									<th className="py-2.5 px-3">Plano</th>
-									<th className="py-2.5 px-3">Custo Mensal</th>
-									<th className="py-2.5 px-3">Status</th>
-									<th className="py-2.5 px-3">Departamento</th>
-								</tr>
-							</thead>
-							<tbody className="divide-y divide-border-subtle">
-								{lines.filter(l => !l.associatedDeviceId).map(l => (
-									<tr key={l.id} className="hover:bg-surface-subtle transition-colors">
-										<td className="py-2.5 px-3 font-code text-text-primary">{l.phoneNumber}</td>
-										<td className="py-2.5 px-3 font-medium text-text-primary">{l.carrier}</td>
-										<td className="py-2.5 px-3 text-text-muted">{l.planName || ''}</td>
-										<td className="py-2.5 px-3 font-code tabular-nums text-text-muted">{l.monthlyCost ? l.monthlyCost.toFixed(2) : ''}</td>
-										<td className="py-2.5 px-3"><StatusBadge status={l.status} type="line" size="sm" /></td>
-										<td className="py-2.5 px-3 text-text-muted">{l.department || ''}</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
-					</div>
+					<DataTable
+						caption="Linhas telefônicas órfãs (sem aparelho associado)"
+						columns={[
+							{
+								key: 'phoneNumber',
+								header: 'Número',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 font-code text-text-primary',
+								render: (l: any) => l.phoneNumber,
+							},
+							{
+								key: 'carrier',
+								header: 'Operadora',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 font-medium text-text-primary',
+								render: (l: any) => l.carrier,
+							},
+							{
+								key: 'planName',
+								header: 'Plano',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 text-text-muted',
+								render: (l: any) => l.planName || '',
+							},
+							{
+								key: 'monthlyCost',
+								header: 'Custo Mensal',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 font-code tabular-nums text-text-muted',
+								render: (l: any) => (l.monthlyCost ? l.monthlyCost.toFixed(2) : ''),
+							},
+							{
+								key: 'status',
+								header: 'Status',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3',
+								render: (l: any) => <StatusBadge status={l.status} type="line" size="sm" />,
+							},
+							{
+								key: 'departamento',
+								header: 'Departamento',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 text-text-muted',
+								render: (l: any) => l.department || '',
+							},
+						]}
+						rows={lines.filter((l: any) => !l.associatedDeviceId)}
+						rowKey={(l: any) => l.id}
+						empty={<div className="p-4 text-center text-text-muted">Nenhuma linha órfã encontrada.</div>}
+					/>
 				)}
 
 				{/* 6. Ativos por Departamento */}
 				{selectedReport === 'ativos_departamento' && (
-					<div className="overflow-x-auto">
-						<table className="w-full text-left text-[11px] border-collapse">
-							<thead className="bg-surface-subtle border-b border-border-subtle text-text-muted uppercase font-semibold tracking-wider">
-								<tr>
-									<th className="py-2.5 px-3">Departamento</th>
-									<th className="py-2.5 px-3 text-right">Total</th>
-									<th className="py-2.5 px-3 text-right">Em Uso</th>
-									<th className="py-2.5 px-3 text-right">Estoque</th>
-								</tr>
-							</thead>
-							<tbody className="divide-y divide-border-subtle">
-								{uniqueDepartments.map(dept => {
-									const deptDevices = devices.filter(d => d.currentDepartment === dept);
-									const inUse = deptDevices.filter(d => d.status === 'Em uso').length;
-									const stock = deptDevices.filter(d => d.status === 'Disponível').length;
-									return (
-										<tr key={dept} className="hover:bg-surface-subtle transition-colors">
-											<td className="py-2.5 px-3 font-medium text-text-primary">{dept}</td>
-											<td className="py-2.5 px-3 text-right font-code tabular-nums text-text-primary">{deptDevices.length}</td>
-											<td className="py-2.5 px-3 text-right font-code tabular-nums text-status-success-fg">{inUse}</td>
-											<td className="py-2.5 px-3 text-right font-code tabular-nums text-text-muted">{stock}</td>
-										</tr>
-									);
-								})}
-							</tbody>
-						</table>
-					</div>
+					<DataTable
+						caption="Ativos por departamento"
+						columns={[
+							{
+								key: 'dept',
+								header: 'Departamento',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 font-medium text-text-primary',
+								render: (dept: string) => dept,
+							},
+							{
+								key: 'total',
+								header: 'Total',
+								headerClassName: 'py-2.5 px-3 text-right',
+								cellClassName: 'py-2.5 px-3 text-right font-code tabular-nums text-text-primary',
+								render: (_: string, idx: number) => {
+									const dept = uniqueDepartments[idx];
+									const deptDevices = devices.filter((d: any) => d.currentDepartment === dept);
+									return deptDevices.length;
+								},
+							},
+							{
+								key: 'emUso',
+								header: 'Em Uso',
+								headerClassName: 'py-2.5 px-3 text-right',
+								cellClassName: 'py-2.5 px-3 text-right font-code tabular-nums text-status-success-fg',
+								render: (_: string, idx: number) => {
+									const dept = uniqueDepartments[idx];
+									const deptDevices = devices.filter((d: any) => d.currentDepartment === dept);
+									return deptDevices.filter((d: any) => d.status === 'Em uso').length;
+								},
+							},
+							{
+								key: 'estoque',
+								header: 'Estoque',
+								headerClassName: 'py-2.5 px-3 text-right',
+								cellClassName: 'py-2.5 px-3 text-right font-code tabular-nums text-text-muted',
+								render: (_: string, idx: number) => {
+									const dept = uniqueDepartments[idx];
+									const deptDevices = devices.filter((d: any) => d.currentDepartment === dept);
+									return deptDevices.filter((d: any) => d.status === 'Disponível').length;
+								},
+							},
+						]}
+						rows={uniqueDepartments}
+						rowKey={(dept: string) => dept}
+						empty={<div className="p-4 text-center text-text-muted">Nenhum departamento com aparelhos cadastrados.</div>}
+					/>
 				)}
 
 				{/* 7. Movimentações por Período */}
 				{selectedReport === 'movimentacoes_periodo' && (
-					<div className="overflow-x-auto">
-						<table className="w-full text-left text-[11px] border-collapse">
-							<thead className="bg-surface-subtle border-b border-border-subtle text-text-muted uppercase font-semibold tracking-wider">
-								<tr>
-									<th className="py-2.5 px-3">Código</th>
-									<th className="py-2.5 px-3">Operação Conjunta</th>
-									<th className="py-2.5 px-3">Data</th>
-									<th className="py-2.5 px-3">Tipo</th>
-									<th className="py-2.5 px-3">Aparelho</th>
-									<th className="py-2.5 px-3">Linha</th>
-									<th className="py-2.5 px-3">Origem</th>
-									<th className="py-2.5 px-3">Destino</th>
-									<th className="py-2.5 px-3">Motivo</th>
-								</tr>
-							</thead>
-							<tbody className="divide-y divide-border-subtle">
-								{movements.map(m => (
-									<tr key={m.id} className="hover:bg-surface-subtle transition-colors">
-										<td className="py-2.5 px-3 font-code font-bold text-text-primary">{m.code}</td>
-										<td className="py-2.5 px-3 font-code text-text-muted">{m.batchOperationId || ''}</td>
-										<td className="py-2.5 px-3 font-code text-text-muted">{formatDate(m.date)}</td>
-										<td className="py-2.5 px-3 font-medium text-text-primary">{m.type}</td>
-										<td className="py-2.5 px-3 font-code text-text-muted">{m.deviceTag || ''}</td>
-										<td className="py-2.5 px-3 font-code text-text-muted">{m.phoneNumber || ''}</td>
-										<td className="py-2.5 px-3 text-text-muted">{stockDisplayName(m.originCollaboratorName)}</td>
-										<td className="py-2.5 px-3 text-text-muted">{stockDisplayName(m.destinationCollaboratorName)}</td>
-										<td className="py-2.5 px-3 text-text-muted">{m.reason || ''}</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
-					</div>
+					<DataTable
+						caption="Movimentações por período"
+						columns={[
+							{
+								key: 'code',
+								header: 'Código',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 font-code font-bold text-text-primary',
+								render: (m: any) => m.code,
+							},
+							{
+								key: 'batchOperationId',
+								header: 'Operação Conjunta',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 font-code text-text-muted',
+								render: (m: any) => m.batchOperationId || '',
+							},
+							{
+								key: 'date',
+								header: 'Data',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 font-code text-text-muted',
+								render: (m: any) => formatDate(m.date),
+							},
+							{
+								key: 'type',
+								header: 'Tipo',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 font-medium text-text-primary',
+								render: (m: any) => m.type,
+							},
+							{
+								key: 'deviceTag',
+								header: 'Aparelho',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 font-code text-text-muted',
+								render: (m: any) => m.deviceTag || '',
+							},
+							{
+								key: 'phoneNumber',
+								header: 'Linha',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 font-code text-text-muted',
+								render: (m: any) => m.phoneNumber || '',
+							},
+							{
+								key: 'origin',
+								header: 'Origem',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 text-text-muted',
+								render: (m: any) => stockDisplayName(m.originCollaboratorName),
+							},
+							{
+								key: 'destination',
+								header: 'Destino',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 text-text-muted',
+								render: (m: any) => stockDisplayName(m.destinationCollaboratorName),
+							},
+							{
+								key: 'reason',
+								header: 'Motivo',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 text-text-muted',
+								render: (m: any) => m.reason || '',
+							},
+						]}
+						rows={movements}
+						rowKey={(m: any) => m.id}
+						empty={<div className="p-4 text-center text-text-muted">Nenhuma movimentação encontrada no período.</div>}
+					/>
 				)}
 
 				{/* 8. Manutenção */}
 				{selectedReport === 'manutencao' && (
-					<div className="overflow-x-auto">
-						<table className="w-full text-left text-[11px] border-collapse">
-							<thead className="bg-surface-subtle border-b border-border-subtle text-text-muted uppercase font-semibold tracking-wider">
-								<tr>
-									<th className="py-2.5 px-3">Tag</th>
-									<th className="py-2.5 px-3">Marca / Modelo</th>
-									<th className="py-2.5 px-3">IMEI 1</th>
-									<th className="py-2.5 px-3">Condição</th>
-									<th className="py-2.5 px-3">Departamento</th>
-									<th className="py-2.5 px-3">Responsável</th>
-								</tr>
-							</thead>
-							<tbody className="divide-y divide-border-subtle">
-								{devices.filter(d => d.status === 'Em manutenção' || d.status === 'Aguardando avaliação').map(d => (
-									<tr key={d.id} className="hover:bg-surface-subtle transition-colors">
-										<td className="py-2.5 px-3 font-code font-bold text-text-primary">{d.assetTag}</td>
-										<td className="py-2.5 px-3 font-medium text-text-primary">{d.model}</td>
-										<td className="py-2.5 px-3 font-code text-text-muted">{formatImei(d.imei1)}</td>
-										<td className="py-2.5 px-3"><StatusBadge status={d.condition} type="condition" size="sm" /></td>
-										<td className="py-2.5 px-3 text-text-muted">{d.currentDepartment || '-'}</td>
-										<td className="py-2.5 px-3 text-text-muted">{d.currentCollaboratorName || '-'}</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
-					</div>
+					<DataTable
+						caption="Aparelhos em manutenção"
+						columns={[
+							{
+								key: 'assetTag',
+								header: 'Tag',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 font-code font-bold text-text-primary',
+								render: (d: any) => d.assetTag,
+							},
+							{
+								key: 'model',
+								header: 'Marca / Modelo',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 font-medium text-text-primary',
+								render: (d: any) => d.model,
+							},
+							{
+								key: 'imei1',
+								header: 'IMEI 1',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 font-code text-text-muted',
+								render: (d: any) => formatImei(d.imei1),
+							},
+							{
+								key: 'condition',
+								header: 'Condição',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3',
+								render: (d: any) => <StatusBadge status={d.condition} type="condition" size="sm" />,
+							},
+							{
+								key: 'department',
+								header: 'Departamento',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 text-text-muted',
+								render: (d: any) => d.currentDepartment || '-',
+							},
+							{
+								key: 'collaborator',
+								header: 'Responsável',
+								headerClassName: 'py-2.5 px-3',
+								cellClassName: 'py-2.5 px-3 text-text-muted',
+								render: (d: any) => d.currentCollaboratorName || '-',
+							},
+						]}
+						rows={devices.filter((d: any) => d.status === 'Em manutenção' || d.status === 'Aguardando avaliação')}
+						rowKey={(d: any) => d.id}
+						empty={<div className="p-4 text-center text-text-muted">Nenhum aparelho em manutenção.</div>}
+					/>
 				)}
 			</div>
 		</div>

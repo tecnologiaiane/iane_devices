@@ -7,6 +7,7 @@ import { todayISO } from '../utils/dates';
 import { formatDate, formatDateTime } from '../utils/formatters';
 import { Button } from '../components/button';
 import { Badge } from '../components/badge';
+import { DataTable, type DataTableColumn } from '../components/DataTable';
 import {
   Download,
   Upload,
@@ -772,40 +773,60 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 							</Button>
 						</div>
 						<div className="overflow-x-auto">
-							<table className="w-full text-left text-[11px] border-collapse">
-								<thead className="bg-surface-subtle border-b border-border-subtle text-text-muted uppercase font-semibold tracking-wider">
-									<tr>
-										<th className="py-2.5 px-3">Usuário</th>
-										<th className="py-2.5 px-3">Matrícula / Email</th>
-										<th className="py-2.5 px-3">Papel</th>
-										<th className="py-2.5 px-3">Status</th>
-										<th className="py-2.5 px-3 text-right">Ações</th>
-									</tr>
-								</thead>
-								<tbody className="divide-y divide-border-subtle">
-									{users.map((u) => (
-										<tr key={u.id} className="hover:bg-surface-subtle transition-colors group cursor-pointer">
-											<td className="py-2.5 px-3 font-medium text-text-primary">{u.fullName}</td>
-											<td className="py-2.5 px-3 font-code text-text-muted">{u.username} · {u.email || '—'}</td>
-											<td className="py-2.5 px-3"><Badge variant="info" size="sm">{u.role}</Badge></td>
-											<td className="py-2.5 px-3"><Badge variant={u.active !== false ? 'success' : 'danger'} size="sm">{u.active !== false ? 'Ativo' : 'Inativo'}</Badge></td>
-											<td className="py-2.5 px-3 text-right space-x-1">
+							<DataTable
+								caption="Lista de usuários"
+								columns={[
+									{
+										key: 'name',
+										header: 'Usuário',
+										headerClassName: 'py-2.5 px-3',
+										cellClassName: 'py-2.5 px-3 font-medium text-text-primary',
+										render: (u: any) => u.fullName,
+									},
+									{
+										key: 'email',
+										header: 'Matrícula / Email',
+										headerClassName: 'py-2.5 px-3',
+										cellClassName: 'py-2.5 px-3 font-code text-text-muted',
+										render: (u: any) => `${u.username} · ${u.email || '—'}`,
+									},
+									{
+										key: 'role',
+										header: 'Papel',
+										headerClassName: 'py-2.5 px-3',
+										cellClassName: 'py-2.5 px-3',
+										render: (u: any) => <Badge variant="info" size="sm">{u.role}</Badge>,
+									},
+									{
+										key: 'status',
+										header: 'Status',
+										headerClassName: 'py-2.5 px-3',
+										cellClassName: 'py-2.5 px-3',
+										render: (u: any) => (
+											<Badge variant={u.active !== false ? 'success' : 'danger'} size="sm">{u.active !== false ? 'Ativo' : 'Inativo'}</Badge>
+										),
+									},
+									{
+										key: 'actions',
+										header: 'Ações',
+										headerClassName: 'py-2.5 px-3 text-right',
+										cellClassName: 'py-2.5 px-3 text-right space-x-1',
+										render: (u: any) => (
+											<>
 												<Button variant="ghost" size="sm" onClick={() => handleOpenEditUser(u)} disabled={!canManageUsers} className="p-1">
 													<Edit2 className="w-3 h-3" />
 												</Button>
 												<Button variant="ghost" size="sm" onClick={() => handleDeleteUser(u)} disabled={!canManageUsers} className="p-1 text-status-danger-fg hover:bg-status-danger-bg">
 													<Trash2 className="w-3 h-3" />
 												</Button>
-											</td>
-										</tr>
-									))}
-									{users.length === 0 && (
-										<tr>
-											<td colSpan={5} className="p-4 text-center text-text-muted">Nenhum usuário cadastrado.</td>
-										</tr>
-									)}
-								</tbody>
-							</table>
+											</>
+										),
+									},
+								]}
+								rows={users}
+								rowKey={(u: any) => u.id}
+								empty={<div className="p-4 text-center text-text-muted">Nenhum usuário cadastrado.</div>}
+							/>
 						</div>
 					</div>
 				</SettingsSection>
@@ -870,31 +891,42 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 				>
 					<div className="p-4 space-y-4">
 						<div className="overflow-x-auto">
-							<table className="w-full text-left text-[11px] border-collapse">
-								<thead className="bg-surface-subtle border-b border-border-subtle text-text-muted uppercase font-semibold tracking-wider">
-									<tr>
-										<th className="py-2.5 px-3">Data/Hora</th>
-										<th className="py-2.5 px-3">Ação</th>
-										<th className="py-2.5 px-3">Usuário</th>
-										<th className="py-2.5 px-3">Detalhes</th>
-									</tr>
-								</thead>
-								<tbody className="divide-y divide-border-subtle">
-									{auditLogs.slice(0, 20).map((log) => (
-										<tr key={log.id} className="hover:bg-surface-subtle transition-colors">
-											<td className="py-2.5 px-3 font-code text-text-muted">{formatDateTime(log.timestamp)}</td>
-											<td className="py-2.5 px-3 font-medium text-text-primary">{log.action}</td>
-											<td className="py-2.5 px-3 font-code text-text-muted">{log.user || '—'}</td>
-											<td className="py-2.5 px-3 text-text-muted truncate max-w-[200px]">{log.details || '—'}</td>
-										</tr>
-									))}
-									{auditLogs.length === 0 && (
-										<tr>
-											<td colSpan={4} className="p-4 text-center text-text-muted">Nenhum registro de auditoria.</td>
-										</tr>
-									)}
-								</tbody>
-							</table>
+							<DataTable
+								caption="Log de auditoria"
+								columns={[
+									{
+										key: 'timestamp',
+										header: 'Data/Hora',
+										headerClassName: 'py-2.5 px-3',
+										cellClassName: 'py-2.5 px-3 font-code text-text-muted',
+										render: (log: any) => formatDateTime(log.timestamp),
+									},
+									{
+										key: 'action',
+										header: 'Ação',
+										headerClassName: 'py-2.5 px-3',
+										cellClassName: 'py-2.5 px-3 font-medium text-text-primary',
+										render: (log: any) => log.action,
+									},
+									{
+										key: 'user',
+										header: 'Usuário',
+										headerClassName: 'py-2.5 px-3',
+										cellClassName: 'py-2.5 px-3 font-code text-text-muted',
+										render: (log: any) => log.user || '—',
+									},
+									{
+										key: 'details',
+										header: 'Detalhes',
+										headerClassName: 'py-2.5 px-3',
+										cellClassName: 'py-2.5 px-3 text-text-muted truncate max-w-[200px]',
+										render: (log: any) => log.details || '—',
+									},
+								]}
+								rows={auditLogs.slice(0, 20)}
+								rowKey={(log: any) => log.id}
+								empty={<div className="p-4 text-center text-text-muted">Nenhum registro de auditoria.</div>}
+							/>
 						</div>
 					</div>
 				</SettingsSection>
