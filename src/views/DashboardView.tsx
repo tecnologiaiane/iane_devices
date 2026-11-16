@@ -45,6 +45,65 @@ function extractDdd(phoneNumber?: string): string | null {
   return digits.slice(0, 2);
 }
 
+/**
+ * Cartão KPI padronizado do dashboard: ícone, rótulo, valor grande,
+ * subtítulo e barra de progresso opcional.
+ */
+function KpiCard({
+  icon,
+  label,
+  value,
+  sublabel,
+  iconColor = 'text-text-muted',
+  valueColor = 'text-text-primary',
+  variant,
+  progress,
+  progressValue,
+}: {
+  icon: React.ReactNode
+  label: string
+  value: number | string
+  sublabel: string
+  iconColor?: string
+  valueColor?: string
+  variant?: 'success'
+  progress?: boolean
+  progressValue?: number
+}) {
+  const borderClass = variant === 'success'
+    ? 'border border-status-success-border border-t-4 border-t-status-success-fg bg-status-success-bg'
+    : 'border border-border-subtle bg-surface-card shadow-sm border-t-4';
+  const iconClass = variant === 'success' ? 'text-status-success-fg' : iconColor;
+  const valueClass = variant === 'success' ? 'text-status-success-fg' : valueColor;
+
+  return (
+    <div className={`p-4 radius-lg ${borderClass} flex flex-col`}>
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">{label}</span>
+        <div className={`w-7 h-7 radius-base flex items-center justify-center shrink-0 ${iconClass} bg-${variant === 'success' ? 'status-success-bg' : 'surface-subtle'}`}>
+          {icon}
+        </div>
+      </div>
+      <div className={`text-2xl font-bold font-code tabular-nums ${valueClass} mb-1`}>{value}</div>
+      <div className="text-[11px] text-text-muted">{sublabel}</div>
+      {progress && progressValue !== undefined && (
+        <>
+          <div className="mt-2 w-full h-1 bg-surface-subtle rounded-full overflow-hidden">
+            <div
+              className="h-full bg-brand-blue-action rounded-full transition-all duration-300"
+              style={{ width: `${Math.min(100, Math.max(0, progressValue))}%` }}
+            />
+          </div>
+          <div className="flex justify-between mt-0.5">
+            <span className="text-[10px] text-text-muted">0%</span>
+            <span className="text-[10px] font-medium text-text-primary tabular-nums">{progressValue}%</span>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, currentUser }) => {
   const [catalogs, setCatalogs] = useState<Catalogs>(() => dataService.getCatalogs());
   useEffect(() => { void dataService.fetchCatalogs().then(setCatalogs); }, []);
@@ -162,81 +221,84 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
 
   const firstName = (currentUser?.fullName || currentUser?.username || '').split(' ')[0];
 
+  const greeting = (() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Bom dia';
+    if (hour < 18) return 'Boa tarde';
+    return 'Boa noite';
+  })();
+
   return (
     <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-sm font-semibold text-text-primary tracking-tight">
+            {greeting}, {firstName || 'usuário'}
+          </h1>
+          <p className="text-[11px] text-text-muted">
+            Visão geral da frota · {new Date().toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' })}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 ml-auto sm:ml-0">
+          <Button variant="ghost" size="sm" onClick={() => onNavigate('dispositivos')} className="flex items-center gap-1.5">
+            <Smartphone className="w-3.5 h-3.5" /> Gerenciar aparelhos
+          </Button>
+        </div>
+      </div>
       {/* KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <div className="p-4 radius-lg border border-border-subtle bg-surface-card shadow-sm border-t-4 border-t-brand-blue-action">
-          <div className="flex items-center justify-between text-text-muted mb-1">
-            <span className="text-xs font-medium">Aparelhos</span>
-            <Smartphone className="w-4 h-4 text-brand-blue-action" />
-          </div>
-          <div className="text-2xl font-bold font-code tabular-nums text-text-primary">
-            {metrics.totalDevices}
-          </div>
-          <div className="mt-1.5 text-[11px] text-text-muted">Cadastrados na frota</div>
-        </div>
-
-        <div className="p-4 radius-lg border border-border-subtle bg-surface-card shadow-sm border-t-4 border-t-brand-blue-action">
-          <div className="flex items-center justify-between text-text-muted mb-1">
-            <span className="text-xs font-medium">Em uso</span>
-            <Users className="w-4 h-4 text-brand-blue-action" />
-          </div>
-          <div className="text-2xl font-bold font-code tabular-nums text-text-primary">
-            {metrics.inUseDevices}
-          </div>
-          <div className="mt-1.5 text-[11px] text-brand-blue-action font-medium">
-            {percent(metrics.inUseDevices)}% com colaboradores
-          </div>
-        </div>
-
-        <div className="p-4 radius-lg border border-border-subtle bg-surface-card shadow-sm border-t-4 border-t-brand-blue-action">
-          <div className="flex items-center justify-between text-text-muted mb-1">
-            <span className="text-xs font-medium">No estoque</span>
-            <Package className="w-4 h-4 text-brand-blue-action" />
-          </div>
-          <div className="text-2xl font-bold font-code tabular-nums text-text-primary">
-            {metrics.stockTotal}
-          </div>
-          <div className="mt-1.5 text-[11px] text-text-muted">Sob custódia de TI</div>
-        </div>
-
-        <div className="p-4 radius-lg border border-status-success-border bg-status-success-bg border-t-4 border-t-status-success-fg shadow-sm">
-          <div className="flex items-center justify-between text-status-success-fg mb-1">
-            <span className="text-xs font-bold">Disponíveis</span>
-            <CheckCircle2 className="w-4 h-4 text-status-success-fg" />
-          </div>
-          <div className="text-2xl font-bold font-code tabular-nums text-status-success-fg">
-            {metrics.stockAvailable}
-          </div>
-          <div className="mt-1.5 text-[11px] text-status-success-fg font-medium">Prontos para entrega</div>
-        </div>
-
-        <div className="p-4 radius-lg border border-border-subtle bg-surface-card shadow-sm border-t-4 border-t-status-warning-fg">
-          <div className="flex items-center justify-between text-text-muted mb-1">
-            <span className="text-xs font-medium">Em manutenção</span>
-            <Wrench className="w-4 h-4 text-status-warning-fg" />
-          </div>
-          <div className="text-2xl font-bold font-code tabular-nums text-text-primary">
-            {metrics.stockMaintenance}
-          </div>
-          <div className="mt-1.5 text-[11px] text-text-muted">Em assistência técnica</div>
-        </div>
-
-        <div className="p-4 radius-lg border border-border-subtle bg-surface-card shadow-sm border-t-4 border-t-brand-blue-action">
-          <div className="flex items-center justify-between text-text-muted mb-1">
-            <span className="text-xs font-medium">Linhas ativas</span>
-            <PhoneCall className="w-4 h-4 text-brand-blue-action" />
-          </div>
-          <div className="text-2xl font-bold font-code tabular-nums text-text-primary">
-            {metrics.activeLines}
-          </div>
-          <div className="mt-1.5 text-[11px] text-text-muted">
-            <span className="text-status-success-fg font-semibold tabular-nums">{metrics.availableLines}</span> livres
-            {' · '}
-            {metrics.totalLines} no total
-          </div>
-        </div>
+        <KpiCard
+          icon={<Smartphone className="w-4 h-4 text-brand-blue-action" />}
+          label="Aparelhos"
+          value={metrics.totalDevices}
+          sublabel="Cadastrados na frota"
+          iconColor="text-brand-blue-action"
+          valueColor="text-text-primary"
+        />
+        <KpiCard
+          icon={<Users className="w-4 h-4 text-brand-blue-action" />}
+          label="Em uso"
+          value={metrics.inUseDevices}
+          sublabel={`${percent(metrics.inUseDevices)}% com colaboradores`}
+          iconColor="text-brand-blue-action"
+          valueColor="text-text-primary"
+          progress
+          progressValue={percent(metrics.inUseDevices)}
+        />
+        <KpiCard
+          icon={<Package className="w-4 h-4 text-brand-blue-action" />}
+          label="No estoque"
+          value={metrics.stockTotal}
+          sublabel="Sob custódia de TI"
+          iconColor="text-brand-blue-action"
+          valueColor="text-text-primary"
+        />
+        <KpiCard
+          icon={<CheckCircle2 className="w-4 h-4 text-status-success-fg" />}
+          label="Disponíveis"
+          value={metrics.stockAvailable}
+          sublabel="Prontos para entrega"
+          iconColor="text-status-success-fg"
+          valueColor="text-status-success-fg"
+          variant="success"
+        />
+        <KpiCard
+          icon={<Wrench className="w-4 h-4 text-status-warning-fg" />}
+          label="Manutenção"
+          value={metrics.stockMaintenance}
+          sublabel="Em assistência técnica"
+          iconColor="text-status-warning-fg"
+          valueColor="text-text-primary"
+        />
+        <KpiCard
+          icon={<PhoneCall className="w-4 h-4 text-brand-blue-action" />}
+          label="Linhas ativas"
+          value={metrics.activeLines}
+          sublabel={`${metrics.availableLines} livres · ${metrics.totalLines} total`}
+          iconColor="text-brand-blue-action"
+          valueColor="text-text-primary"
+        />
       </div>
 
       {/* Gráficos e resumos */}
@@ -251,7 +313,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
             <Smartphone className="w-4 h-4 text-text-muted" />
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center gap-5">
+          <div className="flex flex-col sm:flex-row items-center gap-6">
             <div className="relative w-40 h-40 shrink-0">
               <svg viewBox="0 0 140 140" className="w-40 h-40 -rotate-90" role="img" aria-label="Distribuição dos aparelhos por status">
                 <circle cx="70" cy="70" r={DONUT_RADIUS} fill="none" stroke="var(--color-border-subtle)" strokeWidth="16" />
@@ -266,6 +328,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
                     strokeWidth="16"
                     strokeDasharray={`${arc.dash} ${DONUT_CIRCUMFERENCE - arc.dash}`}
                     strokeDashoffset={-arc.offset}
+                    strokeLinecap="round"
                   />
                 ))}
               </svg>
@@ -396,14 +459,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
 
           <div className="space-y-3">
             {devicesByDepartment.slice(0, 6).map(([department, count]) => (
-              <div key={department} className="space-y-1">
+              <div key={department} className="space-y-1.5">
                 <div className="flex items-center justify-between text-[11px] gap-2">
                   <span className="font-medium text-text-muted truncate">{department}</span>
-                  <span className="font-code text-text-muted tabular-nums shrink-0">{count}</span>
+                  <span className="font-code font-bold text-text-primary tabular-nums shrink-0">{count}</span>
                 </div>
-                <div className="w-full h-2 bg-surface-subtle rounded-full overflow-hidden">
+                <div className="w-full h-2 bg-surface-subtle rounded-full overflow-hidden border border-border-subtle/50">
                   <div
-                    className="h-full bg-brand-navy-base rounded-full"
+                    className="h-full bg-brand-blue-action rounded-full transition-all duration-500 ease-out"
                     style={{ width: `${Math.round((count / maxDepartmentCount) * 100)}%` }}
                   />
                 </div>
@@ -428,7 +491,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
             {devicesByBrand.slice(0, 10).map(([brand, count]) => (
               <span
                 key={brand}
-                className="text-[11px] px-2.5 py-1.5 radius-base border border-border-subtle bg-surface-subtle font-medium text-text-muted"
+                className="text-[11px] px-2.5 py-1.5 radius-base border border-border-subtle bg-surface-card font-medium text-text-muted hover:bg-surface-subtle hover:border-brand-blue-action/30 transition-colors"
               >
                 {brand}
                 <span className="ml-1.5 font-code font-bold text-brand-blue-action tabular-nums">{count}</span>
@@ -440,11 +503,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
           </div>
 
           <div className="mt-4 pt-3 border-t border-border-subtle grid grid-cols-2 gap-3">
-            <div>
+            <div className="p-2.5 radius-base bg-surface-subtle border border-border-subtle">
               <span className="text-[10px] uppercase tracking-wider text-text-muted block">Colaboradores ativos</span>
               <span className="text-base font-bold font-code tabular-nums text-text-primary">{activeCollaborators}</span>
             </div>
-            <div>
+            <div className="p-2.5 radius-base bg-surface-subtle border border-border-subtle">
               <span className="text-[10px] uppercase tracking-wider text-text-muted block">Sem aparelho</span>
               <span className="text-base font-bold font-code tabular-nums text-text-primary">{metrics.devicesWithoutCollaborator}</span>
             </div>
@@ -507,7 +570,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
                 className={`p-3 radius-base border flex items-start justify-between gap-3 ${
                   device.status === maintenanceStatus
                     ? 'bg-status-warning-bg/50 border-status-warning-border'
-                    : 'bg-status-warning-bg/50 border-status-warning-border'
+                    : 'bg-surface-subtle border-border-subtle'
                 }`}
               >
                 <div className="min-w-0">
