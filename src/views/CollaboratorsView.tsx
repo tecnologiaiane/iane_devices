@@ -5,6 +5,7 @@ import { formatDate } from '../utils/formatters';
 import { StatusBadge } from '../components/StatusBadge';
 import { Button } from '../components/button';
 import { Badge } from '../components/badge';
+import { DataTable, type DataTableColumn } from '../components/DataTable';
 import {
   Users,
   Search,
@@ -94,6 +95,103 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
   const collabTerms = detailCollab
     ? dataService.getTerms().filter(t => t.collaboratorId === detailCollab.id)
     : [];
+
+  const columns: DataTableColumn<Collaborator>[] = [
+    {
+      key: 'name',
+      header: 'Nome do Colaborador',
+      render: (collab) => (
+        <>
+          <div className="font-medium text-text-primary">{collab.fullName}</div>
+          <div className="text-[11px] text-text-muted flex items-center gap-1.5 mt-0.5">
+            <Mail className="w-3 h-3 text-border-strong" />
+            <span>{collab.corporateEmail}</span>
+          </div>
+        </>
+      ),
+    },
+    {
+      key: 'registration',
+      header: 'Matrícula',
+      cellClassName: 'font-code font-bold text-text-primary',
+      render: (collab) => collab.registrationNumber,
+    },
+    {
+      key: 'department',
+      header: 'Departamento',
+      cellClassName: 'font-medium text-text-muted',
+      render: (collab) => collab.department,
+    },
+    {
+      key: 'sector',
+      header: 'Setor',
+      cellClassName: 'font-medium text-text-muted',
+      render: (collab) => collab.sector || 'Não informado',
+    },
+    {
+      key: 'position',
+      header: 'Cargo',
+      cellClassName: 'text-text-muted',
+      render: (collab) => collab.position,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (collab) => <StatusBadge status={collab.status} type="collaborator" />,
+    },
+    {
+      key: 'assets',
+      header: 'Ativos Vinculados',
+      render: (collab) => {
+        const heldDevices = dataService.getDevices().filter(d => d.currentCollaboratorId === collab.id);
+        const heldLines = dataService.getLines().filter(l => l.currentCollaboratorId === collab.id);
+
+        return (
+          <div className="flex items-center gap-1.5">
+            <span
+              title={heldDevices.length > 0 ? heldDevices.map(d => d.assetTag).join(', ') : 'Nenhum aparelho vinculado'}
+              aria-label={heldDevices.length > 0 ? 'Aparelho vinculado' : 'Nenhum aparelho vinculado'}
+              className={`inline-flex items-center justify-center p-1.5 radius-base border border-border-subtle ${heldDevices.length > 0 ? 'bg-surface-subtle text-text-primary' : 'bg-surface-card text-text-muted'}`}
+            >
+              <Smartphone className="w-3.5 h-3.5" />
+            </span>
+            <span
+              title={heldLines.length > 0 ? `${heldLines.length} linha(s) vinculada(s)` : 'Nenhuma linha vinculada'}
+              aria-label={heldLines.length > 0 ? 'Linha vinculada' : 'Nenhuma linha vinculada'}
+              className={`inline-flex items-center justify-center p-1.5 radius-base border border-border-subtle ${heldLines.length > 0 ? 'bg-surface-subtle text-text-primary' : 'bg-surface-card text-text-muted'}`}
+            >
+              <Microchip className="w-3.5 h-3.5" />
+            </span>
+          </div>
+        );
+      },
+    },
+    {
+      key: 'actions',
+      header: 'Ações',
+      headerClassName: 'text-right',
+      cellClassName: 'text-right whitespace-nowrap',
+      render: (collab) => (
+        <div className="space-x-1" onClick={(e) => e.stopPropagation()}>
+          <button
+            title="Ver Perfil Completo"
+            onClick={() => setDetailCollab(collab)}
+            className="p-1.5 text-text-muted hover:text-brand-blue-action hover:bg-surface-subtle radius-base transition-colors"
+          >
+            <Eye className="w-3.5 h-3.5" />
+          </button>
+
+          <button
+            title="Editar Colaborador"
+            onClick={() => onOpenCollaboratorModal(collab)}
+            className="p-1.5 text-text-muted hover:text-text-primary hover:bg-surface-subtle radius-base transition-colors"
+          >
+            <Edit2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      ),
+    },
+  ];
 
   return (
     <div className="space-y-5">
@@ -218,103 +316,13 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
         </div>
       </div>
 
-      <div className="radius-lg border border-border-subtle bg-surface-card shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-[11px] border-collapse">
-            <thead className="bg-surface-subtle border-b border-border-subtle text-text-muted uppercase font-semibold tracking-wider">
-              <tr>
-                <th className="py-3 px-4">Nome do Colaborador</th>
-                <th className="py-3 px-4">Matrícula</th>
-                <th className="py-3 px-4">Departamento</th>
-                <th className="py-3 px-4">Setor</th>
-                <th className="py-3 px-4">Cargo</th>
-                <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4">Ativos Vinculados</th>
-                <th className="py-3 px-4 text-right">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border-subtle">
-              {paginatedCollabs.map((collab) => {
-                const heldDevices = dataService.getDevices().filter(d => d.currentCollaboratorId === collab.id);
-                const heldLines = dataService.getLines().filter(l => l.currentCollaboratorId === collab.id);
-
-                return (
-                  <tr
-                    key={collab.id}
-                    className="hover:bg-surface-subtle transition-colors group cursor-pointer"
-                    onClick={() => setDetailCollab(collab)}
-                  >
-                    <td className="py-3 px-4">
-                      <div className="font-medium text-text-primary">{collab.fullName}</div>
-                      <div className="text-[11px] text-text-muted flex items-center gap-1.5 mt-0.5">
-                        <Mail className="w-3 h-3 text-border-strong" />
-                        <span>{collab.corporateEmail}</span>
-                      </div>
-                    </td>
-
-                    <td className="py-3 px-4 font-code font-bold text-text-primary">
-                      {collab.registrationNumber}
-                    </td>
-
-                    <td className="py-3 px-4 font-medium text-text-muted">
-                      {collab.department}
-                    </td>
-
-                    <td className="py-3 px-4 font-medium text-text-muted">
-                      {collab.sector || 'Não informado'}
-                    </td>
-
-                    <td className="py-3 px-4 text-text-muted">
-                      {collab.position}
-                    </td>
-
-                    <td className="py-3 px-4">
-                      <StatusBadge status={collab.status} type="collaborator" />
-                    </td>
-
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          title={heldDevices.length > 0 ? heldDevices.map(d => d.assetTag).join(', ') : 'Nenhum aparelho vinculado'}
-                          aria-label={heldDevices.length > 0 ? 'Aparelho vinculado' : 'Nenhum aparelho vinculado'}
-                          className={`inline-flex items-center justify-center p-1.5 radius-base border border-border-subtle ${heldDevices.length > 0 ? 'bg-surface-subtle text-text-primary' : 'bg-surface-card text-text-muted'}`}
-                        >
-                          <Smartphone className="w-3.5 h-3.5" />
-                        </span>
-                        <span
-                          title={heldLines.length > 0 ? `${heldLines.length} linha(s) vinculada(s)` : 'Nenhuma linha vinculada'}
-                          aria-label={heldLines.length > 0 ? 'Linha vinculada' : 'Nenhuma linha vinculada'}
-                          className={`inline-flex items-center justify-center p-1.5 radius-base border border-border-subtle ${heldLines.length > 0 ? 'bg-surface-subtle text-text-primary' : 'bg-surface-card text-text-muted'}`}
-                        >
-                          <Microchip className="w-3.5 h-3.5" />
-                        </span>
-                      </div>
-                    </td>
-
-                    <td className="py-3 px-4 text-right space-x-1 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        title="Ver Perfil Completo"
-                        onClick={() => setDetailCollab(collab)}
-                        className="p-1.5 text-text-muted hover:text-brand-blue-action hover:bg-surface-subtle radius-base transition-colors"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                      </button>
-
-                      <button
-                        title="Editar Colaborador"
-                        onClick={() => onOpenCollaboratorModal(collab)}
-                        className="p-1.5 text-text-muted hover:text-text-primary hover:bg-surface-subtle radius-base transition-colors"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <DataTable
+        caption="Lista de colaboradores"
+        columns={columns}
+        rows={paginatedCollabs}
+        rowKey={(collab) => collab.id}
+        onRowClick={setDetailCollab}
+      />
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between gap-3 px-4 py-3">

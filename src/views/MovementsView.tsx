@@ -26,6 +26,7 @@ import { canAccessRequests, canApproveRequests } from '../config/requestAccess';
 import { Modal } from '../components/Modal';
 import { Button } from '../components/button';
 import { Badge } from '../components/badge';
+import { DataTable, type DataTableColumn } from '../components/DataTable';
 import { RequestDetailsModal } from './RequestsView';
 
 const MOVEMENT_FLOWS: { flow: OfficialFlowType; label: string }[] = [
@@ -185,6 +186,171 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
     }
   };
 
+  /** Colunas da tabela de solicitações pendentes (primeira tabela, dentro de card com borda). */
+  const pendingColumns: DataTableColumn<RequestRecord>[] = [
+    {
+      key: 'date',
+      header: 'Data da solicitação',
+      render: (req) => formatDateTime(req.createdAt),
+    },
+    {
+      key: 'type',
+      header: 'Tipo',
+      render: (req) => req.type,
+    },
+    {
+      key: 'requester',
+      header: 'Solicitante',
+      render: (req) => req.requesterName,
+    },
+    {
+      key: 'collaborator',
+      header: 'Colaborador/funcionário',
+      render: (req) => requestCollaborator(req),
+    },
+    {
+      key: 'actions',
+      header: 'Ação',
+      headerClassName: 'text-right',
+      cellClassName: 'text-right whitespace-nowrap',
+      render: (req) => (
+        <div className="inline-flex gap-1" onClick={(e) => e.stopPropagation()}>
+          <button
+            title="Visualizar"
+            onClick={() => setRequestToView(req)}
+            className="inline-flex items-center gap-1 px-2 py-1 radius-base text-text-muted hover:bg-surface-subtle hover:text-text-primary transition-colors"
+          >
+            <Eye className="h-3.5 w-3.5" />
+          </button>
+          <button
+            title="Aprovar"
+            onClick={() => onApproveRequest(req)}
+            className="ml-1 inline-flex items-center gap-1 px-2 py-1 radius-base text-status-success-fg hover:bg-status-success-bg transition-colors"
+          >
+            <CheckCircle2 className="h-3.5 w-3.5" />Aprovar
+          </button>
+          <button
+            title="Recusar"
+            onClick={() => { setRequestError(''); setRejectionReason(''); setRequestToReject(req); }}
+            className="ml-1 inline-flex items-center gap-1 px-2 py-1 radius-base text-status-danger-fg hover:bg-status-danger-bg transition-colors"
+          >
+            Recusar
+          </button>
+        </div>
+      ),
+    },
+  ];
+
+  /** Colunas da tabela principal de movimentações (segunda tabela). */
+  const movementsColumns: DataTableColumn<Movement>[] = [
+    {
+      key: 'code',
+      header: 'Código / Data',
+      cellClassName: 'whitespace-nowrap',
+      render: (mov) => (
+        <>
+          <span className="font-code font-bold text-text-primary block">{mov.code}</span>
+          <span className="text-[11px] font-code text-text-muted">{formatDate(mov.date)}</span>
+          {mov.batchOperationId && (
+            <span className="text-[10px] font-code text-brand-blue-action bg-surface-subtle px-1.5 py-0.2 rounded border border-border-subtle mt-0.5 inline-block">
+              {mov.batchOperationId}
+            </span>
+          )}
+        </>
+      ),
+    },
+    {
+      key: 'type',
+      header: 'Operação Oficial',
+      render: (mov) => (
+        <>
+          <span className="font-medium text-text-primary block">{mov.type}</span>
+          {mov.stockTransit?.stage && (
+            <span className="text-[10px] text-brand-blue-action font-medium">
+              {mov.stockTransit.stage}
+            </span>
+          )}
+          {requestApprovalFor(mov) && (
+            <span className="mt-1 inline-block"><StatusBadge status="Via solicitação" type="request" /></span>
+          )}
+        </>
+      ),
+    },
+    {
+      key: 'flow',
+      header: 'Fluxo Patrimonial',
+      render: (mov) => (
+        <div className="flex items-center gap-1.5 text-[11px]">
+          <span className={`px-1.5 py-0.5 rounded ${isStockCustody(mov.originCollaboratorName) ? 'bg-surface-subtle text-brand-navy-base font-bold' : 'text-text-primary font-medium'}`}>
+            {stockDisplayName(mov.originCollaboratorName)}
+          </span>
+          <ArrowRight className="w-3 h-3 text-border-strong shrink-0" />
+          <span className={`px-1.5 py-0.5 rounded ${isStockCustody(mov.destinationCollaboratorName) ? 'bg-surface-subtle text-brand-navy-base font-bold' : 'text-text-primary font-medium'}`}>
+            {stockDisplayName(mov.destinationCollaboratorName)}
+          </span>
+        </div>
+      ),
+    },
+    {
+      key: 'device',
+      header: 'Aparelho Envolvido',
+      render: (mov) => (mov.deviceTag ? (
+        <>
+          <span className="font-code font-bold text-brand-blue-action">{mov.deviceTag}</span>
+          <span className="block text-[11px] text-text-muted truncate max-w-[150px]">{movementDeviceModel(mov)}</span>
+        </>
+      ) : (
+        <span className="text-text-muted italic font-body">Nenhum</span>
+      )),
+    },
+    {
+      key: 'reason',
+      header: 'Motivo / Condição',
+      cellClassName: 'max-w-[200px]',
+      render: (mov) => (
+        <>
+          <p className="text-text-muted truncate">{mov.reason || 'Movimentação patrimonial regular'}</p>
+          {mov.conditionAtMovement && (
+            <span className="inline-block mt-0.5">
+              <StatusBadge status={mov.conditionAtMovement} type="condition" size="sm" />
+            </span>
+          )}
+        </>
+      ),
+    },
+    {
+      key: 'term',
+      header: 'Termo',
+      render: (mov) => (mov.documentId ? (
+        <button
+          title="Ver Termo"
+          onClick={() => handleOpenLinkedTerm(mov.documentId)}
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 radius-base text-xs font-medium text-brand-blue-action bg-surface-subtle border border-border-subtle hover:bg-surface-card transition-colors"
+        >
+          <FileText className="w-3 h-3 text-brand-blue-action" />
+          <span>{mov.documentCode || 'Ver Termo'}</span>
+        </button>
+      ) : (
+        <span className="text-text-muted italic text-[11px] font-body">Sem termo anexado</span>
+      )),
+    },
+    {
+      key: 'actions',
+      header: 'Ação',
+      headerClassName: 'text-right',
+      cellClassName: 'text-right',
+      render: (mov) => (
+        <button
+          title="Visualizar Detalhes"
+          onClick={() => setDetailMovement(mov)}
+          className="p-1.5 text-text-muted hover:text-brand-blue-action hover:bg-surface-subtle radius-base transition-colors"
+        >
+          <Eye className="w-3.5 h-3.5" />
+        </button>
+      ),
+    },
+  ];
+
   return (
     <div className="space-y-5">
       {canApprove && (
@@ -198,40 +364,13 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
             </div>
           </div>
           {pendingRequests.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-[11px] border-collapse">
-                <thead className="bg-surface-subtle border-b border-border-subtle text-text-muted uppercase font-semibold tracking-wider">
-                  <tr>
-                    <th className="py-3 px-4">Data da solicitação</th>
-                    <th className="py-3 px-4">Tipo</th>
-                    <th className="py-3 px-4">Solicitante</th>
-                    <th className="py-3 px-4">Colaborador/funcionário</th>
-                    <th className="py-3 px-4 text-right">Ação</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border-subtle">
-                  {pendingRequests.map((request) => (
-                    <tr key={request.id} className="hover:bg-surface-subtle transition-colors">
-                      <td className="py-3 px-4 whitespace-nowrap">{formatDateTime(request.createdAt)}</td>
-                      <td className="py-3 px-4 font-medium text-text-primary">{request.type}</td>
-                      <td className="py-3 px-4">{request.requesterName}</td>
-                      <td className="py-3 px-4">{requestCollaborator(request)}</td>
-                      <td className="py-3 px-4 text-right whitespace-nowrap">
-                        <button type="button" onClick={() => setRequestToView(request)} className="inline-flex items-center gap-1 px-2 py-1 radius-base text-text-muted hover:bg-surface-subtle hover:text-text-primary transition-colors">
-                          <Eye className="h-3.5 w-3.5" />Visualizar
-                        </button>
-                        <button type="button" onClick={() => onApproveRequest(request)} className="ml-1 inline-flex items-center gap-1 px-2 py-1 radius-base text-status-success-fg hover:bg-status-success-bg transition-colors">
-                          <CheckCircle2 className="h-3.5 w-3.5" />Aprovar
-                        </button>
-                        <button type="button" onClick={() => { setRequestError(''); setRejectionReason(''); setRequestToReject(request); }} className="ml-1 inline-flex items-center gap-1 px-2 py-1 radius-base text-status-danger-fg hover:bg-status-danger-bg transition-colors">
-                          Recusar
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <DataTable
+              caption="Solicitações pendentes de aprovação"
+              columns={pendingColumns}
+              rows={pendingRequests}
+              rowKey={(req) => req.id}
+              bordered={false}
+            />
           ) : <p className="px-4 py-5 text-center text-[11px] text-text-muted">Não há solicitações pendentes.</p>}
         </section>
       )}
@@ -394,123 +533,19 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
       </div>
 
       {/* Main Table */}
-      <div className="radius-lg border border-border-subtle bg-surface-card shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-[11px] border-collapse">
-            <thead className="bg-surface-subtle border-b border-border-subtle text-text-muted uppercase font-semibold tracking-wider">
-              <tr>
-                <th className="py-3 px-4">Código / Data</th>
-                <th className="py-3 px-4">Operação Oficial</th>
-                <th className="py-3 px-4">Fluxo Patrimonial</th>
-                <th className="py-3 px-4">Aparelho Envolvido</th>
-                <th className="py-3 px-4">Motivo / Condição</th>
-                <th className="py-3 px-4">Termo</th>
-                <th className="py-3 px-4 text-right">Ação</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border-subtle">
-              {paginatedMovements.map((mov) => (
-                <tr 
-                  key={mov.id} 
-                  className="hover:bg-surface-subtle transition-colors group cursor-pointer"
-                  onClick={() => setDetailMovement(mov)}
-                >
-                  {/* Code & Date */}
-                  <td className="py-3 px-4 whitespace-nowrap">
-                    <span className="font-code font-bold text-text-primary block">{mov.code}</span>
-                    <span className="text-[11px] font-code text-text-muted">{formatDate(mov.date)}</span>
-                    {mov.batchOperationId && (
-                      <span className="text-[10px] font-code text-brand-blue-action bg-surface-subtle px-1.5 py-0.2 rounded border border-border-subtle mt-0.5 inline-block">
-                        {mov.batchOperationId}
-                      </span>
-                    )}
-                  </td>
-
-                  {/* Type */}
-                  <td className="py-3 px-4">
-                    <span className="font-medium text-text-primary block">{mov.type}</span>
-                    {mov.stockTransit?.stage && (
-                      <span className="text-[10px] text-brand-blue-action font-medium">
-                        {mov.stockTransit.stage}
-                      </span>
-                    )}
-                    {requestApprovalFor(mov) && (
-                      <span className="mt-1 inline-block"><StatusBadge status="Via solicitação" type="request" /></span>
-                    )}
-                  </td>
-
-                  {/* Flow with stock highlight */}
-                  <td className="py-3 px-4">
-                    <div className="flex items-center gap-1.5 text-[11px]">
-                      <span className={`px-1.5 py-0.5 rounded ${isStockCustody(mov.originCollaboratorName) ? 'bg-surface-subtle text-brand-navy-base font-bold' : 'text-text-primary font-medium'}`}>
-                        {stockDisplayName(mov.originCollaboratorName)}
-                      </span>
-                      <ArrowRight className="w-3 h-3 text-border-strong shrink-0" />
-                      <span className={`px-1.5 py-0.5 rounded ${isStockCustody(mov.destinationCollaboratorName) ? 'bg-surface-subtle text-brand-navy-base font-bold' : 'text-text-primary font-medium'}`}>
-                        {stockDisplayName(mov.destinationCollaboratorName)}
-                      </span>
-                    </div>
-                  </td>
-
-                  {/* Device */}
-                  <td className="py-3 px-4">
-                    {mov.deviceTag ? (
-                      <div>
-                        <span className="font-code font-bold text-brand-blue-action">{mov.deviceTag}</span>
-                        <span className="block text-[11px] text-text-muted truncate max-w-[150px]">{movementDeviceModel(mov)}</span>
-                      </div>
-                    ) : (
-                      <span className="text-text-muted italic font-body">Nenhum</span>
-                    )}
-                  </td>
-
-                  {/* Reason & Condition */}
-                  <td className="py-3 px-4 max-w-[200px]">
-                    <p className="text-text-muted truncate">{mov.reason || 'Movimentação patrimonial regular'}</p>
-                    {mov.conditionAtMovement && (
-                      <span className="inline-block mt-0.5">
-                        <StatusBadge status={mov.conditionAtMovement} type="condition" size="sm" />
-                      </span>
-                    )}
-                  </td>
-
-                  {/* Term */}
-                  <td className="py-3 px-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                    {mov.documentId ? (
-                      <button
-                        onClick={() => handleOpenLinkedTerm(mov.documentId)}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 radius-base text-xs font-medium text-brand-blue-action bg-surface-subtle border border-border-subtle hover:bg-surface-card transition-colors"
-                      >
-                        <FileText className="w-3 h-3 text-brand-blue-action" />
-                        <span>{mov.documentCode || 'Ver Termo'}</span>
-                      </button>
-                    ) : (
-                      <span className="text-text-muted italic text-[11px] font-body">Sem termo anexado</span>
-                    )}
-                  </td>
-
-                  {/* Action */}
-                  <td className="py-3 px-4 text-right">
-                    <button
-                      onClick={() => setDetailMovement(mov)}
-                      className="p-1.5 text-text-muted hover:text-brand-blue-action hover:bg-surface-subtle radius-base transition-colors"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {filteredMovements.length === 0 && (
-            <div className="p-10 text-center text-text-muted">
-              <ArrowLeftRight className="w-10 h-10 text-border-strong mx-auto mb-2" />
-              <p className="font-semibold text-text-primary">Nenhuma movimentação encontrada</p>
-            </div>
-          )}
-        </div>
-      </div>
+      <DataTable
+        caption="Histórico de movimentações"
+        columns={movementsColumns}
+        rows={paginatedMovements}
+        rowKey={(mov) => mov.id}
+        onRowClick={setDetailMovement}
+        empty={
+          <div className="p-10 text-center text-text-muted">
+            <ArrowLeftRight className="w-10 h-10 text-border-strong mx-auto mb-2" />
+            <p className="font-semibold text-text-primary">Nenhuma movimentação encontrada</p>
+          </div>
+        }
+      />
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between gap-3 px-4 py-3">

@@ -14,6 +14,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import { Modal } from '../components/Modal';
 import { Button } from '../components/button';
 import { Badge } from '../components/badge';
+import { DataTable, type DataTableColumn } from '../components/DataTable';
 import {
   FileText,
   Search,
@@ -267,6 +268,94 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm, onPrintTerm })
   const pendingCount = terms.filter(t => t.status === 'Pendente de Assinatura').length;
   const signedCount = terms.filter(t => t.status === 'Assinado').length;
 
+  const columns: DataTableColumn<DocumentTerm>[] = [
+    {
+      key: 'code',
+      header: 'Código do termo',
+      cellClassName: 'font-code font-bold text-text-primary whitespace-nowrap',
+      render: (term) => (
+        <span className="flex items-center gap-1.5">
+          {term.code}
+          {term.hasFile && (
+            <Paperclip className="w-3.5 h-3.5 text-brand-blue-action" aria-label="PDF anexado" />
+          )}
+        </span>
+      ),
+    },
+    {
+      key: 'type',
+      header: 'Tipo',
+      cellClassName: 'font-medium text-text-primary',
+      render: (term) => term.type,
+    },
+    {
+      key: 'collaborator',
+      header: 'Colaborador titular',
+      render: (term) => (
+        <>
+          <span className="font-medium text-text-primary block">{term.collaboratorName || 'Não especificado'}</span>
+          {term.collaboratorRegistration && (
+            <span className="text-[11px] text-text-muted font-code">Mat.: {term.collaboratorRegistration}</span>
+          )}
+        </>
+      ),
+    },
+    {
+      key: 'asset',
+      header: 'Ativo / linha',
+      render: (term) => (
+        <>
+          {term.deviceTag && (
+            <span className="font-code text-brand-blue-action font-semibold block">{term.deviceTag}</span>
+          )}
+          {term.phoneNumber && (
+            <span className="text-[11px] text-text-muted font-code">{term.phoneNumber}</span>
+          )}
+          {!term.deviceTag && !term.phoneNumber && (
+            <span className="text-text-muted italic font-body">Geral</span>
+          )}
+        </>
+      ),
+    },
+    {
+      key: 'date',
+      header: 'Data de emissão',
+      cellClassName: 'font-code text-text-muted whitespace-nowrap',
+      render: (term) => formatDate(term.date),
+    },
+    {
+      key: 'status',
+      header: 'Situação',
+      render: (term) => <StatusBadge status={term.status} type="term" />,
+    },
+    {
+      key: 'actions',
+      header: 'Ação',
+      headerClassName: 'text-right',
+      cellClassName: 'text-right whitespace-nowrap',
+      render: (term) => (
+        <div className="inline-flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+          <button
+            onClick={() => onViewTerm(term)}
+            title="Visualizar termo"
+            aria-label={`Visualizar termo ${term.code}`}
+            className="inline-flex items-center justify-center p-2 radius-base text-text-muted hover:bg-surface-subtle hover:text-text-primary transition-colors border border-transparent"
+          >
+            <Eye className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => onPrintTerm(term)}
+            title="Imprimir termo"
+            aria-label={`Imprimir termo ${term.code}`}
+            className="inline-flex items-center justify-center p-2 radius-base text-text-muted hover:bg-surface-subtle hover:text-text-primary transition-colors border border-transparent"
+          >
+            <Printer className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="space-y-5">
       {/* Pending status banner */}
@@ -417,101 +506,20 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm, onPrintTerm })
       </div>
 
       {/* Main Table */}
-      <div className="radius-lg border border-border-subtle bg-surface-card shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-[11px] border-collapse">
-            <thead className="bg-surface-subtle border-b border-border-subtle text-text-muted uppercase font-semibold tracking-wider">
-              <tr>
-                <th className="py-3 px-4">Código do termo</th>
-                <th className="py-3 px-4">Tipo</th>
-                <th className="py-3 px-4">Colaborador titular</th>
-                <th className="py-3 px-4">Ativo / linha</th>
-                <th className="py-3 px-4">Data de emissão</th>
-                <th className="py-3 px-4">Situação</th>
-                <th className="py-3 px-4 text-right">Ação</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border-subtle">
-              {paginatedTerms.map((term) => (
-                <tr
-                  key={term.id}
-                  className="hover:bg-surface-subtle transition-colors group cursor-pointer"
-                  onClick={() => onViewTerm(term)}
-                >
-                  <td className="py-3 px-4 font-code font-bold text-text-primary whitespace-nowrap">
-                    <span className="flex items-center gap-1.5">
-                      {term.code}
-                      {term.hasFile && (
-                        <Paperclip className="w-3.5 h-3.5 text-brand-blue-action" aria-label="PDF anexado" />
-                      )}
-                    </span>
-                  </td>
-
-                  <td className="py-3 px-4 font-medium text-text-primary">
-                    {term.type}
-                  </td>
-
-                  <td className="py-3 px-4">
-                    <span className="font-medium text-text-primary block">{term.collaboratorName || 'Não especificado'}</span>
-                    {term.collaboratorRegistration && (
-                      <span className="text-[11px] text-text-muted font-code">Mat.: {term.collaboratorRegistration}</span>
-                    )}
-                  </td>
-
-                  <td className="py-3 px-4">
-                    {term.deviceTag && (
-                      <span className="font-code text-brand-blue-action font-semibold block">{term.deviceTag}</span>
-                    )}
-                    {term.phoneNumber && (
-                      <span className="text-[11px] text-text-muted font-code">{term.phoneNumber}</span>
-                    )}
-                    {!term.deviceTag && !term.phoneNumber && (
-                      <span className="text-text-muted italic font-body">Geral</span>
-                    )}
-                  </td>
-
-                  <td className="py-3 px-4 font-code text-text-muted whitespace-nowrap">
-                    {formatDate(term.date)}
-                  </td>
-
-                  <td className="py-3 px-4">
-                    <StatusBadge status={term.status} type="term" />
-                  </td>
-
-                  <td className="py-3 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                    <div className="inline-flex items-center gap-1.5">
-                      <button
-                        onClick={() => onViewTerm(term)}
-                        title="Visualizar termo"
-                        aria-label={`Visualizar termo ${term.code}`}
-                        className="inline-flex items-center justify-center p-2 radius-base text-text-muted hover:bg-surface-subtle hover:text-text-primary transition-colors border border-transparent"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => onPrintTerm(term)}
-                        title="Imprimir termo"
-                        aria-label={`Imprimir termo ${term.code}`}
-                        className="inline-flex items-center justify-center p-2 radius-base text-text-muted hover:bg-surface-subtle hover:text-text-primary transition-colors border border-transparent"
-                      >
-                        <Printer className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {filteredTerms.length === 0 && (
-            <div className="p-10 text-center text-text-muted">
-              <FileText className="w-10 h-10 text-border-strong mx-auto mb-2" />
-              <p className="font-semibold text-text-primary">Nenhum termo encontrado</p>
-              <p className="text-[11px] text-text-muted mt-1">Nenhum documento atende aos filtros atuais.</p>
-            </div>
-          )}
-        </div>
-      </div>
+      <DataTable
+        caption="Lista de termos e documentos"
+        columns={columns}
+        rows={paginatedTerms}
+        rowKey={(term) => term.id}
+        onRowClick={onViewTerm}
+        empty={
+          <div className="p-10 text-center text-text-muted">
+            <FileText className="w-10 h-10 text-border-strong mx-auto mb-2" />
+            <p className="font-semibold text-text-primary">Nenhum termo encontrado</p>
+            <p className="text-[11px] text-text-muted mt-1">Nenhum documento atende aos filtros atuais.</p>
+          </div>
+        }
+      />
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between gap-3 px-4 py-3">

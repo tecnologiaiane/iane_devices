@@ -21,6 +21,8 @@ interface DataTableProps<T> {
 	empty?: React.ReactNode
 	/** Texto acessível que descreve a tabela. */
 	caption?: string
+	/** Quando false, remove o card (borda, raio e sombra) — útil dentro de um card que já tem cabeçalho. */
+	bordered?: boolean
 	className?: string
 }
 
@@ -36,10 +38,17 @@ export function DataTable<T>({
 	onRowClick,
 	empty,
 	caption,
+	bordered = true,
 	className,
 }: DataTableProps<T>) {
 	return (
-		<div className={twMerge('radius-lg border border-border-subtle bg-surface-card shadow-sm overflow-hidden', className)}>
+		<div
+			className={twMerge(
+				'overflow-hidden',
+				bordered && 'radius-lg border border-border-subtle bg-surface-card shadow-sm',
+				className,
+			)}
+		>
 			<div className="overflow-x-auto">
 				<table className="w-full text-left text-xs border-collapse">
 					{caption && <caption className="sr-only">{caption}</caption>}

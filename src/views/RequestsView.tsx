@@ -5,6 +5,7 @@ import { Modal } from '../components/Modal';
 import { StatusBadge } from '../components/StatusBadge';
 import { Button } from '../components/button';
 import { Badge } from '../components/badge';
+import { DataTable, type DataTableColumn } from '../components/DataTable';
 import { formatDate, formatDateTime, formatPhone, matchesPhoneSearch } from '../utils/formatters';
 import { toDateInputValue } from '../utils/dates';
 import {
@@ -272,6 +273,59 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ currentUser }) => {
     setSearch('');
   };
 
+  const columns: DataTableColumn<RequestRecord>[] = [
+    {
+      key: 'code',
+      header: 'Código / Data',
+      cellClassName: 'whitespace-nowrap',
+      render: (request) => (
+        <>
+          <span className="font-code font-bold text-text-primary block">{request.id}</span>
+          <span className="text-[11px] font-code text-text-muted">{formatDateTime(request.createdAt)}</span>
+        </>
+      ),
+    },
+    {
+      key: 'type',
+      header: 'Tipo',
+      render: (request) => <span className="font-medium text-text-primary block">{request.type}</span>,
+    },
+    {
+      key: 'requester',
+      header: 'Solicitante',
+      render: (request) => <span className="font-medium text-text-primary block">{request.requesterName}</span>,
+    },
+    {
+      key: 'details',
+      header: 'Detalhes',
+      cellClassName: 'max-w-[200px]',
+      render: (request) =>
+        getRequestDetails(request).map((detail, i) => (
+          <div key={i} className="text-text-muted truncate">{detail}</div>
+        )),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (request) => <StatusBadge status={request.status || 'Pendente de aprovação'} type="request" />,
+    },
+    {
+      key: 'actions',
+      header: 'Ação',
+      headerClassName: 'text-right',
+      cellClassName: 'text-right',
+      render: (request) => (
+        <button
+          onClick={() => setSelectedRequest(request)}
+          title="Ver solicitação"
+          className="p-1.5 text-text-muted hover:text-brand-blue-action hover:bg-surface-subtle radius-base transition-colors"
+        >
+          <Eye className="w-3.5 h-3.5" />
+        </button>
+      ),
+    },
+  ];
+
   return (
     <div className="space-y-5">
       {successMessage && (
@@ -443,60 +497,20 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ currentUser }) => {
       </div>
 
       {/* Main Table */}
-      <div className="radius-lg border border-border-subtle bg-surface-card shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-[11px] border-collapse">
-            <thead className="bg-surface-subtle border-b border-border-subtle text-text-muted uppercase font-semibold tracking-wider">
-              <tr>
-                <th className="py-3 px-4">Código / Data</th>
-                <th className="py-3 px-4">Tipo</th>
-                <th className="py-3 px-4">Solicitante</th>
-                <th className="py-3 px-4">Detalhes</th>
-                <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4 text-right">Ação</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border-subtle">
-              {paginatedRequests.map((request) => (
-                <tr key={request.id} className="hover:bg-surface-subtle transition-colors group cursor-pointer" onClick={() => setSelectedRequest(request)}>
-                  <td className="py-3 px-4 whitespace-nowrap">
-                    <span className="font-code font-bold text-text-primary block">{request.id}</span>
-                    <span className="text-[11px] font-code text-text-muted">{formatDateTime(request.createdAt)}</span>
-                  </td>
-                  <td className="py-3 px-4">
-                    <span className="font-medium text-text-primary block">{request.type}</span>
-                  </td>
-                  <td className="py-3 px-4">
-                    <span className="font-medium text-text-primary block">{request.requesterName}</span>
-                  </td>
-                  <td className="py-3 px-4 max-w-[200px]">
-                    {getRequestDetails(request).map((detail, i) => (
-                      <div key={i} className="text-text-muted truncate">{detail}</div>
-                    ))}
-                  </td>
-                  <td className="py-3 px-4">
-                    <StatusBadge status={request.status || 'Pendente de aprovação'} type="request" />
-                  </td>
-                  <td className="py-3 px-4 text-right">
-                    <button onClick={() => setSelectedRequest(request)} className="p-1.5 text-text-muted hover:text-brand-blue-action hover:bg-surface-subtle radius-base transition-colors">
-                      <Eye className="w-3.5 h-3.5" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {visibleRequests.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="p-10 text-center text-text-muted">
-                    <ClipboardList className="w-10 h-10 text-border-strong mx-auto mb-2" />
-                    <p className="font-semibold text-text-primary">Nenhuma solicitação encontrada</p>
-                    <p className="text-[11px] text-text-muted mt-1">Nenhuma solicitação atende aos filtros atuais.</p>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <DataTable
+        caption="Lista de solicitações"
+        columns={columns}
+        rows={paginatedRequests}
+        rowKey={(request) => request.id}
+        onRowClick={setSelectedRequest}
+        empty={
+          <div className="p-10 text-center text-text-muted">
+            <ClipboardList className="w-10 h-10 text-border-strong mx-auto mb-2" />
+            <p className="font-semibold text-text-primary">Nenhuma solicitação encontrada</p>
+            <p className="text-[11px] text-text-muted mt-1">Nenhuma solicitação atende aos filtros atuais.</p>
+          </div>
+        }
+      />
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between gap-3 px-4 py-3">

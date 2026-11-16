@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../components/button';
 import { Badge } from '../components/badge';
+import { DataTable, type DataTableColumn } from '../components/DataTable';
 
 interface LinesViewProps {
   onOpenLineModal: (line?: PhoneLine) => void;
@@ -115,6 +116,117 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
   };
 
   const availableDevices = dataService.getDevices().filter(d => d.status !== 'Baixado');
+
+  const columns: DataTableColumn<PhoneLine>[] = [
+    {
+      key: 'phone',
+      header: 'Número da Linha',
+      cellClassName: 'font-code font-bold text-text-primary whitespace-nowrap',
+      render: (line) => formatPhone(line.phoneNumber),
+    },
+    {
+      key: 'carrier',
+      header: 'Operadora',
+      cellClassName: 'font-semibold text-text-primary',
+      render: (line) => line.carrier,
+    },
+    {
+      key: 'plan',
+      header: 'Plano Contratado',
+      cellClassName: 'text-text-muted max-w-[200px] truncate',
+      render: (line) => line.planName || 'Não informado',
+    },
+    {
+      key: 'cost',
+      header: 'Custo Mensal',
+      cellClassName: 'font-code text-text-muted tabular-nums',
+      render: (line) => formatCurrency(line.monthlyCost),
+    },
+    {
+      key: 'status',
+      header: 'Status da Linha',
+      render: (line) => <StatusBadge status={line.status} type="line" />,
+    },
+    {
+      key: 'device',
+      header: 'Aparelho Associado',
+      render: (line) =>
+        line.associatedDeviceTag ? (
+          <Badge variant="info" size="sm" showDot className="text-[11px]">
+            <PhoneCall className="w-2.5 h-2.5" />
+            {line.associatedDeviceTag}
+          </Badge>
+        ) : (
+          <span className="text-text-muted italic font-body">Nenhum</span>
+        ),
+    },
+    {
+      key: 'collaborator',
+      header: 'Colaborador / Setor',
+      render: (line) =>
+        line.currentCollaboratorName ? (
+          <div>
+            <span className="font-medium text-text-primary">{line.currentCollaboratorName}</span>
+            {line.department && (
+              <span className="block text-[11px] text-text-muted">{line.department}</span>
+            )}
+          </div>
+        ) : (
+          <span className="text-text-muted italic font-body">Disponível em Estoque</span>
+        ),
+    },
+    {
+      key: 'actions',
+      header: 'Ações',
+      headerClassName: 'text-right',
+      cellClassName: 'text-right whitespace-nowrap',
+      render: (line) => (
+        <div className="space-x-1" onClick={(e) => e.stopPropagation()}>
+          <button
+            title="Ver Detalhes"
+            onClick={() => setDetailLine(line)}
+            className="p-1.5 text-text-muted hover:text-brand-blue-action hover:bg-surface-subtle radius-base transition-colors"
+          >
+            <Eye className="w-3.5 h-3.5" />
+          </button>
+
+          {line.associatedDeviceId ? (
+            <button
+              title="Desassociar do aparelho"
+              onClick={() => handleDisassociate(line.id)}
+              className="p-1.5 text-status-warning-fg hover:bg-status-warning-bg radius-base transition-colors"
+            >
+              <Unlink className="w-3.5 h-3.5" />
+            </button>
+          ) : (
+            <button
+              title="Associar a um aparelho celular"
+              onClick={() => setAssociatingLine(line)}
+              className="p-1.5 text-status-success-fg hover:bg-status-success-bg radius-base transition-colors"
+            >
+              <Link className="w-3.5 h-3.5" />
+            </button>
+          )}
+
+          <button
+            title="Editar"
+            onClick={() => onOpenLineModal(line)}
+            className="p-1.5 text-text-muted hover:text-text-primary hover:bg-surface-subtle radius-base transition-colors"
+          >
+            <Edit2 className="w-3.5 h-3.5" />
+          </button>
+
+          <button
+            title="Excluir"
+            onClick={() => handleDelete(line.id, line.phoneNumber)}
+            className="p-1.5 text-text-muted hover:text-status-danger-fg hover:bg-status-danger-bg radius-base transition-colors"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      ),
+    },
+  ];
 
   return (
     <div className="space-y-5">
@@ -253,129 +365,20 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
         </div>
       </div>
 
-      <div className="radius-lg border border-border-subtle bg-surface-card shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-[11px] border-collapse">
-            <thead className="bg-surface-subtle border-b border-border-subtle text-text-muted uppercase font-semibold tracking-wider">
-              <tr>
-                <th className="py-3 px-4">Número da Linha</th>
-                <th className="py-3 px-4">Operadora</th>
-                <th className="py-3 px-4">Plano Contratado</th>
-                <th className="py-3 px-4">Custo Mensal</th>
-                <th className="py-3 px-4">Status da Linha</th>
-                <th className="py-3 px-4">Aparelho Associado</th>
-                <th className="py-3 px-4">Colaborador / Setor</th>
-                <th className="py-3 px-4 text-right">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border-subtle">
-              {paginatedLines.map((line) => (
-                <tr
-                  key={line.id}
-                  className="hover:bg-surface-subtle transition-colors group cursor-pointer"
-                  onClick={() => setDetailLine(line)}
-                >
-                  <td className="py-3 px-4 font-code font-bold text-text-primary whitespace-nowrap">
-                    {formatPhone(line.phoneNumber)}
-                  </td>
-
-                  <td className="py-3 px-4 font-semibold text-text-primary">
-                    {line.carrier}
-                  </td>
-
-                  <td className="py-3 px-4 text-text-muted max-w-[200px] truncate">
-                    {line.planName || 'Não informado'}
-                  </td>
-
-                  <td className="py-3 px-4 font-code text-text-muted tabular-nums">
-                    {formatCurrency(line.monthlyCost)}
-                  </td>
-
-                  <td className="py-3 px-4">
-                    <StatusBadge status={line.status} type="line" />
-                  </td>
-
-                  <td className="py-3 px-4">
-                    {line.associatedDeviceTag ? (
-                      <Badge variant="info" size="sm" showDot className="text-[11px]">
-                        <PhoneCall className="w-2.5 h-2.5" />
-                        {line.associatedDeviceTag}
-                      </Badge>
-                    ) : (
-                      <span className="text-text-muted italic font-body">Nenhum</span>
-                    )}
-                  </td>
-
-                  <td className="py-3 px-4">
-                    {line.currentCollaboratorName ? (
-                      <div>
-                        <span className="font-medium text-text-primary">{line.currentCollaboratorName}</span>
-                        {line.department && (
-                          <span className="block text-[11px] text-text-muted">{line.department}</span>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-text-muted italic font-body">Disponível em Estoque</span>
-                    )}
-                  </td>
-
-                  <td className="py-3 px-4 text-right space-x-1 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      title="Ver Detalhes"
-                      onClick={() => setDetailLine(line)}
-                      className="p-1.5 text-text-muted hover:text-brand-blue-action hover:bg-surface-subtle radius-base transition-colors"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                    </button>
-
-                    {line.associatedDeviceId ? (
-                      <button
-                        title="Desassociar do aparelho"
-                        onClick={() => handleDisassociate(line.id)}
-                        className="p-1.5 text-status-warning-fg hover:bg-status-warning-bg radius-base transition-colors"
-                      >
-                        <Unlink className="w-3.5 h-3.5" />
-                      </button>
-                    ) : (
-                      <button
-                        title="Associar a um aparelho celular"
-                        onClick={() => setAssociatingLine(line)}
-                        className="p-1.5 text-status-success-fg hover:bg-status-success-bg radius-base transition-colors"
-                      >
-                        <Link className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-
-                    <button
-                      title="Editar"
-                      onClick={() => onOpenLineModal(line)}
-                      className="p-1.5 text-text-muted hover:text-text-primary hover:bg-surface-subtle radius-base transition-colors"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
-
-                    <button
-                      title="Excluir"
-                      onClick={() => handleDelete(line.id, line.phoneNumber)}
-                      className="p-1.5 text-text-muted hover:text-status-danger-fg hover:bg-status-danger-bg radius-base transition-colors"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {filteredLines.length === 0 && (
-            <div className="p-10 text-center text-text-muted">
-              <PhoneCall className="w-10 h-10 text-border-strong mx-auto mb-2" />
-              <p className="font-semibold text-text-primary">Nenhuma linha encontrada</p>
-              <p className="text-[11px] text-text-muted mt-1">Ajuste os filtros de pesquisa para visualizar outros registros.</p>
-            </div>
-          )}
-        </div>
-      </div>
+      <DataTable
+        caption="Lista de linhas telefônicas"
+        columns={columns}
+        rows={paginatedLines}
+        rowKey={(line) => line.id}
+        onRowClick={setDetailLine}
+        empty={
+          <div className="p-10 text-center text-text-muted">
+            <PhoneCall className="w-10 h-10 text-border-strong mx-auto mb-2" />
+            <p className="font-semibold text-text-primary">Nenhuma linha encontrada</p>
+            <p className="text-[11px] text-text-muted mt-1">Ajuste os filtros de pesquisa para visualizar outros registros.</p>
+          </div>
+        }
+      />
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between gap-3 px-4 py-3">
