@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../components/button';
 import { Badge } from '../components/badge';
+import { DataTable, type DataTableColumn } from '../components/DataTable';
 
 interface DevicesViewProps {
   onOpenDeviceModal: (device?: Device) => void;
@@ -223,6 +224,111 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
     ? dataService.getTerms().filter(t => t.deviceId === detailDevice.id)
     : [];
 
+  const columns: DataTableColumn<Device>[] = [
+    {
+      key: 'assetTag',
+      header: 'Tag do Ativo',
+      cellClassName: 'font-code font-bold text-text-primary whitespace-nowrap',
+      render: (device) => device.assetTag,
+    },
+    {
+      key: 'model',
+      header: 'Marca & Modelo',
+      cellClassName: 'font-medium text-text-primary',
+      render: (device) => (
+        <>
+          <div>{device.model}</div>
+          <span className="text-[11px] text-text-muted font-code">S/N: {device.serialNumber}</span>
+          <span className="block text-[11px] text-text-muted">Setor: {device.sector || 'Não informado'}</span>
+        </>
+      ),
+    },
+    {
+      key: 'imei',
+      header: 'IMEI',
+      cellClassName: 'font-code text-text-muted whitespace-nowrap tabular-nums',
+      render: (device) => formatImei(device.imei1),
+    },
+    {
+      key: 'status',
+      header: 'Status Operacional',
+      render: (device) => <StatusBadge status={device.status} type="device" />,
+    },
+    {
+      key: 'collaborator',
+      header: 'Responsável',
+      render: (device) =>
+        device.status === inUseStatus && device.currentCollaboratorName ? (
+          <div>
+            <span className="font-semibold text-text-primary">{device.currentCollaboratorName}</span>
+            {device.currentDepartment && (
+              <span className="block text-[11px] text-text-muted">{device.currentDepartment}</span>
+            )}
+          </div>
+        ) : (
+          <Badge variant="info" size="sm" showDot>
+            <Package className="w-3 h-3" />
+            Estoque
+          </Badge>
+        ),
+    },
+    {
+      key: 'line',
+      header: 'Linha Associada',
+      cellClassName: 'font-code text-text-muted whitespace-nowrap tabular-nums',
+      render: (device) =>
+        device.associatedPhoneNumber || (
+          <span className="text-text-muted italic font-body">Sem linha</span>
+        ),
+    },
+    {
+      key: 'actions',
+      header: 'Ações',
+      headerClassName: 'text-right',
+      cellClassName: 'text-right whitespace-nowrap',
+      render: (device) => (
+        <div className="space-x-1" onClick={(e) => e.stopPropagation()}>
+          <button
+            title="Ver Linha do Tempo e Detalhes"
+            onClick={() => setDetailDevice(device)}
+            className="p-1.5 text-text-muted hover:text-brand-blue-action hover:bg-surface-subtle radius-base transition-colors"
+          >
+            <Eye className="w-3.5 h-3.5" />
+          </button>
+
+          {device.status === evaluationStatus && (
+            <button
+              title="Conferir e Liberar Ativo para Estoque Disponível"
+              onClick={() => setReleasingDevice(device)}
+              className="p-1.5 text-status-warning-fg hover:bg-status-warning-bg radius-base transition-colors font-semibold text-xs flex items-center gap-1"
+            >
+              <PackageCheck className="w-3 h-3" />
+              Liberar
+            </button>
+          )}
+
+          <button
+            title="Editar"
+            onClick={() => onOpenDeviceModal(device)}
+            className="p-1.5 text-text-muted hover:text-text-primary hover:bg-surface-subtle radius-base transition-colors"
+          >
+            <Edit2 className="w-3.5 h-3.5" />
+          </button>
+
+          {canRemoveDevice && (
+            <button
+              title="Remover"
+              onClick={() => handleDelete(device.id, device.assetTag)}
+              className="p-1.5 text-text-muted hover:text-status-danger-fg hover:bg-status-danger-bg radius-base transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="space-y-5">
       <div className="radius-lg border border-border-subtle bg-surface-card shadow-sm p-4 space-y-3">
@@ -376,119 +482,20 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
         </div>
       </div>
 
-      <div className="radius-lg border border-border-subtle bg-surface-card shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-surface-subtle border-b border-border-subtle text-text-muted uppercase font-semibold tracking-wider text-[11px]">
-              <tr>
-                <th className="py-3 px-4">Tag do Ativo</th>
-                <th className="py-3 px-4">Marca & Modelo</th>
-                <th className="py-3 px-4">IMEI</th>
-                <th className="py-3 px-4">Status Operacional</th>
-                <th className="py-3 px-4">Responsável</th>
-                <th className="py-3 px-4">Linha Associada</th>
-                <th className="py-3 px-4 text-right">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border-subtle">
-              {paginatedDevices.map((device) => (
-                <tr
-                  key={device.id}
-                  className="hover:bg-surface-subtle transition-colors group cursor-pointer"
-                  onClick={() => setDetailDevice(device)}
-                >
-                  <td className="py-3 px-4 font-code font-bold text-text-primary whitespace-nowrap">
-                    {device.assetTag}
-                  </td>
-
-                  <td className="py-3 px-4 font-medium text-text-primary">
-                    <div>{device.model}</div>
-                    <span className="text-[11px] text-text-muted font-code">S/N: {device.serialNumber}</span>
-                    <span className="block text-[11px] text-text-muted">Setor: {device.sector || 'Não informado'}</span>
-                  </td>
-
-                  <td className="py-3 px-4 font-code text-text-muted whitespace-nowrap tabular-nums">
-                    {formatImei(device.imei1)}
-                  </td>
-
-                  <td className="py-3 px-4">
-                    <StatusBadge status={device.status} type="device" />
-                  </td>
-
-                  <td className="py-3 px-4">
-                    {device.status === inUseStatus && device.currentCollaboratorName ? (
-                      <div>
-                        <span className="font-semibold text-text-primary">{device.currentCollaboratorName}</span>
-                        {device.currentDepartment && (
-                          <span className="block text-[11px] text-text-muted">{device.currentDepartment}</span>
-                        )}
-                      </div>
-                    ) : (
-                      <Badge variant="info" size="sm" showDot>
-                        <Package className="w-3 h-3" />
-                        Estoque
-                      </Badge>
-                    )}
-                  </td>
-
-                  <td className="py-3 px-4 font-code text-text-muted whitespace-nowrap tabular-nums">
-                    {device.associatedPhoneNumber || (
-                      <span className="text-text-muted italic font-body">Sem linha</span>
-                    )}
-                  </td>
-
-                  <td className="py-3 px-4 text-right space-x-1 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      title="Ver Linha do Tempo e Detalhes"
-                      onClick={() => setDetailDevice(device)}
-                      className="p-1.5 text-text-muted hover:text-brand-blue-action hover:bg-surface-subtle radius-base transition-colors"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                    </button>
-
-                    {device.status === evaluationStatus && (
-                      <button
-                        title="Conferir e Liberar Ativo para Estoque Disponível"
-                        onClick={() => setReleasingDevice(device)}
-                        className="p-1.5 text-status-warning-fg hover:bg-status-warning-bg radius-base transition-colors font-semibold text-xs flex items-center gap-1"
-                      >
-                        <PackageCheck className="w-3 h-3" />
-                        Liberar
-                      </button>
-                    )}
-
-                    <button
-                      title="Editar"
-                      onClick={() => onOpenDeviceModal(device)}
-                      className="p-1.5 text-text-muted hover:text-text-primary hover:bg-surface-subtle radius-base transition-colors"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
-
-                    {canRemoveDevice && (
-                      <button
-                        title="Remover"
-                        onClick={() => handleDelete(device.id, device.assetTag)}
-                        className="p-1.5 text-text-muted hover:text-status-danger-fg hover:bg-status-danger-bg radius-base transition-colors"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {filteredDevices.length === 0 && (
-            <div className="p-10 text-center text-text-muted">
-              <Smartphone className="w-10 h-10 text-border-strong mx-auto mb-2" />
-              <p className="font-semibold text-text-primary">Nenhum aparelho encontrado</p>
-              <p className="text-xs text-text-muted mt-1">Ajuste os filtros de pesquisa para visualizar outros registros.</p>
-            </div>
-          )}
-        </div>
-      </div>
+      <DataTable
+        caption="Lista de aparelhos"
+        columns={columns}
+        rows={paginatedDevices}
+        rowKey={(device) => device.id}
+        onRowClick={setDetailDevice}
+        empty={
+          <div className="p-10 text-center text-text-muted">
+            <Smartphone className="w-10 h-10 text-border-strong mx-auto mb-2" />
+            <p className="font-semibold text-text-primary">Nenhum aparelho encontrado</p>
+            <p className="text-xs text-text-muted mt-1">Ajuste os filtros de pesquisa para visualizar outros registros.</p>
+          </div>
+        }
+      />
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between gap-3 px-4 py-3">
