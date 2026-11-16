@@ -43,6 +43,29 @@ const EFFECTIVE_JWT_SECRET = JWT_SECRET;
 // Validade do token de sessão (configurável). Padrão: 12h em vez dos 7 dias anteriores.
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '12h';
 
+// ----------------------------------------------------------------------------
+// Validação de força de senha (LGPD - medida de segurança técnica)
+// ----------------------------------------------------------------------------
+function validatePasswordStrength(password: string): { ok: boolean; message?: string } {
+	const trimmed = String(password || '').trim();
+	if (trimmed.length < 12) {
+		return { ok: false, message: 'A senha deve ter no mínimo 12 caracteres.' };
+	}
+	if (!/[A-Z]/.test(trimmed)) {
+		return { ok: false, message: 'A senha deve conter pelo menos uma letra maiúscula.' };
+	}
+	if (!/[a-z]/.test(trimmed)) {
+		return { ok: false, message: 'A senha deve conter pelo menos uma letra minúscula.' };
+	}
+	if (!/[0-9]/.test(trimmed)) {
+		return { ok: false, message: 'A senha deve conter pelo menos um número.' };
+	}
+	if (!/[^A-Za-z0-9]/.test(trimmed)) {
+		return { ok: false, message: 'A senha deve conter pelo menos um caractere especial (!@#$%^&* etc.).' };
+	}
+	return { ok: true };
+}
+
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
 
@@ -1165,12 +1188,10 @@ app.post('/api/users', requirePermission('manage_users'), async (req, res) => {
     return res.status(400).json({ success: false, message: 'Nome, usuário e senha são obrigatórios.' });
   }
 
-  // Senha mínima: 12 caracteres.
-  if (String(password).trim().length < 12) {
-    return res.status(400).json({
-      success: false,
-      message: 'A senha deve ter no mínimo 12 caracteres.',
-    });
+  // Senha forte obrigatória (LGPD - medida de segurança técnica).
+  const pwCheck = validatePasswordStrength(String(password || ''));
+  if (!pwCheck.ok) {
+    return res.status(400).json({ success: false, message: pwCheck.message });
   }
 
   const trimmedUsername = username.trim();
@@ -1371,11 +1392,9 @@ app.put('/api/users/:id', requirePermission('manage_users'), async (req, res) =>
       }
 
       if (passwordChanged) {
-        if (String(password).trim().length < 12) {
-          return res.status(400).json({
-            success: false,
-            message: 'A senha deve ter no mínimo 12 caracteres.',
-          });
+        const pwCheck = validatePasswordStrength(String(password || ''));
+        if (!pwCheck.ok) {
+          return res.status(400).json({ success: false, message: pwCheck.message });
         }
         // Somente admin pode alterar senha de contas admin.
         if (currentUser.role === 'admin' && (req as any).user?.role !== 'admin') {
@@ -3416,6 +3435,279 @@ app.post('/api/audit-logs', route(async (req, res) => {
     timestamp: new Date().toISOString(),
   });
   res.status(201).json({ success: true });
+}));
+
+// ----------------------------------------------------------------------------
+// 10.1. Privacidade de Dados (LGPD - Lei 13.709/2018)
+// Art. 18: Direitos do titular (confirmação, acesso, correção, portabilidade,
+// eliminação, revogação de consentimento).
+// ----------------------------------------------------------------------------
+
+/** Retorna todos os dados pessoais de um titular para exportação (portabilidade). */
+function gatherPersonalData(pool: pg.Pool | null, entityType: string, entityId: string): any {
+	const data: Record<string, any>[] = [];
+	switch (entityType) {
+		case 'collaborator':
+			data.push({ entity: 'colaborador', ...gatherCollaborator(pool, entityId) });
+			data.push({ entity: 'dispositivos_vinculados', data: gatherDevicesByCollaborator(pool, entityId) });
+			data.push({ entity: 'linhas_vinculadas', data: gatherLinesByCollaborator(pool, entityId) });
+			data.push({ entity: 'movimentacoes', data: gatherMovementsByPerson(pool, entityId) });
+			data.push({ entity: 'termos', data: gatherTermsByPerson(pool, entityId) });
+			break;
+		case 'device':
+			data.push({ entity: 'dispositivo', ...gatherDevice(pool, entityId) });
+			data.push({ entity: 'movimentacoes', data: gatherMovementsByDevice(pool, entityId) });
+			data.push({ entity: 'termos', data: gatherTermsByDevice(pool, entityId) });
+			break;
+		case 'line':
+			data.push({ entity: 'linha_telefonica', ...gatherLine(pool, entityId) });
+			data.push({ entity: 'movimentacoes', data: gatherMovementsByLine(pool, entityId) });
+			break;
+		case 'movement':
+			data.push({ entity: 'movimentacao', ...gatherMovement(pool, entityId) });
+			break;
+		case 'term':
+			data.push({ entity: 'termo', ...gatherTerm(pool, entityId) });
+			break;
+		default:
+			throw new HttpError(400, 'Tipo de entidade inválido. Use: collaborator, device, line, movement ou term.');
+	}
+	return data;
+}
+
+function gatherCollaborator(pool: pg.Pool | null, id: string): any {
+	if (pool) {
+		const r = pool.query('SELECT id, name, registration_id, department, role, email, phone, active, created_at FROM collaborators WHERE id = $1', [id]);
+		return r.then(res => res.rows[0] || null);
+	}
+	const c = memoryStore.collaborators.find((x: any) => x.id === id);
+	return Promise.resolve(c || null);
+}
+function gatherDevicesByCollaborator(pool: pg.Pool | null, id: string): any {
+	if (pool) {
+		return pool.query('SELECT * FROM devices WHERE current_collaborator_id = $1', [id]).then(r => r.rows);
+	}
+	return Promise.resolve(memoryStore.devices.filter((d: any) => d.currentCollaboratorId === id));
+}
+function gatherLinesByCollaborator(pool: pg.Pool | null, id: string): any {
+	if (pool) {
+		return pool.query('SELECT * FROM phone_lines WHERE current_collaborator_id = $1', [id]).then(r => r.rows);
+	}
+	return Promise.resolve(memoryStore.lines.filter((l: any) => l.currentCollaboratorId === id));
+}
+function gatherMovementsByPerson(pool: pg.Pool | null, id: string): any {
+	if (pool) {
+		return pool.query(
+			'SELECT * FROM movements WHERE origin_collaborator_id = $1 OR destination_collaborator_id = $1 ORDER BY movement_date DESC',
+			[id]
+		).then(r => r.rows);
+	}
+	return Promise.resolve(memoryStore.movements.filter((m: any) => m.originCollaboratorId === id || m.destinationCollaboratorId === id));
+}
+function gatherTermsByPerson(pool: pg.Pool | null, id: string): any {
+	if (pool) {
+		return pool.query('SELECT * FROM terms_documents WHERE collaborator_id = $1 ORDER BY generation_date DESC', [id]).then(r => r.rows);
+	}
+	return Promise.resolve(memoryStore.terms.filter((t: any) => t.collaboratorId === id));
+}
+
+function gatherDevice(pool: pg.Pool | null, id: string): any {
+	if (pool) {
+		return pool.query('SELECT * FROM devices WHERE id = $1', [id]).then(r => r.rows[0] || null);
+	}
+	return Promise.resolve(memoryStore.devices.find((d: any) => d.id === id) || null);
+}
+function gatherMovementsByDevice(pool: pg.Pool | null, id: string): any {
+	if (pool) {
+		return pool.query('SELECT * FROM movements WHERE device_id = $1 ORDER BY movement_date DESC', [id]).then(r => r.rows);
+	}
+	return Promise.resolve(memoryStore.movements.filter((m: any) => m.deviceId === id));
+}
+function gatherTermsByDevice(pool: pg.Pool | null, id: string): any {
+	if (pool) {
+		return pool.query('SELECT * FROM terms_documents WHERE device_id = $1 ORDER BY generation_date DESC', [id]).then(r => r.rows);
+	}
+	return Promise.resolve(memoryStore.terms.filter((t: any) => t.deviceId === id));
+}
+function gatherLine(pool: pg.Pool | null, id: string): any {
+	if (pool) {
+		return pool.query('SELECT * FROM phone_lines WHERE id = $1', [id]).then(r => r.rows[0] || null);
+	}
+	return Promise.resolve(memoryStore.lines.find((l: any) => l.id === id) || null);
+}
+function gatherMovementsByLine(pool: pg.Pool | null, id: string): any {
+	if (pool) {
+		return pool.query('SELECT * FROM movements WHERE phone_line_id = $1 ORDER BY movement_date DESC', [id]).then(r => r.rows);
+	}
+	return Promise.resolve(memoryStore.movements.filter((m: any) => m.phoneLineId === id));
+}
+function gatherMovement(pool: pg.Pool | null, id: string): any {
+	if (pool) {
+		return pool.query('SELECT * FROM movements WHERE id = $1', [id]).then(r => r.rows[0] || null);
+	}
+	return Promise.resolve(memoryStore.movements.find((m: any) => m.id === id) || null);
+}
+function gatherTerm(pool: pg.Pool | null, id: string): any {
+	if (pool) {
+		return pool.query('SELECT * FROM terms_documents WHERE id = $1', [id]).then(r => r.rows[0] || null);
+	}
+	return Promise.resolve(memoryStore.terms.find((t: any) => t.id === id) || null);
+}
+
+/**
+ * GET /api/privacy/export/:entityType/:id
+ * Exporta todos os dados pessoais de um titular (portabilidade - Art. 18, V).
+ * O próprio titular ou um administrador pode solicitar.
+ */
+app.get('/api/privacy/export/:entityType/:id', requireAuth, route(async (req, res) => {
+	const authenticatedUser = (req as any)!.user;
+	const { entityType, id } = req.params;
+
+	const validTypes = ['collaborator', 'device', 'line', 'movement', 'term'];
+	if (!validTypes.includes(entityType)) {
+		return res.status(400).json({ success: false, message: 'Tipo de entidade inválido.' });
+	}
+
+	// Autorização: admin acessa qualquer titular; não-admin apenas seus próprios dados.
+	const isAdmin = authenticatedUser.role === 'admin';
+	let ownerId: string | undefined;
+	if (entityType === 'collaborator') {
+		ownerId = authenticatedUser.id;
+	} else if (entityType === 'device' || entityType === 'line' || entityType === 'movement' || entityType === 'term') {
+		// Para outras entidades, apenas admin pode exportar (dados operacionais).
+		if (!isAdmin) {
+			return res.status(403).json({ success: false, message: 'Apenas administradores podem exportar dados desta entidade.' });
+		}
+	}
+
+	if (!isAdmin && ownerId !== id) {
+		return res.status(403).json({ success: false, message: 'Você só pode exportar seus próprios dados.' });
+	}
+
+	const records = await gatherPersonalData(pool, entityType, id);
+	if (!records.length) {
+		return res.status(404).json({ success: false, message: 'Nenhum dado encontrado para este titular.' });
+	}
+
+	if (pool) {
+		await insertAudit(pool, {
+			id: `audit-${Date.now()}`,
+			action: 'EXPORTAÇÃO LGPD',
+			entityType,
+			entityId: id,
+			entityLabel: 'Exportação de dados pessoais',
+			details: `Exportação de dados pessoais (portabilidade) solicitada por ${authenticatedUser.fullName || authenticatedUser.username}.`,
+			user: authenticatedUser.fullName || authenticatedUser.username,
+		});
+	}
+
+	res.setHeader('Content-Type', 'application/json');
+	res.setHeader('Content-Disposition', `attachment; filename="lgpd-export-${entityType}-${id}-${new Date().toISOString().slice(0, 10)}.json"`);
+	res.setHeader('Cache-Control', 'private, no-store');
+	return res.json({ success: true, exportedAt: new Date().toISOString(), entityType, entityId: id, data: records });
+}));
+
+/**
+ * DELETE /api/privacy/:entityType/:id
+ * Elimina dados pessoais de um titular (direito ao esquecimento - Art. 18, VI).
+ * Só administrador pode executar; dados vinculados são anonimizados, não excluídos,
+ * para preservar integridade de movimentações e termos patrimoniais.
+ */
+app.delete('/api/privacy/:entityType/:id', requirePermission('manage_users'), route(async (req, res) => {
+	const authenticatedUser = (req as any)!.user;
+	const { entityType, id } = req.params;
+
+	const validTypes = ['collaborator', 'device', 'line'];
+	if (!validTypes.includes(entityType)) {
+		return res.status(400).json({ success: false, message: 'Tipo de entidade inválido para eliminação.' });
+	}
+
+	let deleted = false;
+	if (pool) {
+		switch (entityType) {
+			case 'collaborator': {
+				// Verifica se há dispositivos em custódia
+				const devs = await pool.query('SELECT id FROM devices WHERE current_collaborator_id = $1 AND status = $2', [id, 'Em uso']);
+				if (devs.rows.length > 0) {
+					return res.status(409).json({
+						success: false,
+						message: 'Não é possível eliminar: existem dispositivos em custódia deste colaborador. Devolva-os ao estoque primeiro.',
+					});
+				}
+				// Anonimiza dados pessoais em vez de excluir (preserva integridade de movimentações/termos).
+				await pool.query(`UPDATE collaborators SET name = $1, registration_id = NULL, email = NULL, phone = NULL, active = FALSE WHERE id = $2`, [`COLABORADOR_ELIMINADO_${id}`, id]);
+				deleted = true;
+				break;
+			}
+			case 'device': {
+				await pool.query(`UPDATE devices SET tag = $1, serial_number = NULL, imei_1 = NULL, imei_2 = NULL, notes = NULL WHERE id = $2`, [`DISPOSITIVO_ELIMINADO_${id}`, id]);
+				deleted = true;
+				break;
+			}
+			case 'line': {
+				await pool.query(`UPDATE phone_lines SET phone_number = NULL, account_number = NULL, notes = NULL WHERE id = $1`, [id]);
+				deleted = true;
+				break;
+			}
+		}
+	} else {
+		// Fallback memória
+		switch (entityType) {
+			case 'collaborator': {
+				const c = memoryStore.collaborators.find((x: any) => x.id === id);
+				if (!c) return res.status(404).json({ success: false, message: 'Colaborador não encontrado.' });
+				const hasDevice = memoryStore.devices.some((d: any) => d.currentCollaboratorId === id && d.status === 'Em uso');
+				if (hasDevice) {
+					return res.status(409).json({ success: false, message: 'Existem dispositivos em custódia. Devolva ao estoque primeiro.' });
+				}
+				c.name = `COLABORADOR_ELIMINADO_${id}`;
+				c.registration_id = undefined;
+				c.email = undefined;
+				c.phone = undefined;
+				c.active = false;
+				deleted = true;
+				break;
+			}
+			case 'device': {
+				const d = memoryStore.devices.find((x: any) => x.id === id);
+				if (!d) return res.status(404).json({ success: false, message: 'Dispositivo não encontrado.' });
+				d.tag = `DISPOSITIVO_ELIMINADO_${id}`;
+				d.serialNumber = undefined;
+				d.imei1 = undefined;
+				d.imei2 = undefined;
+				d.notes = undefined;
+				deleted = true;
+				break;
+			}
+			case 'line': {
+				const l = memoryStore.lines.find((x: any) => x.id === id);
+				if (!l) return res.status(404).json({ success: false, message: 'Linha não encontrada.' });
+				l.phoneNumber = undefined;
+				l.accountNumber = undefined;
+				l.notes = undefined;
+				deleted = true;
+				break;
+			}
+		}
+	}
+
+	if (!deleted) {
+		return res.status(404).json({ success: false, message: 'Registro não encontrado.' });
+	}
+
+	if (pool) {
+		await insertAudit(pool, {
+			id: `audit-${Date.now()}`,
+			action: 'ELIMINAÇÃO LGPD',
+			entityType,
+			entityId: id,
+			entityLabel: 'Eliminação de dados pessoais',
+			details: `Eliminação/anonymização de dados pessoais (direito ao esquecimento) executada por ${authenticatedUser.fullName || authenticatedUser.username}.`,
+			user: authenticatedUser.fullName || authenticatedUser.username,
+		});
+	}
+
+	return res.json({ success: true, message: `Dados pessoais da entidade ${entityType} ${id} eliminados ou anonimizados com sucesso.` });
 }));
 
 // 11. Sincronização em Lote (Upload Completo do LocalStorage para o PostgreSQL)
