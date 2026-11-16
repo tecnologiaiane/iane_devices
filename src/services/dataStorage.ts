@@ -25,6 +25,7 @@ import { todayISO, nowLocalDateTime } from '../utils/dates';
 import { DEPARTMENTS, SECTORS } from '../utils/collaborators';
 import { INITIAL_ACCESSORIES, INITIAL_DEVICE_STATUSES, INITIAL_LINE_STATUSES } from '../utils/assetCatalogs';
 import { canAccessRequests, canApproveRequests, canViewAllRequests } from '../config/requestAccess';
+import { encryptSensitiveFields, decryptSensitiveFields } from '../utils/encryptedFields';
 
 const STORAGE_KEYS = {
   DEVICES: 'iane_devices_v3',
@@ -947,7 +948,9 @@ class DataStorageService {
 
   // --- Devices ---
   public getDevices(): Device[] {
-    return this.get<Device[]>(STORAGE_KEYS.DEVICES, INITIAL_DEVICES);
+    return this.get<Device[]>(STORAGE_KEYS.DEVICES, INITIAL_DEVICES).map((d) =>
+      decryptSensitiveFields(d)
+    ) as Device[];
   }
 
   public getDeviceById(id: string): Device | undefined {
@@ -1016,8 +1019,8 @@ class DataStorageService {
       this.logAudit('Dispositivo', savedDevice.id, savedDevice.assetTag, 'Atualização de cadastro do aparelho.');
     }
 
-    this.set(STORAGE_KEYS.DEVICES, devices);
-    this.apiSync('/api/devices', 'POST', savedDevice);
+    this.set(STORAGE_KEYS.DEVICES, devices.map((d) => encryptSensitiveFields(d)));
+    this.apiSync('/api/devices', 'POST', encryptSensitiveFields(savedDevice));
     return { success: true, message: 'Dispositivo salvo com sucesso.', device: savedDevice };
   }
 
@@ -1039,7 +1042,9 @@ class DataStorageService {
 
   // --- Lines ---
   public getLines(): PhoneLine[] {
-    return this.get<PhoneLine[]>(STORAGE_KEYS.LINES, INITIAL_LINES);
+    return this.get<PhoneLine[]>(STORAGE_KEYS.LINES, INITIAL_LINES).map((l) =>
+      decryptSensitiveFields(l)
+    ) as PhoneLine[];
   }
 
   public getLineById(id: string): PhoneLine | undefined {
@@ -1097,8 +1102,8 @@ class DataStorageService {
       this.logAudit('Linha', savedLine.id, savedLine.phoneNumber, 'Atualização de dados cadastrais da linha.');
     }
 
-    this.set(STORAGE_KEYS.LINES, lines);
-    this.apiSync('/api/lines', 'POST', savedLine);
+    this.set(STORAGE_KEYS.LINES, lines.map((l) => encryptSensitiveFields(l)));
+    this.apiSync('/api/lines', 'POST', encryptSensitiveFields(savedLine));
     return { success: true, message: 'Linha telefônica salva com sucesso.', line: savedLine };
   }
 
@@ -1132,7 +1137,7 @@ class DataStorageService {
     });
 
     if (changed) this.set(STORAGE_KEYS.COLLABORATORS, normalized);
-    return normalized;
+    return normalized.map((c) => decryptSensitiveFields(c)) as Collaborator[];
   }
 
   public getCollaboratorById(id: string): Collaborator | undefined {
@@ -1183,8 +1188,8 @@ class DataStorageService {
       this.logAudit('Colaborador', savedCollab.id, savedCollab.fullName, 'Atualização de cadastro do colaborador.');
     }
 
-    this.set(STORAGE_KEYS.COLLABORATORS, collabs);
-    this.apiSync('/api/collaborators', 'POST', savedCollab);
+    this.set(STORAGE_KEYS.COLLABORATORS, collabs.map((c) => encryptSensitiveFields(c)));
+    this.apiSync('/api/collaborators', 'POST', encryptSensitiveFields(savedCollab));
     return { success: true, message: 'Colaborador salvo com sucesso.', collaborator: savedCollab };
   }
 

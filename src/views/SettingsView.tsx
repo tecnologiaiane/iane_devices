@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { dataService } from '../services/dataStorage';
 import { authService } from '../services/authService';
 import { apiClient } from '../services/apiClient';
@@ -176,6 +176,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 	const isAdmin = activeUser?.role === 'admin';
 
 	const [auditLogs, setAuditLogs] = useState(dataService.getAuditLogs());
+	const [auditSearch, setAuditSearch] = useState('');
+	const [auditActionFilter, setAuditActionFilter] = useState('todos');
+	const [auditUserFilter, setAuditUserFilter] = useState('todos');
 	const [successMessage, setSuccessMessage] = useState('');
 	const [errorMessage, setErrorMessage] = useState('');
 	const [openSection, setOpenSection] = useState<SettingsSectionId | null>(null);
@@ -220,6 +223,23 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 	const [resetConfirmText, setResetConfirmText] = useState('');
 	const [resetAcknowledged, setResetAcknowledged] = useState(false);
 	const [isResetting, setIsResetting] = useState(false);
+
+	const filteredAuditLogs = useMemo(() => {
+		const search = auditSearch.toLowerCase().trim();
+		return auditLogs.filter((log) => {
+			const matchesSearch =
+				!search ||
+				String(log.user || '').toLowerCase().includes(search) ||
+				String(log.action || '').toLowerCase().includes(search) ||
+				String(log.entityType || '').toLowerCase().includes(search) ||
+				String(log.entityLabel || '').toLowerCase().includes(search) ||
+				String(log.details || '').toLowerCase().includes(search) ||
+				String(log.id || '').toLowerCase().includes(search);
+			const matchesAction = auditActionFilter === 'todos' || log.action === auditActionFilter;
+			const matchesUser = auditUserFilter === 'todos' || log.user === auditUserFilter;
+			return matchesSearch && matchesAction && matchesUser;
+		});
+	}, [auditLogs, auditSearch, auditActionFilter, auditUserFilter]);
 
 	const checkHealth = async () => {
 		setIsCheckingHealth(true);
@@ -890,6 +910,94 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 					onToggle={handleToggleSection}
 				>
 					<div className="p-4 space-y-4">
+						{/* Filtros de auditoria */}
+						<div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+							<div className="sm:col-span-2">
+								<label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-1.5">
+									Buscar
+								</label>
+								<input
+									type="text"
+									value={auditSearch}
+									onChange={(e) => setAuditSearch(e.target.value)}
+									placeholder="Usuário, ação, entidade ou detalhes…"
+									className="w-full h-10 text-xs field px-3 py-2"
+								/>
+							</div>
+							<div>
+								<label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-1.5">
+									Ação
+								</label>
+								<select
+									value={auditActionFilter}
+									onChange={(e) => setAuditActionFilter(e.target.value)}
+									className="w-full h-10 text-xs field px-3 py-2"
+								>
+									<option value="todos">Todas</option>
+									<option value="Cadastro">Cadastro</option>
+									<option value="Atualização">Atualização</option>
+									<option value="Exclusão">Exclusão</option>
+									<option value="Entrega">Entrega</option>
+									<option value="Devolução">Devolução</option>
+									<option value="Transferência">Transferência</option>
+									<option value="Troca">Troca</option>
+								</select>
+							</div>
+							<div>
+								<label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-1.5">
+									Usuário
+								</label>
+								<select
+									value={auditUserFilter}
+									onChange={(e) => setAuditUserFilter(e.target.value)}
+									className="w-full h-10 text-xs field px-3 py-2"
+								>
+									<option value="todos">Todos os usuários</option>
+									{auditLogs
+										.map((l) => l.user)
+										.filter((u, i, arr) => u && arr.indexOf(u) === i)
+										.sort()
+										.map((u) => (
+											<option key={u} value={u}>
+												{u}
+											</option>
+									 ))}
+								</select>
+							</div>
+							<div className="flex items-end gap-2">
+								<Button
+									variant="ghost"
+									size="sm"
+									onClick={() => {
+										setAuditSearch('');
+										setAuditActionFilter('todos');
+										setAuditUserFilter('todos');
+									}}
+									disabled={!auditSearch && auditActionFilter === 'todos' && auditUserFilter === 'todos'}
+								>
+									Limpar filtros
+								</Button>
+								<Button
+									variant="ghost"
+									size="sm"
+									onClick={() => {
+										const csv = exportAuditLogsToCSV(filteredAuditLogs);
+										const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+										const url = URL.createObjectURL(blob);
+										const a = document.createElement('a');
+										a.href = url;
+										a.download = `auditoria-iane-${new Date().toISOString().slice(0, 10)}.csv`;
+										document.body.appendChild(a);
+										a.click();
+										document.body.removeChild(a);
+										URL.revokeObjectURL(url);
+									}}
+								>
+									Exportar CSV
+								</Button>
+							</div>
+						</div>
+
 						<div className="overflow-x-auto">
 							<DataTable
 								caption="Log de auditoria"
@@ -909,6 +1017,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 										render: (log: any) => log.action,
 									},
 									{
+										key: 'entityType',
+										header: 'Entidade',
+										headerClassName: 'py-2.5 px-3',
+										cellClassName: 'py-2.5 px-3 font-code text-text-muted',
+										render: (log: any) => log.entityType || '—',
+									},
+									{
+										key: 'entityLabel',
+										header: 'Registro',
+										headerClassName: 'py-2.5 px-3',
+										cellClassName: 'py-2.5 px-3 font-code text-text-muted truncate max-w-[140px]',
+										render: (log: any) => log.entityLabel || '—',
+									},
+									{
 										key: 'user',
 										header: 'Usuário',
 										headerClassName: 'py-2.5 px-3',
@@ -919,15 +1041,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 										key: 'details',
 										header: 'Detalhes',
 										headerClassName: 'py-2.5 px-3',
-										cellClassName: 'py-2.5 px-3 text-text-muted truncate max-w-[200px]',
+										cellClassName: 'py-2.5 px-3 text-text-muted truncate max-w-[240px]',
 										render: (log: any) => log.details || '—',
 									},
 								]}
-								rows={auditLogs.slice(0, 20)}
+								rows={filteredAuditLogs.slice(0, 100)}
 								rowKey={(log: any) => log.id}
-								empty={<div className="p-4 text-center text-text-muted">Nenhum registro de auditoria.</div>}
+								empty={<div className="p-4 text-center text-text-muted">Nenhum registro de auditoria encontrado.</div>}
 							/>
 						</div>
+						<p className="text-[11px] text-text-muted">
+							Exibindo {filteredAuditLogs.length} de {auditLogs.length} registro(s). Os logs são mantidos por 180 dias.
+						</p>
 					</div>
 				</SettingsSection>
 
@@ -1075,4 +1200,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 			)}
 		</div>
 	);
+
+	function exportAuditLogsToCSV(logs: any[]): string {
+		const header = ['Data/Hora','Ação','Entidade','Registro','Usuário','Detalhes'];
+		const rows = logs.map((log) => [
+			formatDateTime(log.timestamp),
+			log.action || '',
+			log.entityType || '',
+			`"${String(log.entityLabel || '').replace(/"/g, '""')}"`,
+			log.user || '',
+			`"${String(log.details || '').replace(/"/g, '""')}"`,
+		]);
+		return [header.join(','), ...rows.map((r) => r.join(','))].join('\n');
+	}
 };
