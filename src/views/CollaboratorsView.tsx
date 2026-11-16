@@ -43,7 +43,7 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
   const [statusFilter, setStatusFilter] = useState('todos');
 
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
-  const filterMenuRef = useRef<HTMLDivElement>(null);
+  const filterMenuRef = useRef<HTMLButtonElement>(null);
   const [filterPosition, setFilterPosition] = useState<{ top: number; left: number } | null>(null);
 
   useEffect(() => {
@@ -236,16 +236,15 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
           </div>
 
           <div className="flex items-center gap-3">
-            <div ref={filterMenuRef}>
-              <FilterTrigger
-                isOpen={isFilterMenuOpen}
-                activeCount={[
-                  departmentFilter !== 'todos',
-                  statusFilter !== 'todos',
-                ].filter(Boolean).length}
-                onToggle={() => setIsFilterMenuOpen((open) => !open)}
-              />
-            </div>
+            <FilterTrigger
+              ref={filterMenuRef}
+              isOpen={isFilterMenuOpen}
+              activeCount={[
+                departmentFilter !== 'todos',
+                statusFilter !== 'todos',
+              ].filter(Boolean).length}
+              onToggle={() => setIsFilterMenuOpen((open) => !open)}
+            />
             <div className="flex items-center gap-2">
               <label className="text-[11px] text-text-muted">Por página:</label>
               <select

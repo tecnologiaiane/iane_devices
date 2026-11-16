@@ -55,7 +55,7 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
   const [brandFilter, setBrandFilter] = useState<string>('todos');
 
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
-  const filterMenuRef = useRef<HTMLDivElement>(null);
+  const filterMenuRef = useRef<HTMLButtonElement>(null);
   const [filterPosition, setFilterPosition] = useState<{ top: number; left: number } | null>(null);
 
   useEffect(() => {
@@ -372,18 +372,17 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
           </div>
 
           <div className="flex items-center gap-3">
-            <div ref={filterMenuRef}>
-              <FilterTrigger
-                isOpen={isFilterMenuOpen}
-                activeCount={[
-                  stockFilter !== 'todos',
-                  statusFilter !== 'todos',
-                  departmentFilter !== 'todos',
-                  brandFilter !== 'todos',
-                ].filter(Boolean).length}
-                onToggle={() => setIsFilterMenuOpen((open) => !open)}
-              />
-            </div>
+            <FilterTrigger
+              ref={filterMenuRef}
+              isOpen={isFilterMenuOpen}
+              activeCount={[
+                stockFilter !== 'todos',
+                statusFilter !== 'todos',
+                departmentFilter !== 'todos',
+                brandFilter !== 'todos',
+              ].filter(Boolean).length}
+              onToggle={() => setIsFilterMenuOpen((open) => !open)}
+            />
             <div className="flex items-center gap-2">
               <label className="text-[11px] text-text-muted">Por página:</label>
               <select

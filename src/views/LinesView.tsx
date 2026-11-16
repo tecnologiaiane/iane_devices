@@ -39,7 +39,7 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
   const [associationFilter, setAssociationFilter] = useState<'todos' | 'com_aparelho' | 'sem_aparelho'>('todos');
 
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
-  const filterMenuRef = useRef<HTMLDivElement>(null);
+  const filterMenuRef = useRef<HTMLButtonElement>(null);
   const [filterPosition, setFilterPosition] = useState<{ top: number; left: number } | null>(null);
 
   useEffect(() => {
@@ -271,17 +271,16 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
           </div>
 
           <div className="flex items-center gap-3">
-            <div ref={filterMenuRef}>
-              <FilterTrigger
-                isOpen={isFilterMenuOpen}
-                activeCount={[
-                  statusFilter !== 'todos',
-                  carrierFilter !== 'todos',
-                  associationFilter !== 'todos',
-                ].filter(Boolean).length}
-                onToggle={() => setIsFilterMenuOpen((open) => !open)}
-              />
-            </div>
+            <FilterTrigger
+              ref={filterMenuRef}
+              isOpen={isFilterMenuOpen}
+              activeCount={[
+                statusFilter !== 'todos',
+                carrierFilter !== 'todos',
+                associationFilter !== 'todos',
+              ].filter(Boolean).length}
+              onToggle={() => setIsFilterMenuOpen((open) => !open)}
+            />
             <div className="flex items-center gap-2">
               <label className="text-[11px] text-text-muted">Por página:</label>
               <select
