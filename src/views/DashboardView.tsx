@@ -327,8 +327,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
           </div>
 
           <div className="flex flex-col sm:flex-row items-center gap-6">
-            <div className="relative w-64 h-64 shrink-0 overflow-visible">
-              <svg viewBox="-40 -40 220 220" className="w-64 h-64 -rotate-90 overflow-visible" role="img" aria-label="Distribuição dos aparelhos por status">
+            <div className="relative w-72 h-72 shrink-0 overflow-visible">
+              <svg viewBox="-70 -70 280 280" className="w-72 h-72 -rotate-90 overflow-visible" role="img" aria-label="Distribuição dos aparelhos por status">
                 <circle cx="70" cy="70" r={DONUT_RADIUS} fill="none" stroke="var(--color-border-subtle)" strokeWidth="16" />
                 {donutArcs.map((arc) => (
                   <circle
@@ -344,21 +344,47 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
                     strokeLinecap="round"
                   />
                 ))}
-                {/* Linhas de conexão para labels externos */}
-                {donutArcs.map((arc, i) => {
+                {/* Linhas de conexão com labels externos posicionados no fim da linha */}
+                {donutArcs.map((arc) => {
                   const startAngle = -Math.PI / 2 + arc.offset / DONUT_RADIUS;
                   const endAngle = startAngle + arc.dash / DONUT_RADIUS;
                   const midAngle = (startAngle + endAngle) / 2;
+                  const isLeft = midAngle < -Math.PI / 2 || midAngle > Math.PI / 2;
                   const x1 = 70 + DONUT_RADIUS * Math.cos(midAngle);
                   const y1 = 70 + DONUT_RADIUS * Math.sin(midAngle);
-                  const x2 = 70 + (DONUT_RADIUS + 20) * Math.cos(midAngle);
-                  const y2 = 70 + (DONUT_RADIUS + 20) * Math.sin(midAngle);
-                  const x3 = x2 + (midAngle < -Math.PI / 2 || midAngle > Math.PI / 2 ? -34 : 34);
+                  const x2 = 70 + (DONUT_RADIUS + 18) * Math.cos(midAngle);
+                  const y2 = 70 + (DONUT_RADIUS + 18) * Math.sin(midAngle);
+                  const x3 = x2 + (isLeft ? -34 : 34);
+                  const segment = statusSegments.find((s) => s.label === arc.label);
+                  const count = segment?.count ?? 0;
+                  const pct = percent(count);
                   return (
-                    <React.Fragment key={`line-${arc.label}`}>
+                    <React.Fragment key={`label-${arc.label}`}>
                       <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="var(--color-border-strong)" strokeWidth="1" strokeDasharray="2,2" />
                       <line x1={x2} y1={y2} x2={x3} y2={y2} stroke="var(--color-border-strong)" strokeWidth="1" strokeDasharray="2,2" />
                       <circle cx={x3} cy={y2} r={2.5} fill={arc.color} />
+                      <text
+                        x={x3}
+                        y={y2 - 5}
+                        fontSize="10"
+                        fill={arc.color}
+                        textAnchor={isLeft ? 'end' : 'start'}
+                        dominantBaseline="middle"
+                        fontFamily="var(--font-sans)"
+                      >
+                        {arc.label}
+                      </text>
+                      <text
+                        x={x3}
+                        y={y2 + 7}
+                        fontSize="9"
+                        fill="var(--color-text-muted)"
+                        textAnchor={isLeft ? 'end' : 'start'}
+                        dominantBaseline="middle"
+                        fontFamily="var(--font-sans)"
+                      >
+                        {count} ({pct}%)
+                      </text>
                     </React.Fragment>
                   );
                 })}
@@ -369,30 +395,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
                 </span>
                 <span className="text-[10px] text-text-muted uppercase tracking-wider">aparelhos</span>
               </div>
-            </div>
-
-            <div className="flex-1 w-full space-y-2">
-              {statusSegments.map((segment, i) => {
-                const startAngle = -Math.PI / 2 + (donutArcs.find(a => a.label === segment.label)?.offset ?? 0) / DONUT_RADIUS;
-                const endAngle = startAngle + (donutArcs.find(a => a.label === segment.label)?.dash ?? 0) / DONUT_RADIUS;
-                const midAngle = (startAngle + endAngle) / 2;
-                const isRight = midAngle >= -Math.PI / 2 && midAngle <= Math.PI / 2;
-                return (
-                  <div key={segment.label} className="flex items-start justify-between gap-2 text-[11px] group">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: segment.color }} />
-                      <span className="text-text-muted truncate">{segment.label}</span>
-                    </div>
-                    <div className={`flex items-end gap-1 shrink-0 ${isRight ? 'text-left ml-2' : 'text-right mr-2'}`}>
-                      <span className="font-code font-bold text-text-primary tabular-nums">{segment.count}</span>
-                      <span className="text-text-muted">({percent(segment.count)}%)</span>
-                    </div>
-                  </div>
-                );
-              })}
-              {statusSegments.length === 0 && (
-                <p className="text-[11px] text-text-muted">Nenhum aparelho cadastrado ainda.</p>
-              )}
             </div>
           </div>
         </div>
