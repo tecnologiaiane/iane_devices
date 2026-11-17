@@ -1,9 +1,8 @@
-import React, { useEffect, useRef } from 'react'
-import { X } from 'lucide-react'
-import { twMerge } from 'tailwind-merge'
+import React, { useEffect } from 'react'
+import * as Dialog from '@radix-ui/react-dialog'
 import type { ComponentProps } from 'react'
-
-let openModalCount = 0
+import { X } from 'lucide-react'
+import { cn } from '../lib/utils'
 
 interface ModalProps extends ComponentProps<'div'> {
 	isOpen: boolean
@@ -37,122 +36,97 @@ export const Modal: React.FC<ModalProps> = ({
 	className,
 	...props
 }: ModalProps) => {
-	const dialogRef = useRef<HTMLDivElement>(null)
-
 	useEffect(() => {
 		if (!isOpen) return
 
-		const handleKeyDown = (e: KeyboardEvent) => {
-			if (e.key === 'Escape' && !disableEscapeClose) {
-				onClose()
-			}
-		}
-
-		openModalCount += 1
+		const previousOverflow = document.body.style.overflow
 		document.body.style.overflow = 'hidden'
-		window.addEventListener('keydown', handleKeyDown)
 
 		return () => {
-			window.removeEventListener('keydown', handleKeyDown)
-			openModalCount = Math.max(0, openModalCount - 1)
-			if (openModalCount === 0) {
-				document.body.style.overflow = ''
-			}
-		}
-	}, [isOpen, onClose, disableEscapeClose])
-
-	// Retorno de foco ao fechar
-	useEffect(() => {
-		if (!isOpen) return
-		const previousFocus = document.activeElement as HTMLElement | null
-		const focusable = dialogRef.current?.querySelector<HTMLElement>('[autofocus], button, [href], input, select, textarea')
-		focusable?.focus?.()
-		return () => {
-			previousFocus?.focus?.()
+			document.body.style.overflow = previousOverflow
 		}
 	}, [isOpen])
 
-	if (!isOpen) return null
-
 	return (
-		<div
-			data-slot="modal-root"
-			className={twMerge(
-				'fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6',
-				'outline-none',
-				className,
-			)}
-			role="dialog"
-			aria-modal="true"
-			aria-label={title}
-			{...props}
+		<Dialog.Root
+			open={isOpen}
+			onOpenChange={(nextOpen) => {
+				if (!nextOpen) onClose()
+			}}
 		>
-			{/* Backdrop — véu translúcido navy */ }
-			<div
-				data-slot="modal-backdrop"
-				className="absolute inset-0 bg-[#0A1F3C]/50 backdrop-blur-[2px] transition-opacity"
-				onClick={onClose}
-				aria-hidden="true"
-			/>
+			<Dialog.Portal>
+				{/* Backdrop — véu translúcido navy */}
+				<Dialog.Overlay className="fixed inset-0 z-50 bg-[#0A1F3C]/50 backdrop-blur-[2px] transition-opacity" />
 
-			{/* Card modal — Level 4 elevation */ }
-			<div
-				ref={dialogRef}
-				data-slot="modal-card"
-				className={twMerge(
-					'relative w-full max-w-lg sm:max-w-md md:max-w-lg lg:max-w-xl xl:max-w-2xl',
-					'flex flex-col overflow-hidden rounded-lg border border-border-subtle bg-surface-card shadow-xl',
-					maxWidthClass[maxWidth],
-					className,
-				)}
-			>
-				{/* Zona 1: Header */ }
-				{title || showCloseButton || subtitle ? (
-					<div
-						data-slot="modal-header"
-						className={twMerge(
-							'flex shrink-0 items-start justify-between gap-3 border-b border-border-subtle bg-surface-card px-5 py-4 sm:px-6',
-						)}
-					>
-						<div className="flex flex-col gap-0.5">
-							{title && (
-								<h3
-									data-slot="modal-title"
-									className="text-sm font-semibold text-text-primary tracking-tight"
-								>
-									{title}
-								</h3>
-							)}
-							{subtitle && (
-								<p className="text-[11px] text-text-muted leading-relaxed">
-									{subtitle}
-								</p>
-							)}
-						</div>
-						{showCloseButton && (
-							<button
-								type="button"
-								data-slot="modal-close"
-								onClick={onClose}
-								aria-label="Fechar"
-								className="-mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-base border-transparent bg-transparent text-text-muted transition-colors hover:bg-surface-subtle hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue-action/30"
-							>
-								<X className="h-4 w-4" aria-hidden="true" />
-							</button>
-						)}
-					</div>
-				) : null}
-
-				{/* Zona 2: Body — rolagem suave */ }
 				<div
-					data-slot="modal-body"
-					className="flex-1 overflow-y-auto px-5 py-5 sm:px-6 sm:py-6"
+					data-slot="modal-root"
+					className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6"
 				>
-					{children}
-				</div>
+					{/* Card modal — Level 4 elevation */}
+					<Dialog.Content
+						data-slot="modal-card"
+						onEscapeKeyDown={(event) => {
+							if (disableEscapeClose) event.preventDefault()
+						}}
+						aria-label={title}
+						aria-modal="true"
+						className={cn(
+							'pointer-events-auto relative flex max-h-full w-full flex-col overflow-hidden rounded-lg border border-border-subtle bg-surface-card shadow-xl outline-none',
+							'relative w-full max-w-lg sm:max-w-md md:max-w-lg lg:max-w-xl xl:max-w-2xl',
+							maxWidthClass[maxWidth],
+							className,
+						)}
+						{...props}
+					>
+						{title || subtitle || showCloseButton ? (
+							<div
+								data-slot="modal-header"
+								className="flex shrink-0 items-start justify-between gap-3 border-b border-border-subtle bg-surface-card px-5 py-4 sm:px-6"
+							>
+								<div className="flex flex-col gap-0.5">
+									{title ? (
+										<Dialog.Title
+											data-slot="modal-title"
+											className="text-sm font-semibold text-text-primary tracking-tight"
+										>
+											{title}
+										</Dialog.Title>
+									) : (
+										<Dialog.Title className="sr-only">Janela</Dialog.Title>
+									)}
+									{subtitle && (
+										<Dialog.Description className="text-[11px] text-text-muted leading-relaxed">
+											{subtitle}
+										</Dialog.Description>
+									)}
+								</div>
+								{showCloseButton && (
+									<Dialog.Close asChild>
+										<button
+											type="button"
+											data-slot="modal-close"
+											aria-label="Fechar"
+											className="-mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-base border-transparent bg-transparent text-text-muted transition-colors hover:bg-surface-subtle hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue-action/30"
+										>
+											<X className="h-4 w-4" aria-hidden="true" />
+										</button>
+									</Dialog.Close>
+								)}
+							</div>
+						) : (
+							<Dialog.Title className="sr-only">Janela</Dialog.Title>
+						)}
 
-				{/* Zona 3: Footer — reservada para ações (renderizada pelo consumidor via children quando necessário) */ }
-			</div>
-		</div>
+						{/* Zona 2: Body — rolagem suave */}
+						<div
+							data-slot="modal-body"
+							className="flex-1 overflow-y-auto px-5 py-5 sm:px-6 sm:py-6"
+						>
+							{children}
+						</div>
+					</Dialog.Content>
+				</div>
+			</Dialog.Portal>
+		</Dialog.Root>
 	)
 }

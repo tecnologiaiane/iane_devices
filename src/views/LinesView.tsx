@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { PhoneLine, Carrier, LineStatus, Device, Catalogs } from '../types';
 import { dataService } from '../services/dataStorage';
+import { apiClient } from '../services/apiClient';
 import { formatDate, formatCurrency, formatPhone, matchesPhoneSearch } from '../utils/formatters';
 import { StatusBadge } from '../components/StatusBadge';
 import {
@@ -95,8 +96,9 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
     if (window.confirm(`Deseja excluir a linha telefônica ${phone}?`)) {
       const res = dataService.deleteLine(id);
       if (!res.success) {
-        alert(res.message);
+        apiClient.notify({ type: 'error', title: 'Não foi possível excluir a linha', message: res.message });
       } else {
+        apiClient.notify({ type: 'success', title: 'Linha removida', message: res.message });
         refreshData();
       }
     }
@@ -106,9 +108,10 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
     if (window.confirm('Deseja desassociar esta linha telefônica do aparelho atual?')) {
       const res = dataService.disassociateLine(id);
       if (res.success) {
+        apiClient.notify({ type: 'success', title: 'Linha desassociada', message: res.message });
         refreshData();
       } else {
-        alert(res.message);
+        apiClient.notify({ type: 'error', title: 'Não foi possível desassociar a linha', message: res.message });
       }
     }
   };
@@ -117,11 +120,12 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
     if (!associatingLine || !selectedDeviceId) return;
     const res = dataService.associateLineToDevice(associatingLine.id, selectedDeviceId);
     if (res.success) {
+      apiClient.notify({ type: 'success', title: 'Linha associada', message: res.message });
       setAssociatingLine(null);
       setSelectedDeviceId('');
       refreshData();
     } else {
-      alert(res.message);
+      apiClient.notify({ type: 'error', title: 'Não foi possível associar a linha', message: res.message });
     }
   };
 

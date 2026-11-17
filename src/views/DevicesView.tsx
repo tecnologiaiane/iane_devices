@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Device, DeviceStatus, Movement, DocumentTerm, DeviceCondition, User as AppUser, Catalogs } from '../types';
 import { dataService, STOCK_LABEL, isStockCustody, stockDisplayName } from '../services/dataStorage';
+import { apiClient } from '../services/apiClient';
 import { formatDate, formatCurrency, formatImei } from '../utils/formatters';
 import { StatusBadge } from '../components/StatusBadge';
 import { DeviceDetail } from '../components/device-detail';
@@ -198,14 +199,19 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
 
   const handleDelete = (id: string, tag: string) => {
     if (!canRemoveDevice) {
-      alert('Apenas o Super Admin pode remover aparelhos.');
+      apiClient.notify({
+        type: 'warning',
+        title: 'Ação não permitida',
+        message: 'Apenas o Super Admin pode remover aparelhos.',
+      });
       return;
     }
     if (window.confirm(`Tem certeza de que deseja excluir o cadastro do aparelho ${tag}? Esta ação não pode ser desfeita.`)) {
       const res = dataService.deleteDevice(id);
       if (!res.success) {
-        alert(res.message);
+        apiClient.notify({ type: 'error', title: 'Não foi possível remover o aparelho', message: res.message });
       } else {
+        apiClient.notify({ type: 'success', title: 'Aparelho removido', message: res.message });
         refreshData();
       }
     }
@@ -219,10 +225,11 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
       notes: releaseNotes,
     });
     if (res.success) {
+      apiClient.notify({ type: 'success', title: 'Aparelho devolvido ao estoque', message: res.message });
       setReleasingDevice(null);
       refreshData();
     } else {
-      alert(res.message);
+      apiClient.notify({ type: 'error', title: 'Não foi possível devolver o aparelho', message: res.message });
     }
   };
 

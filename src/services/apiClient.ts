@@ -17,19 +17,19 @@ export interface ApiResponse<T = any> {
 
 export interface ApiNotification {
   id: string;
-  type: 'error' | 'warning' | 'info';
+  type: 'error' | 'warning' | 'info' | 'success';
   title: string;
   message: string;
   status?: number;
   timestamp: string;
 }
 
-type ErrorListener = (notification: ApiNotification) => void;
+type NotificationListener = (notification: ApiNotification) => void;
 
 class ApiClientService {
   public readonly instance: AxiosInstance;
   public readonly users: UserApiService;
-  private errorListeners: Set<ErrorListener> = new Set();
+  private notificationListeners: Set<NotificationListener> = new Set();
   private isServerOnline: boolean = true;
   private statusListeners: Set<(isOnline: boolean) => void> = new Set();
 
@@ -157,8 +157,17 @@ class ApiClientService {
     );
   }
 
+  /** Exibe um toast global (sucesso, erro, aviso ou informação). */
+  public notify(notification: Omit<ApiNotification, 'id' | 'timestamp'>): void {
+    this.notifyError({
+      ...notification,
+      id: `toast-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      timestamp: new Date().toLocaleTimeString('pt-BR'),
+    });
+  }
+
   public notifyError(notification: ApiNotification): void {
-    this.errorListeners.forEach((listener) => {
+    this.notificationListeners.forEach((listener) => {
       try {
         listener(notification);
       } catch (e) {
@@ -181,9 +190,9 @@ class ApiClientService {
     }
   }
 
-  public subscribeError(listener: ErrorListener): () => void {
-    this.errorListeners.add(listener);
-    return () => this.errorListeners.delete(listener);
+  public subscribeError(listener: NotificationListener): () => void {
+    this.notificationListeners.add(listener);
+    return () => this.notificationListeners.delete(listener);
   }
 
   public subscribeStatus(listener: (isOnline: boolean) => void): () => void {

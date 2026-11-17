@@ -1,6 +1,7 @@
+import { Slot } from '@radix-ui/react-slot'
 import { tv, type VariantProps } from 'tailwind-variants'
-import { twMerge } from 'tailwind-merge'
 import type { ComponentProps } from 'react'
+import { cn } from '../lib/utils'
 
 export const buttonVariants = tv({
 	base: [
@@ -33,26 +34,34 @@ export const buttonVariants = tv({
 
 export interface ButtonProps
 	extends ComponentProps<'button'>,
-		VariantProps<typeof buttonVariants> {}
+		VariantProps<typeof buttonVariants> {
+	asChild?: boolean
+}
 
 export function Button({
 	className,
 	variant,
 	size,
 	disabled,
+	asChild = false,
+	type = 'button',
 	children,
 	...props
 }: ButtonProps) {
+	const Comp = asChild ? Slot : 'button'
+	const buttonOnlyProps = asChild ? {} : { type, disabled }
+
 	return (
-		<button
-			type="button"
+		<Comp
 			data-slot="button"
+			data-variant={variant}
+			data-size={size}
 			data-disabled={disabled ? '' : undefined}
-			className={twMerge(buttonVariants({ variant, size }), className)}
-			disabled={disabled}
+			className={cn(buttonVariants({ variant, size }), className)}
+			{...buttonOnlyProps}
 			{...props}
 		>
 			{children}
-		</button>
+		</Comp>
 	)
 }

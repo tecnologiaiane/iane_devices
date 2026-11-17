@@ -1,6 +1,7 @@
+import { Slot } from '@radix-ui/react-slot'
 import { tv, type VariantProps } from 'tailwind-variants'
-import { twMerge } from 'tailwind-merge'
 import type { ComponentProps } from 'react'
+import { cn } from '../lib/utils'
 
 export const badgeVariants = tv({
 	base: 'inline-flex items-center gap-1.5 rounded-full border font-medium whitespace-nowrap',
@@ -22,22 +23,28 @@ export const badgeVariants = tv({
 
 export interface BadgeProps
 	extends ComponentProps<'span'>,
-		VariantProps<typeof badgeVariants> {}
+		VariantProps<typeof badgeVariants> {
+	asChild?: boolean
+	showDot?: boolean
+}
 
 export function Badge({
 	className,
 	variant,
 	size,
-	children,
+	asChild = false,
 	showDot = false,
+	children,
 	...props
-}: BadgeProps & { showDot?: boolean }) {
+}: BadgeProps) {
+	const Comp = asChild ? Slot : 'span'
+
 	return (
-		<span
+		<Comp
 			data-slot="badge"
 			data-variant={variant}
 			data-size={size}
-			className={twMerge(badgeVariants({ variant, size }), className)}
+			className={cn(badgeVariants({ variant, size }), className)}
 			{...props}
 		>
 			{showDot && (
@@ -47,6 +54,6 @@ export function Badge({
 				/>
 			)}
 			{children}
-		</span>
+		</Comp>
 	)
 }

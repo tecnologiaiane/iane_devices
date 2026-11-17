@@ -638,34 +638,46 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 			if (res.user && userToEdit && userToEdit.id === activeUser?.id) {
 				authService.updateCurrentUser(res.user);
 			}
-			setSuccessMessage(res.message);
+			apiClient.notify({
+				type: 'success',
+				title: userToEdit ? 'Usuário atualizado' : 'Usuário criado',
+				message: res.message,
+			});
 			setIsUserModalOpen(false);
 			void loadUsers();
 			setAuditLogs(dataService.getAuditLogs());
 		} else {
-			setErrorMessage(res.message);
+			apiClient.notify({ type: 'error', title: 'Não foi possível salvar o usuário', message: res.message });
 		}
 	};
 
 	const handleDeleteUser = async (u: User) => {
 		if (u.id === 'user-iane-super-1' || u.id === 'user-iane-super-2') {
-			alert('O Super Administrador principal da IANE não pode ser excluído.');
+			apiClient.notify({
+				type: 'warning',
+				title: 'Ação não permitida',
+				message: 'O Super Administrador principal da IANE não pode ser excluído.',
+			});
 			return;
 		}
 
 		if (u.id === activeUser?.id) {
-			alert('Você não pode excluir seu próprio usuário logado no sistema.');
+			apiClient.notify({
+				type: 'warning',
+				title: 'Ação não permitida',
+				message: 'Você não pode excluir seu próprio usuário logado no sistema.',
+			});
 			return;
 		}
 
 		if (window.confirm(`Tem certeza que deseja excluir permanentemente o acesso do usuário "${u.fullName}" (@${u.username})?`)) {
 			const res = await dataService.deleteUser(u.id);
 			if (res.success) {
-				setSuccessMessage(res.message);
+				apiClient.notify({ type: 'success', title: 'Usuário excluído', message: res.message });
 				void loadUsers();
 				setAuditLogs(dataService.getAuditLogs());
 			} else {
-				setErrorMessage(res.message);
+				apiClient.notify({ type: 'error', title: 'Não foi possível excluir o usuário', message: res.message });
 			}
 		}
 	};

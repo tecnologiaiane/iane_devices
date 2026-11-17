@@ -10,14 +10,19 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "test": "tsx --test tests/dates.test.ts tests/formatters.test.ts tests/server.test.ts tests/authz.test.ts tests/db-security.test.ts tests/auth-storage.test.ts tests/db-integration.test.ts"
+    "test": "tsx --test tests/dates.test.ts tests/formatters.test.ts tests/crypto.test.ts tests/server.test.ts tests/authz.test.ts tests/db-security.test.ts tests/auth-storage.test.ts tests/db-integration.test.ts"
   },
   "dependencies": {
-    "@base-ui/react": "^1.9.0",
+    "@radix-ui/react-accordion": "^1.3.1",
+    "@radix-ui/react-dialog": "^1.3.1",
+    "@radix-ui/react-popover": "^1.3.1",
+    "@radix-ui/react-select": "^2.4.1",
+    "@radix-ui/react-slot": "^1.5.0",
     "@tailwindcss/vite": "^4.3.3",
     "@vitejs/plugin-react": "^6.1.1",
     "axios": "^1.21.0",
     "bcryptjs": "^3.0.3",
+    "clsx": "^2.1.1",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.3",

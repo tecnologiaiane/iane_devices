@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Movement, MovementType, DocumentTerm, RequestRecord, User as UserRecord } from '../types';
 import { dataService, isStockCustody, stockDisplayName } from '../services/dataStorage';
+import { apiClient } from '../services/apiClient';
 import { formatDate, formatDateTime } from '../utils/formatters';
 import { StatusBadge } from '../components/StatusBadge';
 import {
@@ -182,7 +183,11 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
     if (term) {
       onViewTerm(term);
     } else {
-      alert('Documento não localizado no arquivo digital.');
+      apiClient.notify({
+        type: 'warning',
+        title: 'Documento não localizado',
+        message: 'Documento não localizado no arquivo digital.',
+      });
     }
   };
 

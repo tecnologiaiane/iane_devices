@@ -3,6 +3,7 @@ import { Modal } from '../Modal'
 import { fieldClass } from '../field'
 import { Device, PhoneLine, Collaborator, DeviceCondition, DocumentTerm, RequestRecord, TermType, CatalogItem } from '../../types'
 import { dataService } from '../../services/dataStorage'
+import { apiClient } from '../../services/apiClient'
 import { todayISO } from '../../utils/dates'
 import {
 	ArrowLeftRight,
@@ -453,7 +454,11 @@ export const MovementModal: React.FC<MovementModalProps> = ({
 				(completedBatchId ? movements.find((item) => item.batchOperationId === completedBatchId && item.type.includes('Entrega')) : undefined) ||
 				(completedBatchId ? movements.find((item) => item.batchOperationId === completedBatchId) : undefined);
 			if (!movement) {
-				window.alert('Movimentação registrada, mas não foi possível localizar o registro para vincular o PDF.');
+				apiClient.notify({
+					type: 'warning',
+					title: 'PDF não vinculado',
+					message: 'Movimentação registrada, mas não foi possível localizar o registro para vincular o PDF.',
+				});
 			} else {
 				setIsAttachingPdf(true);
 				try {
@@ -497,13 +502,27 @@ export const MovementModal: React.FC<MovementModalProps> = ({
 					const fileData = await readFileAsBase64(termPdfFile);
 					const uploaded = await dataService.createTermWithPdf(term, fileData);
 					if (!uploaded.success) {
-						window.alert(`Movimentação registrada, mas o PDF não foi anexado: ${uploaded.message}`);
+						apiClient.notify({
+							type: 'warning',
+							title: 'PDF não anexado',
+							message: `Movimentação registrada, mas o PDF não foi anexado: ${uploaded.message}`,
+						});
 					} else {
 						const linked = dataService.linkTermsToMovement(movement.id, movement.batchOperationId, [...selectedTermIds, termId]);
-						if (!linked.success) window.alert(`PDF anexado, mas não foi possível atualizar o vínculo: ${linked.message}`);
+						if (!linked.success) {
+							apiClient.notify({
+								type: 'warning',
+								title: 'Vínculo do PDF não atualizado',
+								message: `PDF anexado, mas não foi possível atualizar o vínculo: ${linked.message}`,
+							});
+						}
 					}
 				} catch {
-					window.alert('Movimentação registrada, mas não foi possível enviar o PDF. O termo pode ser anexado depois em Termos e documentos.');
+					apiClient.notify({
+						type: 'warning',
+						title: 'PDF não enviado',
+						message: 'Movimentação registrada, mas não foi possível enviar o PDF. O termo pode ser anexado depois em Termos e documentos.',
+					});
 				} finally {
 					setIsAttachingPdf(false);
 				}
@@ -1203,7 +1222,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
 			<div className="space-y-4">
 				<div className="relative">
 					<Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-text-muted" />
-					<input value={termSearch} onChange={(event) => setTermSearch(event.target.value)} placeholder="Pesquisar código, tipo, colaborador ou aparelho..." className={inputClass} pl-9 />
+					<input value={termSearch} onChange={(event) => setTermSearch(event.target.value)} placeholder="Pesquisar código, tipo, colaborador ou aparelho..." className={`${inputClass} pl-9`} />
 				</div>
 				<div className="max-h-72 divide-y divide-border-subtle overflow-y-auto radius-lg border border-border-subtle">
 					{availableTerms.filter((term) => [term.code, term.type, term.title, term.collaboratorName, term.deviceTag].filter(Boolean).join(' ').toLocaleLowerCase('pt-BR').includes(termSearch.toLocaleLowerCase('pt-BR'))).length ? availableTerms

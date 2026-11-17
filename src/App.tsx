@@ -7,6 +7,7 @@ import { authService } from './services/authService';
 import { apiClient, ApiNotification } from './services/apiClient';
 import { LoginView } from './views/LoginView';
 import { canAccessRequests } from './config/requestAccess';
+import { AlertTriangle, CheckCircle2, Info, X, XCircle } from 'lucide-react';
 
 // Views e modais são carregados sob demanda (React.lazy): o bundle inicial fica
 // pequeno e cada tela baixa seu próprio chunk somente quando é aberta.
@@ -75,6 +76,13 @@ const ViewFallback: React.FC = () => (
     <span className="sr-only">Carregando…</span>
   </div>
 );
+
+const notificationVariants = {
+  success: { icon: CheckCircle2, className: 'border-status-success-border bg-status-success-bg text-status-success-fg' },
+  error: { icon: XCircle, className: 'border-status-danger-border bg-status-danger-bg text-status-danger-fg' },
+  warning: { icon: AlertTriangle, className: 'border-status-warning-border bg-status-warning-bg text-status-warning-fg' },
+  info: { icon: Info, className: 'border-status-info-border bg-status-info-bg text-status-info-fg' },
+} as const;
 
 const tabToPath: Record<NavTab, string> = {
   dashboard: '/dashboard',
@@ -191,9 +199,10 @@ export default function App() {
         return;
       }
       setApiNotifications((prev) => [notif, ...prev.slice(0, 2)]);
+      const duration = notif.type === 'error' || notif.type === 'warning' ? 7000 : 5000;
       setTimeout(() => {
         setApiNotifications((prev) => prev.filter((n) => n.id !== notif.id));
-      }, 7000);
+      }, duration);
     });
   }, []);
 
@@ -530,42 +539,43 @@ export default function App() {
         )}
       </React.Suspense>
 
-      {/* Notificações Flutuantes Globais do ApiClient (401, 403, 500, Servidor Indisponível) */}
+      {/* Toasts globais: erros HTTP e confirmações de operações (delete, edição, etc.) */}
       <aside aria-label="Notificações do Sistema" className="fixed bottom-5 right-5 z-50 flex flex-col gap-2.5 max-w-sm w-full pointer-events-none">
-        {apiNotifications.map((notif) => (
-          <div
-            key={notif.id}
-            role="alert"
-            className={`pointer-events-auto p-4 rounded-xl shadow-xl border backdrop-blur-md flex items-start justify-between gap-3 transition-all duration-300 ${
-              notif.type === 'error'
-                ? 'bg-rose-950/95 border-rose-700 text-rose-100 shadow-rose-950/40'
-                : 'bg-navy-950/95 border-gold-700 text-sun-100 shadow-navy-950/40'
-            }`}
-          >
-            <div className="flex items-start gap-2.5">
-              <span className="text-base select-none mt-0.5">⚠️</span>
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <p className="text-xs font-bold leading-tight">{notif.title}</p>
-                  {notif.status ? (
-                    <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-black/40 text-rose-300">
-                      HTTP {notif.status}
-                    </span>
-                  ) : null}
-                </div>
-                <p className="text-[11px] opacity-90 mt-1 leading-snug">{notif.message}</p>
-                <span className="text-[9px] opacity-60 block mt-1">{notif.timestamp}</span>
-              </div>
-            </div>
-            <button
-              onClick={() => setApiNotifications((prev) => prev.filter((n) => n.id !== notif.id))}
-              className="text-white/60 hover:text-white shrink-0 cursor-pointer p-1 rounded hover:bg-white/10"
-              title="Fechar notificação"
+        {apiNotifications.map((notif) => {
+          const variant = notificationVariants[notif.type];
+          const Icon = variant.icon;
+          return (
+            <div
+              key={notif.id}
+              role={notif.type === 'error' || notif.type === 'warning' ? 'alert' : 'status'}
+              className={`pointer-events-auto radius-lg border p-3.5 shadow-lg flex items-start justify-between gap-3 ${variant.className}`}
             >
-              ✕
-            </button>
-          </div>
-        ))}
+              <div className="flex items-start gap-2.5">
+                <Icon className="w-4 h-4 shrink-0 mt-0.5" />
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-xs font-bold leading-tight">{notif.title}</p>
+                    {notif.status ? (
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 radius-base bg-surface-card/70">
+                        HTTP {notif.status}
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="text-[11px] opacity-90 mt-1 leading-snug">{notif.message}</p>
+                  <span className="text-[9px] opacity-60 block mt-1">{notif.timestamp}</span>
+                </div>
+              </div>
+              <button
+                onClick={() => setApiNotifications((prev) => prev.filter((n) => n.id !== notif.id))}
+                className="shrink-0 cursor-pointer p-1 radius-base hover:bg-surface-card/70"
+                title="Fechar notificação"
+                aria-label="Fechar notificação"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          );
+        })}
       </aside>
 
       {/* Modal de confirmação de logout */}

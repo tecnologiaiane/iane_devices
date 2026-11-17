@@ -1,55 +1,70 @@
-import React, { useState, useCallback } from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import React, { useState } from 'react'
+import * as AccordionPrimitive from '@radix-ui/react-accordion'
+import { ChevronDown, ChevronUp } from 'lucide-react'
+import { cn } from '../lib/utils'
 
 interface AccordionProps {
-  title: string;
-  icon?: React.ReactNode;
-  defaultOpen?: boolean;
-  /** Estado controlado externamente. Quando informado, substitui o estado interno. */
-  isOpen?: boolean;
-  /** Chamado ao clicar no cabeçalho. Use com `isOpen` para controlar o accordion. */
-  onToggle?: () => void;
-  children: React.ReactNode;
+	title: string
+	icon?: React.ReactNode
+	defaultOpen?: boolean
+	/** Estado controlado externamente. Quando informado, substitui o estado interno. */
+	isOpen?: boolean
+	/** Chamado ao clicar no cabeçalho. Use com `isOpen` para controlar o accordion. */
+	onToggle?: () => void
+	children: React.ReactNode
 }
 
+const ITEM_VALUE = 'content'
+
 export const Accordion: React.FC<AccordionProps> = ({
-  title,
-  icon,
-  defaultOpen = false,
-  isOpen: controlledIsOpen,
-  onToggle,
-  children,
+	title,
+	icon,
+	defaultOpen = false,
+	isOpen: controlledIsOpen,
+	onToggle,
+	children,
 }) => {
-  const [internalOpen, setInternalOpen] = useState(defaultOpen);
-  const isOpen = controlledIsOpen ?? internalOpen;
+	const [internalOpen, setInternalOpen] = useState(defaultOpen)
+	const isOpen = controlledIsOpen ?? internalOpen
 
-  const toggle = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (onToggle) {
-      onToggle();
-    } else {
-      setInternalOpen((prev) => !prev);
-    }
-  }, [onToggle]);
-
-  return (
-    <div className="radius-lg border border-border-subtle bg-surface-card shadow-sm overflow-hidden">
-      <div
-        className="flex items-center justify-between px-5 py-3.5 cursor-pointer hover:bg-surface-subtle transition-colors border-b border-border-subtle"
-        onClick={toggle}
-      >
-        <div className="flex items-center gap-2">
-          {icon && <span className="shrink-0">{icon}</span>}
-          <h2 className="text-sm font-semibold text-text-primary">{title}</h2>
-        </div>
-        {isOpen ? (
-          <ChevronUp className="w-4 h-4 text-text-muted shrink-0" />
-        ) : (
-          <ChevronDown className="w-4 h-4 text-text-muted shrink-0" />
-        )}
-      </div>
-
-      {isOpen && <div className="p-4">{children}</div>}
-    </div>
-  );
-};
+	return (
+		<AccordionPrimitive.Root
+			type="single"
+			collapsible
+			value={isOpen ? ITEM_VALUE : ''}
+			onValueChange={(value) => {
+				const nextOpen = value === ITEM_VALUE
+				if (controlledIsOpen === undefined) setInternalOpen(nextOpen)
+				onToggle?.()
+			}}
+			className="radius-lg border border-border-subtle bg-surface-card shadow-sm overflow-hidden"
+		>
+			<AccordionPrimitive.Item value={ITEM_VALUE}>
+				<AccordionPrimitive.Header asChild>
+					<h2 className="border-b border-border-subtle">
+						<AccordionPrimitive.Trigger
+							onClick={(event) => event.stopPropagation()}
+							className={cn(
+								'flex w-full items-center justify-between px-5 py-3.5 text-left',
+								'cursor-pointer transition-colors hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue-action/30',
+							)}
+						>
+							<span className="flex items-center gap-2">
+								{icon && <span className="shrink-0">{icon}</span>}
+								<span className="text-sm font-semibold text-text-primary">{title}</span>
+							</span>
+							{isOpen ? (
+								<ChevronUp className="w-4 h-4 text-text-muted shrink-0" />
+							) : (
+								<ChevronDown className="w-4 h-4 text-text-muted shrink-0" />
+							)}
+						</AccordionPrimitive.Trigger>
+					</h2>
+				</AccordionPrimitive.Header>
+				<AccordionPrimitive.Content className="p-4">
+					{children}
+				</AccordionPrimitive.Content>
+			</AccordionPrimitive.Item>
+		</AccordionPrimitive.Root>
+	)
+}

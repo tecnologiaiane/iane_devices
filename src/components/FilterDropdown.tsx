@@ -1,7 +1,8 @@
-import React, { ReactNode, useCallback, useRef, useState } from 'react';
+import React, { ReactNode } from 'react';
 import { Filter as FilterIcon, X } from 'lucide-react';
 import { Badge } from './badge';
 import { Button } from './button';
+import { cn } from '../lib/utils';
 
 interface FilterDropdownProps {
   isOpen: boolean;
@@ -20,7 +21,10 @@ export const FilterDropdown: React.FC<FilterDropdownProps> = ({
 
   return (
     <div
-      className="fixed z-50 mt-1 w-80 overflow-hidden radius-lg border border-border-subtle bg-surface-card shadow-xl"
+      data-slot="filter-dropdown"
+      className={cn(
+        'fixed z-50 mt-1 w-80 overflow-hidden radius-lg border border-border-subtle bg-surface-card shadow-xl',
+      )}
       style={{
         // Posicionado via JavaScript pelo componente pai para evitar sobreposição no card
       }}
@@ -63,7 +67,10 @@ export const FilterTrigger = React.forwardRef<HTMLButtonElement, FilterTriggerPr
         onClick={onToggle}
         aria-expanded={isOpen}
         aria-haspopup="menu"
-        className="inline-flex items-center gap-2 radius-base border border-border-subtle bg-surface-card px-2.5 py-1.5 text-text-muted font-medium text-xs focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15 hover:bg-surface-subtle transition-colors"
+        className={cn(
+          'inline-flex items-center gap-2 radius-base border border-border-subtle bg-surface-card px-2.5 py-1.5 text-text-muted font-medium text-xs',
+          'focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15 hover:bg-surface-subtle transition-colors',
+        )}
       >
         <FilterIcon className="w-3.5 h-3.5 text-text-muted" />
         <span>{label}</span>
