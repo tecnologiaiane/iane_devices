@@ -26,6 +26,9 @@ export const Accordion: React.FC<AccordionProps> = ({
 }) => {
 	const [internalOpen, setInternalOpen] = useState(defaultOpen)
 	const isOpen = controlledIsOpen ?? internalOpen
+	// Valor único por instância: mesmo que duas instâncias compartilhem contexto,
+	// um valor igual poderia fazer o Radix abrir/fechar as duas ao mesmo tempo.
+	const itemValue = title || ITEM_VALUE
 
 	// O toggle é feito no clique do cabeçalho: usar onValueChange aqui faz o
 	// Radix notificar também as outras instâncias quando o valor controlado muda.
@@ -38,10 +41,10 @@ export const Accordion: React.FC<AccordionProps> = ({
 		<AccordionPrimitive.Root
 			type="single"
 			collapsible
-			value={isOpen ? ITEM_VALUE : ''}
+			value={isOpen ? itemValue : ''}
 			className="radius-lg border border-border-subtle bg-surface-card shadow-sm overflow-hidden"
 		>
-			<AccordionPrimitive.Item value={ITEM_VALUE}>
+			<AccordionPrimitive.Item value={itemValue}>
 				<AccordionPrimitive.Header asChild>
 					<h2 className="border-b border-border-subtle">
 						<AccordionPrimitive.Trigger
