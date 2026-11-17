@@ -5,6 +5,10 @@ interface AccordionProps {
   title: string;
   icon?: React.ReactNode;
   defaultOpen?: boolean;
+  /** Estado controlado externamente. Quando informado, substitui o estado interno. */
+  isOpen?: boolean;
+  /** Chamado ao clicar no cabeçalho. Use com `isOpen` para controlar o accordion. */
+  onToggle?: () => void;
   children: React.ReactNode;
 }
 
@@ -12,14 +16,21 @@ export const Accordion: React.FC<AccordionProps> = ({
   title,
   icon,
   defaultOpen = false,
+  isOpen: controlledIsOpen,
+  onToggle,
   children,
 }) => {
-  const [isOpen, setIsOpen] = useState(defaultOpen);
+  const [internalOpen, setInternalOpen] = useState(defaultOpen);
+  const isOpen = controlledIsOpen ?? internalOpen;
 
   const toggle = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    setIsOpen((prev) => !prev);
-  }, []);
+    if (onToggle) {
+      onToggle();
+    } else {
+      setInternalOpen((prev) => !prev);
+    }
+  }, [onToggle]);
 
   return (
     <div className="radius-lg border border-border-subtle bg-surface-card shadow-sm overflow-hidden">
