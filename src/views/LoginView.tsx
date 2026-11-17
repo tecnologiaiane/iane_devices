@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, AlertTriangle } from '../components/icons';
+import { Eye, EyeOff, AlertTriangle } from 'lucide-react';
 import { authService } from '../services/authService';
 import { User as UserType } from '../types';
 import { Button } from '../components/button';

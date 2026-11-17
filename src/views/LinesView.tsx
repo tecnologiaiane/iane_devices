@@ -20,10 +20,10 @@ import {
   Clock,
   ChevronLeft,
   ChevronRight,
-} from '../components/icons';
+} from 'lucide-react';
 import { Button } from '../components/button';
 import { Badge } from '../components/badge';
-import { FilterDropdown, FilterTrigger } from '../components/FilterDropdown';
+import { FilterDropdown, FilterField, FilterTrigger } from '../components/FilterDropdown';
 import { DataTable, type DataTableColumn } from '../components/DataTable';
 
 interface LinesViewProps {
@@ -285,6 +285,47 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
               ].filter(Boolean).length}
               onToggle={() => setIsFilterMenuOpen((open) => !open)}
             />
+            <FilterDropdown
+              isOpen={isFilterMenuOpen}
+              position={filterPosition}
+              activeCount={[
+                statusFilter !== 'todos',
+                carrierFilter !== 'todos',
+                associationFilter !== 'todos',
+              ].filter(Boolean).length}
+              onClose={() => setIsFilterMenuOpen(false)}
+              onClear={() => {
+                setStatusFilter('todos');
+                setCarrierFilter('todos');
+                setAssociationFilter('todos');
+              }}
+            >
+              <FilterField
+                label="Status"
+                value={statusFilter}
+                onChange={setStatusFilter}
+                options={catalogs.lineStatuses.map((item) => ({ label: item.name, value: item.name }))}
+              />
+              <FilterField
+                label="Operadora"
+                value={carrierFilter}
+                onChange={setCarrierFilter}
+                options={[
+                  { label: 'Vivo', value: 'Vivo' },
+                  { label: 'Claro', value: 'Claro' },
+                  { label: 'TIM', value: 'TIM' },
+                ]}
+              />
+              <FilterField
+                label="Vínculo"
+                value={associationFilter}
+                onChange={(value) => setAssociationFilter(value as 'todos' | 'com_aparelho' | 'sem_aparelho')}
+                options={[
+                  { label: 'Com Aparelho Associado', value: 'com_aparelho' },
+                  { label: 'Sem Aparelho (Chip Livre / BYOD)', value: 'sem_aparelho' },
+                ]}
+              />
+            </FilterDropdown>
             <div className="flex items-center gap-2">
               <label className="text-[11px] text-text-muted">Por página:</label>
               <select

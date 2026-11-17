@@ -28,10 +28,10 @@ import {
   Loader2,
   ChevronLeft,
   ChevronRight,
-} from '../components/icons';
+} from 'lucide-react';
 import { Button } from '../components/button';
 import { Badge } from '../components/badge';
-import { FilterDropdown, FilterTrigger } from '../components/FilterDropdown';
+import { FilterDropdown, FilterField, FilterTrigger } from '../components/FilterDropdown';
 import { DataTable, type DataTableColumn } from '../components/DataTable';
 
 interface DevicesViewProps {
@@ -390,6 +390,51 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
               ].filter(Boolean).length}
               onToggle={() => setIsFilterMenuOpen((open) => !open)}
             />
+            <FilterDropdown
+              isOpen={isFilterMenuOpen}
+              position={filterPosition}
+              activeCount={[
+                stockFilter !== 'todos',
+                statusFilter !== 'todos',
+                departmentFilter !== 'todos',
+                brandFilter !== 'todos',
+              ].filter(Boolean).length}
+              onClose={() => setIsFilterMenuOpen(false)}
+              onClear={() => {
+                setStockFilter('todos');
+                setStatusFilter('todos');
+                setDepartmentFilter('todos');
+                setBrandFilter('todos');
+              }}
+            >
+              <FilterField
+                label="Custódia"
+                value={stockFilter}
+                onChange={(value) => setStockFilter(value as 'todos' | 'em_estoque' | 'com_colaborador')}
+                options={[
+                  { label: 'No Estoque', value: 'em_estoque' },
+                  { label: 'Em Uso com Colaborador', value: 'com_colaborador' },
+                ]}
+              />
+              <FilterField
+                label="Status"
+                value={statusFilter}
+                onChange={setStatusFilter}
+                options={catalogs.deviceStatuses.map((item) => ({ label: item.name, value: item.name }))}
+              />
+              <FilterField
+                label="Departamento"
+                value={departmentFilter}
+                onChange={setDepartmentFilter}
+                options={uniqueDepartments.map((dept) => ({ label: dept, value: dept }))}
+              />
+              <FilterField
+                label="Marca"
+                value={brandFilter}
+                onChange={setBrandFilter}
+                options={uniqueBrands.map((brand) => ({ label: brand, value: brand }))}
+              />
+            </FilterDropdown>
             <div className="flex items-center gap-2">
               <label className="text-[11px] text-text-muted">Por página:</label>
               <select

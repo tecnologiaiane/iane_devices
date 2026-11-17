@@ -1,4 +1,4 @@
-import { Info } from './icons'
+import { Info } from 'lucide-react'
 import { twMerge } from 'tailwind-merge'
 import type { ComponentProps } from 'react'
 import { TimelineEvent } from './timeline-event'

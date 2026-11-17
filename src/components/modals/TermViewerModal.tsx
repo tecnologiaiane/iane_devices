@@ -13,7 +13,7 @@ import {
 	Loader2,
 	AlertTriangle,
 	Paperclip,
-} from '../icons'
+} from 'lucide-react'
 import { dataService } from '../../services/dataStorage'
 import { Button } from '../button'
 import { Badge } from '../badge'

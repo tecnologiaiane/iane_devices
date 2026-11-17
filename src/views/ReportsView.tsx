@@ -15,7 +15,7 @@ import {
   Calendar,
   Building2,
   Smartphone,
-} from '../components/icons';
+} from 'lucide-react';
 
 type ReportKey =
 	| 'inventario_completo'

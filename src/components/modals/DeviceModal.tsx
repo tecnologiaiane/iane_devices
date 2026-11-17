@@ -4,7 +4,7 @@ import { Catalogs, Device, DeviceCondition, DeviceStatus } from '../../types'
 import { dataService } from '../../services/dataStorage'
 import { todayISO } from '../../utils/dates'
 import { SearchableOption, SearchableSelect } from '../SearchableSelect'
-import { AlertTriangle } from '../icons'
+import { AlertTriangle } from 'lucide-react'
 import { Button } from '../button'
 import { Badge } from '../badge'
 

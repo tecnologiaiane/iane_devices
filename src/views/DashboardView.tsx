@@ -23,7 +23,7 @@ import {
   Tag,
   FileText,
   FileWarning,
-} from '../components/icons';
+} from 'lucide-react';
 
 interface DashboardViewProps {
   onNavigate: (tab: NavTab) => void;
@@ -47,8 +47,7 @@ function extractDdd(phoneNumber?: string): string | null {
 }
 
 /**
- * Cartão KPI padronizado do dashboard: ícone, rótulo, valor grande,
- * subtítulo e barra de progresso opcional.
+ * Cartão KPI padronizado do dashboard: ícone, rótulo, valor grande e subtítulo.
  */
 function KpiCard({
   icon,
@@ -58,8 +57,6 @@ function KpiCard({
   iconColor = 'text-text-muted',
   valueColor = 'text-text-primary',
   variant,
-  progress,
-  progressValue,
 }: {
   icon: React.ReactNode
   label: string
@@ -68,8 +65,6 @@ function KpiCard({
   iconColor?: string
   valueColor?: string
   variant?: 'success'
-  progress?: boolean
-  progressValue?: number
 }) {
   const borderClass = variant === 'success'
     ? 'border border-status-success-border border-t-4 border-t-status-success-fg bg-status-success-bg'
@@ -87,20 +82,6 @@ function KpiCard({
       </div>
       <div className={`text-2xl font-bold font-code tabular-nums ${valueClass} mb-1`}>{value}</div>
       <div className="text-[11px] text-text-muted">{sublabel}</div>
-      {progress && progressValue !== undefined && (
-        <>
-          <div className="mt-2 w-full h-1 bg-surface-subtle rounded-full overflow-hidden">
-            <div
-              className="h-full bg-brand-blue-action rounded-full transition-all duration-300"
-              style={{ width: `${Math.min(100, Math.max(0, progressValue))}%` }}
-            />
-          </div>
-          <div className="flex justify-between mt-0.5">
-            <span className="text-[10px] text-text-muted">0%</span>
-            <span className="text-[10px] font-medium text-text-primary tabular-nums">{progressValue}%</span>
-          </div>
-        </>
-      )}
     </div>
   )
 }
@@ -273,8 +254,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
           sublabel={`${percent(metrics.inUseDevices)}% com colaboradores`}
           iconColor="text-brand-blue-action"
           valueColor="text-text-primary"
-          progress
-          progressValue={percent(metrics.inUseDevices)}
         />
         <KpiCard
           icon={<Package className="w-4 h-4 text-brand-blue-action" />}
@@ -553,7 +532,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
             )}
           </div>
         </div>
+      </div>
 
+      {/* Aparelhos por setor e listas operacionais */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="radius-lg border border-border-subtle bg-surface-card shadow-sm flex flex-col">
           <div className="px-5 pt-5 pb-3 flex items-start justify-between">
             <div>
@@ -588,10 +570,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
             {inUseWithoutSector} aparelho(s) em uso sem Setor definido.
           </div>
         </div>
-      </div>
 
-      {/* Listas operacionais */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Accordion
           title="Atenção necessária"
           icon={<AlertTriangle className="w-4 h-4 text-status-warning-fg" />}

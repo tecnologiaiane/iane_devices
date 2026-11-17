@@ -38,7 +38,7 @@ import {
   Plus,
   Save,
   Building2,
-} from '../components/icons';
+} from 'lucide-react';
 
 interface SettingsViewProps {
   onDataReset: () => void;

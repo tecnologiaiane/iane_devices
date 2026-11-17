@@ -5,7 +5,7 @@ import { formatDate } from '../utils/formatters';
 import { StatusBadge } from '../components/StatusBadge';
 import { Button } from '../components/button';
 import { Badge } from '../components/badge';
-import { FilterDropdown, FilterTrigger } from '../components/FilterDropdown';
+import { FilterDropdown, FilterField, FilterTrigger } from '../components/FilterDropdown';
 import { DataTable, type DataTableColumn } from '../components/DataTable';
 import {
   Users,
@@ -14,9 +14,7 @@ import {
   Eye,
   Edit2,
   Smartphone,
-  Microchip,
   PhoneCall,
-  Mail,
   Phone,
   Building2,
   FileText,
@@ -24,7 +22,7 @@ import {
   History,
   ChevronLeft,
   ChevronRight,
-} from '../components/icons';
+} from 'lucide-react';
 
 interface CollaboratorsViewProps {
   onOpenCollaboratorModal: (collab?: Collaborator) => void;
@@ -111,13 +109,7 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
       key: 'name',
       header: 'Nome do Colaborador',
       render: (collab) => (
-        <>
-          <div className="font-medium text-text-primary">{collab.fullName}</div>
-          <div className="text-[11px] text-text-muted flex items-center gap-1.5 mt-0.5">
-            <Mail className="w-3 h-3 text-border-strong" />
-            <span>{collab.corporateEmail}</span>
-          </div>
-        </>
+        <div className="font-medium text-text-primary">{collab.fullName}</div>
       ),
     },
     {
@@ -158,20 +150,20 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
 
         return (
           <div className="flex items-center gap-1.5">
-            <span
+            <Badge
+              variant={heldDevices.length > 0 ? 'info' : 'default'}
+              size="sm"
               title={heldDevices.length > 0 ? heldDevices.map(d => d.assetTag).join(', ') : 'Nenhum aparelho vinculado'}
-              aria-label={heldDevices.length > 0 ? 'Aparelho vinculado' : 'Nenhum aparelho vinculado'}
-              className={`inline-flex items-center justify-center p-1.5 radius-base border border-border-subtle ${heldDevices.length > 0 ? 'bg-surface-subtle text-text-primary' : 'bg-surface-card text-text-muted'}`}
             >
-              <Smartphone className="w-3.5 h-3.5" />
-            </span>
-            <span
+              {heldDevices.length} aparelho{heldDevices.length === 1 ? '' : 's'}
+            </Badge>
+            <Badge
+              variant={heldLines.length > 0 ? 'info' : 'default'}
+              size="sm"
               title={heldLines.length > 0 ? `${heldLines.length} linha(s) vinculada(s)` : 'Nenhuma linha vinculada'}
-              aria-label={heldLines.length > 0 ? 'Linha vinculada' : 'Nenhuma linha vinculada'}
-              className={`inline-flex items-center justify-center p-1.5 radius-base border border-border-subtle ${heldLines.length > 0 ? 'bg-surface-subtle text-text-primary' : 'bg-surface-card text-text-muted'}`}
             >
-              <Microchip className="w-3.5 h-3.5" />
-            </span>
+              {heldLines.length} linha{heldLines.length === 1 ? '' : 's'}
+            </Badge>
           </div>
         );
       },
@@ -245,6 +237,37 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
               ].filter(Boolean).length}
               onToggle={() => setIsFilterMenuOpen((open) => !open)}
             />
+            <FilterDropdown
+              isOpen={isFilterMenuOpen}
+              position={filterPosition}
+              activeCount={[
+                departmentFilter !== 'todos',
+                statusFilter !== 'todos',
+              ].filter(Boolean).length}
+              onClose={() => setIsFilterMenuOpen(false)}
+              onClear={() => {
+                setDepartmentFilter('todos');
+                setStatusFilter('todos');
+              }}
+            >
+              <FilterField
+                label="Departamento"
+                value={departmentFilter}
+                onChange={setDepartmentFilter}
+                options={uniqueDepartments.map((dept) => ({ label: dept, value: dept }))}
+              />
+              <FilterField
+                label="Status"
+                value={statusFilter}
+                onChange={setStatusFilter}
+                options={[
+                  { label: 'Ativo', value: 'Ativo' },
+                  { label: 'Férias', value: 'Férias' },
+                  { label: 'Afastado', value: 'Afastado' },
+                  { label: 'Desligado', value: 'Desligado' },
+                ]}
+              />
+            </FilterDropdown>
             <div className="flex items-center gap-2">
               <label className="text-[11px] text-text-muted">Por página:</label>
               <select

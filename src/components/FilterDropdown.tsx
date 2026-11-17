@@ -1,5 +1,5 @@
 import React, { ReactNode } from 'react';
-import { Filter as FilterIcon, X } from './icons';
+import { Filter as FilterIcon, X } from 'lucide-react';
 import { Badge } from './badge';
 import { Button } from './button';
 import { cn } from '../lib/utils';
@@ -7,17 +7,21 @@ import { cn } from '../lib/utils';
 interface FilterDropdownProps {
   isOpen: boolean;
   onClose: () => void;
+  onClear?: () => void;
   activeCount: number;
+  position?: { top: number; left: number } | null;
   children: ReactNode;
 }
 
 export const FilterDropdown: React.FC<FilterDropdownProps> = ({
   isOpen,
   onClose,
+  onClear,
   activeCount,
+  position,
   children,
 }) => {
-  if (!isOpen) return null;
+  if (!isOpen || !position) return null;
 
   return (
     <div
@@ -25,9 +29,7 @@ export const FilterDropdown: React.FC<FilterDropdownProps> = ({
       className={cn(
         'fixed z-50 mt-1 w-80 overflow-hidden radius-lg border border-border-subtle bg-surface-card shadow-xl',
       )}
-      style={{
-        // Posicionado via JavaScript pelo componente pai para evitar sobreposição no card
-      }}
+      style={{ top: position.top, left: position.left }}
     >
       <div className="px-3 py-2 space-y-3 border-b border-border-subtle pb-2">
         {children}
@@ -40,7 +42,10 @@ export const FilterDropdown: React.FC<FilterDropdownProps> = ({
           <Button
             variant="ghost"
             size="sm"
-            onClick={onClose}
+            onClick={() => {
+              onClear?.();
+              onClose();
+            }}
             className="text-status-danger-fg hover:text-status-danger-fg/80"
           >
             Limpar filtros

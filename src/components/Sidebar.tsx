@@ -18,7 +18,7 @@ import {
 	Search,
 	Megaphone,
 	Sparkles,
-} from './icons'
+} from 'lucide-react'
 
 export type NavTab =
 	| 'dashboard'

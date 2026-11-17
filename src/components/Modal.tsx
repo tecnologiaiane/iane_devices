@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import type { ComponentProps } from 'react'
-import { X } from './icons'
+import { X } from 'lucide-react'
 import { cn } from '../lib/utils'
 
 interface ModalProps extends ComponentProps<'div'> {

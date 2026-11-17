@@ -3,7 +3,7 @@ import { Modal } from '../Modal'
 import { Catalogs, Collaborator, CollaboratorStatus } from '../../types'
 import { dataService } from '../../services/dataStorage'
 import { SearchableOption, SearchableSelect } from '../SearchableSelect'
-import { AlertTriangle, UserPlus } from '../icons'
+import { AlertTriangle, UserPlus } from 'lucide-react'
 import { Button } from '../button'
 
 interface CollaboratorModalProps {
