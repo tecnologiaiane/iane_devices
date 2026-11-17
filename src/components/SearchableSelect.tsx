@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react'
 import * as Popover from '@radix-ui/react-popover'
-import { Check, ChevronDown, Search, X } from 'lucide-react'
+import { Check, ChevronDown, Search, X } from './icons'
 import { matchesPhoneSearch } from '../utils/formatters'
 import { fieldClass } from './field'
 import { cn } from '../lib/utils'

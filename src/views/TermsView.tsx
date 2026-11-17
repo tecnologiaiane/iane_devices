@@ -29,7 +29,7 @@ import {
   Loader2,
   ChevronLeft,
   ChevronRight,
-} from 'lucide-react';
+} from '../components/icons';
 
 interface TermsViewProps {
   onViewTerm: (term: DocumentTerm) => void;

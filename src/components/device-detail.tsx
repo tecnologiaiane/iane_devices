@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { twMerge } from 'tailwind-merge'
 import type { ComponentProps } from 'react'
-import { ExternalLink, Eye, Loader2 } from 'lucide-react'
+import { ExternalLink, Eye, Loader2 } from './icons'
 import { DeviceDetailHeader } from './device-detail-header'
 import { DeviceTabs } from './device-tabs'
 import { DeviceTimeline } from './device-timeline'

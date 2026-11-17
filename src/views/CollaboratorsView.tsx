@@ -24,7 +24,7 @@ import {
   History,
   ChevronLeft,
   ChevronRight,
-} from 'lucide-react';
+} from '../components/icons';
 
 interface CollaboratorsViewProps {
   onOpenCollaboratorModal: (collab?: Collaborator) => void;

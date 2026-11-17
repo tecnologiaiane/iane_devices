@@ -19,7 +19,7 @@ import {
 	X,
 	Search,
 	FileText,
-} from 'lucide-react'
+} from '../icons'
 import { SearchableMultiSelect, SearchableOption, SearchableSelect } from '../SearchableSelect'
 import { formatPhone } from '../../utils/formatters'
 import { MAX_PDF_BYTES, formatFileSize, readFileAsBase64, validatePdfFile } from '../../utils/pdfUpload'

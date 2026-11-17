@@ -1,5 +1,5 @@
 import React, { ReactNode } from 'react';
-import { Filter as FilterIcon, X } from 'lucide-react';
+import { Filter as FilterIcon, X } from './icons';
 import { Badge } from './badge';
 import { Button } from './button';
 import { cn } from '../lib/utils';

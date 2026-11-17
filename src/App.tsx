@@ -7,7 +7,7 @@ import { authService } from './services/authService';
 import { apiClient, ApiNotification } from './services/apiClient';
 import { LoginView } from './views/LoginView';
 import { canAccessRequests } from './config/requestAccess';
-import { AlertTriangle, CheckCircle2, Info, X, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Info, X, XCircle } from './components/icons';
 
 // Views e modais são carregados sob demanda (React.lazy): o bundle inicial fica
 // pequeno e cada tela baixa seu próprio chunk somente quando é aberta.

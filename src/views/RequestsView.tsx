@@ -27,7 +27,7 @@ import {
   UserRound,
   Eye,
   X,
-} from 'lucide-react';
+} from '../components/icons';
 
 type RequestFlow = 'entrega' | 'devolucao' | 'transferencia' | 'troca';
 

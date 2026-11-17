@@ -1,4 +1,4 @@
-import { ArrowRight, FileText } from 'lucide-react'
+import { ArrowRight, FileText } from './icons'
 import { twMerge } from 'tailwind-merge'
 import type { ComponentProps } from 'react'
 

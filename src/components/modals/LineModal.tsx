@@ -4,7 +4,7 @@ import { Catalogs, PhoneLine, Carrier, LineStatus } from '../../types'
 import { dataService } from '../../services/dataStorage'
 import { todayISO } from '../../utils/dates'
 import { SearchableOption, SearchableSelect } from '../SearchableSelect'
-import { AlertTriangle, PhoneCall } from 'lucide-react'
+import { AlertTriangle, PhoneCall } from '../icons'
 import { Button } from '../button'
 
 const CARRIERS: Carrier[] = ['Vivo', 'Claro', 'TIM', 'Outra']

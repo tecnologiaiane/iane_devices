@@ -20,7 +20,7 @@ import {
   Clock,
   ChevronLeft,
   ChevronRight,
-} from 'lucide-react';
+} from '../components/icons';
 import { Button } from '../components/button';
 import { Badge } from '../components/badge';
 import { FilterDropdown, FilterTrigger } from '../components/FilterDropdown';

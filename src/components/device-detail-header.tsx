@@ -1,4 +1,4 @@
-import { Smartphone, X } from 'lucide-react'
+import { Smartphone, X } from './icons'
 import { twMerge } from 'tailwind-merge'
 import type { ComponentProps } from 'react'
 import { StatusBadge } from './StatusBadge'

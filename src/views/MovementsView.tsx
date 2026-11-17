@@ -21,7 +21,7 @@ import {
   Package,
   Layers,
   ArrowRight,
-} from 'lucide-react';
+} from '../components/icons';
 import { OfficialFlowType } from '../components/modals/MovementModal';
 import { canAccessRequests, canApproveRequests } from '../config/requestAccess';
 import { Modal } from '../components/Modal';

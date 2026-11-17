@@ -23,7 +23,7 @@ import {
   Tag,
   FileText,
   FileWarning,
-} from 'lucide-react';
+} from '../components/icons';
 
 interface DashboardViewProps {
   onNavigate: (tab: NavTab) => void;

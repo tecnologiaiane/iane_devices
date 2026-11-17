@@ -17,7 +17,7 @@ export default defineConfig(() => {
         output: {
           manualChunks(id: string) {
             if (!id.includes('node_modules')) return;
-            if (id.includes('lucide-react')) return 'vendor-icons';
+            if (id.includes('@radix-ui/react-icons')) return 'vendor-icons';
             if (
               id.includes('/react/') ||
               id.includes('/react-dom/') ||
