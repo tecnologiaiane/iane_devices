@@ -111,7 +111,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
   const archivedTerms = terms.filter((t) => t.status === 'Arquivado');
 
   const [isPendingTermsModalOpen, setIsPendingTermsModalOpen] = useState(false);
-  const [openDashboardAccordion, setOpenDashboardAccordion] = useState<'attention' | 'movements' | null>(null);
+  const [isAttentionAccordionOpen, setIsAttentionAccordionOpen] = useState(false);
+  const [isMovementsAccordionOpen, setIsMovementsAccordionOpen] = useState(false);
 
   useEffect(() => {
     if (!isAdmin || pendingTerms.length === 0) return;
@@ -574,10 +575,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
         <Accordion
           title="Atenção necessária"
           icon={<AlertTriangle className="w-4 h-4 text-status-warning-fg" />}
-          isOpen={openDashboardAccordion === 'attention'}
-          onToggle={() =>
-            setOpenDashboardAccordion((prev) => (prev === 'attention' ? null : 'attention'))
-          }
+          isOpen={isAttentionAccordionOpen}
+          onToggle={() => setIsAttentionAccordionOpen((open) => !open)}
         >
           <div className="space-y-2.5">
             {attentionDevices.slice(0, 6).map((device) => (
@@ -634,10 +633,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
         <Accordion
           title="Últimas movimentações"
           icon={<Clock className="w-4 h-4 text-text-muted" />}
-          isOpen={openDashboardAccordion === 'movements'}
-          onToggle={() =>
-            setOpenDashboardAccordion((prev) => (prev === 'movements' ? null : 'movements'))
-          }
+          isOpen={isMovementsAccordionOpen}
+          onToggle={() => setIsMovementsAccordionOpen((open) => !open)}
         >
           <div className="divide-y divide-border-subtle">
             {movements.slice(0, 6).map((movement) => (

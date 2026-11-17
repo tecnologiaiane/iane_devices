@@ -27,23 +27,28 @@ export const Accordion: React.FC<AccordionProps> = ({
 	const [internalOpen, setInternalOpen] = useState(defaultOpen)
 	const isOpen = controlledIsOpen ?? internalOpen
 
+	// O toggle é feito no clique do cabeçalho: usar onValueChange aqui faz o
+	// Radix notificar também as outras instâncias quando o valor controlado muda.
+	const handleToggle = () => {
+		if (controlledIsOpen === undefined) setInternalOpen((open) => !open)
+		onToggle?.()
+	}
+
 	return (
 		<AccordionPrimitive.Root
 			type="single"
 			collapsible
 			value={isOpen ? ITEM_VALUE : ''}
-			onValueChange={(value) => {
-				const nextOpen = value === ITEM_VALUE
-				if (controlledIsOpen === undefined) setInternalOpen(nextOpen)
-				onToggle?.()
-			}}
 			className="radius-lg border border-border-subtle bg-surface-card shadow-sm overflow-hidden"
 		>
 			<AccordionPrimitive.Item value={ITEM_VALUE}>
 				<AccordionPrimitive.Header asChild>
 					<h2 className="border-b border-border-subtle">
 						<AccordionPrimitive.Trigger
-							onClick={(event) => event.stopPropagation()}
+							onClick={(event) => {
+								event.stopPropagation()
+								handleToggle()
+							}}
 							className={cn(
 								'flex w-full items-center justify-between px-5 py-3.5 text-left',
 								'cursor-pointer transition-colors hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue-action/30',
