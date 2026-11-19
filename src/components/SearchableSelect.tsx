@@ -81,7 +81,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
 					}}
 					style={{ width: 'var(--radix-popover-trigger-width)' }}
 					className={cn(
-						'z-40 overflow-hidden radius-lg border border-border-subtle bg-surface-card shadow-md',
+						'z-[60] overflow-hidden radius-lg border border-border-subtle bg-surface-card shadow-md',
 						'outline-none',
 					)}
 				>
@@ -204,7 +204,7 @@ export const SearchableMultiSelect: React.FC<SearchableMultiSelectProps> = ({
 						}}
 						style={{ width: 'var(--radix-popover-trigger-width)' }}
 						className={cn(
-							'z-40 overflow-hidden radius-lg border border-border-subtle bg-surface-card shadow-md',
+							'z-[60] overflow-hidden radius-lg border border-border-subtle bg-surface-card shadow-md',
 							'outline-none',
 						)}
 					>
