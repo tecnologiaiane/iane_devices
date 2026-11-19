@@ -30,6 +30,10 @@ export const FilterDropdown: React.FC<FilterDropdownProps> = ({
         'fixed z-50 mt-1 w-80 overflow-hidden radius-lg border border-border-subtle bg-surface-card shadow-xl',
       )}
       style={{ top: position.top, left: position.left }}
+      // O painel é renderizado fora do botão âncora; sem isso, o mousedown nos
+      // selects chega ao listener de "clique fora" da tela e fecha o dropdown
+      // antes de registrar a seleção.
+      onMouseDown={(event) => event.stopPropagation()}
     >
       <div className="px-3 py-2 space-y-3 border-b border-border-subtle pb-2">
         {children}
