@@ -447,8 +447,9 @@ async function autoMigrateDatabase(client: pg.PoolClient) {
       `ALTER TABLE devices DROP CONSTRAINT IF EXISTS devices_serial_number_key`,
       `ALTER TABLE devices ALTER COLUMN imei_1 DROP NOT NULL`,
       `ALTER TABLE devices DROP CONSTRAINT IF EXISTS devices_imei_1_key`,
-      `ALTER TABLE devices ALTER COLUMN imei_1 TYPE VARCHAR(30)`,
-      `ALTER TABLE devices ALTER COLUMN imei_2 TYPE VARCHAR(30)`,
+      // IMEI é armazenado criptografado (base64url de IV+TAG+ciphertext), maior que 30 caracteres.
+      `ALTER TABLE devices ALTER COLUMN imei_1 TYPE VARCHAR(255)`,
+      `ALTER TABLE devices ALTER COLUMN imei_2 TYPE VARCHAR(255)`,
       `ALTER TABLE movements ALTER COLUMN device_imei TYPE VARCHAR(30)`,
       `CREATE UNIQUE INDEX IF NOT EXISTS ux_devices_imei_1 ON devices(imei_1) WHERE imei_1 IS NOT NULL AND imei_1 <> ''`,
       `ALTER TABLE movements DROP CONSTRAINT IF EXISTS movements_device_id_fkey`,
