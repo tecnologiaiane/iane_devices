@@ -758,29 +758,89 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 					isOpen={openSection === 'catalogs'}
 					onToggle={handleToggleSection}
 				>
-					{/* Catálogo content - simplified for brevity */}
 					<div className="p-4 space-y-4">
 						<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
 							{Object.entries(catalogLabels).map(([type, label]) => {
-								const items = catalogs[type as CatalogType] || [];
-								const filtered = items.filter(i => !catalogSearch[type as CatalogType] || i.name.toLocaleLowerCase('pt-BR').includes(catalogSearch[type as CatalogType].toLocaleLowerCase('pt-BR')));
+								const catalogType = type as CatalogType;
+								const items = catalogs[catalogType] || [];
+								const filtered = items.filter((item) => !catalogSearch[catalogType] || item.name.toLocaleLowerCase('pt-BR').includes(catalogSearch[catalogType].toLocaleLowerCase('pt-BR')));
+								const isSaving = savingCatalog === catalogType;
+								const isEditing = editingCatalogItem?.type === catalogType;
 								return (
-									<div key={type} className="radius-base border border-border-subtle bg-surface-subtle p-3">
-										<div className="flex items-center justify-between mb-2">
+									<div key={type} className="radius-base border border-border-subtle bg-surface-subtle p-3 space-y-2">
+										<div className="flex items-center justify-between">
 											<span className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">{label}</span>
-											<Badge variant="info" size="sm">{filtered.length}</Badge>
+											<Badge variant="info" size="sm">{items.length}</Badge>
 										</div>
+										<input
+											type="text"
+											value={catalogSearch[catalogType]}
+											onChange={(event) => setCatalogSearch((current) => ({ ...current, [catalogType]: event.target.value }))}
+											placeholder="Buscar item..."
+											className="w-full h-9 text-xs field px-2.5 py-1.5"
+										/>
 										<div className="space-y-1 max-h-40 overflow-y-auto">
-											{filtered.map((item) => (
-												<div key={item.id} className="flex items-center justify-between text-[11px] p-1.5 radius-base hover:bg-white cursor-pointer">
-													<span className="truncate">{item.name}</span>
-													<Button variant="ghost" size="sm" onClick={() => setEditingCatalogItem({ type: type as CatalogType, id: item.id })} className="p-1">
-														<Edit2 className="w-3 h-3" />
-													</Button>
-												</div>
-											))}
-											{filtered.length === 0 && <p className="text-[10px] text-text-muted text-center py-2">Nenhum item cadastrado.</p>}
+											{filtered.map((item) => {
+												const editingThis = editingCatalogItem?.type === catalogType && editingCatalogItem.id === item.id;
+												return (
+													<div key={item.id} className="flex items-center gap-1 text-[11px] p-1.5 radius-base hover:bg-white">
+														{editingThis ? (
+															<>
+																<input
+																	type="text"
+																	value={catalogDraft[catalogType]}
+																	onChange={(event) => setCatalogDraft((current) => ({ ...current, [catalogType]: event.target.value }))}
+																	onKeyDown={(event) => {
+																		if (event.key === 'Enter') handleCatalogSubmit(catalogType, item);
+																		if (event.key === 'Escape') setEditingCatalogItem(null);
+																	}}
+																	className="min-w-0 flex-1 h-9 text-xs field px-2 py-1"
+																	autoFocus
+																/>
+																<Button variant="ghost" size="sm" onClick={() => handleCatalogSubmit(catalogType, item)} disabled={isSaving} className="p-1" aria-label="Salvar item">
+																	<Save className="w-3 h-3" />
+																</Button>
+																<Button variant="ghost" size="sm" onClick={() => setEditingCatalogItem(null)} className="p-1" aria-label="Cancelar edição">
+																	<X className="w-3 h-3" />
+																</Button>
+															</>
+														) : (
+															<>
+																<span className="min-w-0 flex-1 truncate">{item.name}</span>
+																<Button variant="ghost" size="sm" onClick={() => {
+																	setEditingCatalogItem({ type: catalogType, id: item.id });
+																	setCatalogDraft((current) => ({ ...current, [catalogType]: item.name }));
+																}} className="p-1" aria-label={`Editar ${item.name}`}>
+																	<Edit2 className="w-3 h-3" />
+																</Button>
+																<Button variant="ghost" size="sm" onClick={() => handleCatalogDelete(catalogType, item)} className="p-1" aria-label={`Excluir ${item.name}`}>
+																	<Trash2 className="w-3 h-3" />
+																</Button>
+															</>
+														)}
+													</div>
+												);
+											})}
+											{filtered.length === 0 && (
+												<p className="text-[10px] text-text-muted text-center py-2">{items.length === 0 ? 'Nenhum item cadastrado.' : 'Nenhum item encontrado.'}</p>
+											)}
 										</div>
+										{!isEditing && (
+											<div className="flex items-center gap-1.5 pt-1 border-t border-border-subtle">
+												<input
+													type="text"
+													value={catalogDraft[catalogType]}
+													onChange={(event) => setCatalogDraft((current) => ({ ...current, [catalogType]: event.target.value }))}
+													onKeyDown={(event) => { if (event.key === 'Enter') handleCatalogSubmit(catalogType); }}
+													placeholder="Novo item"
+													className="min-w-0 flex-1 h-9 text-xs field px-2.5 py-1.5"
+												/>
+												<Button variant="secondary" size="sm" onClick={() => handleCatalogSubmit(catalogType)} disabled={isSaving || !catalogDraft[catalogType].trim()} className="shrink-0" aria-label={`Adicionar em ${label}`}>
+													{isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+													<span>Adicionar</span>
+												</Button>
+											</div>
+										)}
 									</div>
 								);
 							})}
