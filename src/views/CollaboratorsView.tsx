@@ -7,7 +7,7 @@ import { Button } from '../components/button';
 import { Badge } from '../components/badge';
 import { FilterDropdown, FilterField, FilterMultiSelect, FilterTrigger } from '../components/FilterDropdown';
 import { DataTable, type DataTableColumn } from '../components/DataTable';
-import { DownloadMenu } from '../components/DownloadMenu';
+import { DownloadMenu, type ExportColumn } from '../components/DownloadMenu';
 import {
   Users,
   Search,
@@ -204,6 +204,24 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
     },
   ];
 
+  /** Mapeamento exclusivo da exportação: Departamento e Setor em colunas próprias. */
+  const exportColumns: ExportColumn<Collaborator>[] = [
+    { header: 'Nome do Colaborador', value: (collab) => collab.fullName },
+    { header: 'Matrícula', value: (collab) => collab.registrationNumber },
+    { header: 'Departamento', value: (collab) => collab.department || '' },
+    { header: 'Setor', value: (collab) => collab.sector || '' },
+    { header: 'Cargo', value: (collab) => collab.position || '' },
+    { header: 'Status', value: (collab) => collab.status },
+    {
+      header: 'Ativos Vinculados',
+      value: (collab) => {
+        const devices = dataService.getDevices().filter((d) => d.currentCollaboratorId === collab.id).length;
+        const lines = dataService.getLines().filter((l) => l.currentCollaboratorId === collab.id).length;
+        return `${devices} aparelho(s) ${lines} linha(s)`;
+      },
+    },
+  ];
+
   return (
     <div className="space-y-5">
       <div className="radius-lg border border-border-subtle bg-surface-card shadow-sm p-4 space-y-3">
@@ -237,7 +255,7 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center justify-end gap-3">
-            <DownloadMenu fileName="colaboradores" data={filteredCollabs} columns={columns} />
+            <DownloadMenu fileName="colaboradores" data={filteredCollabs} exportColumns={exportColumns} />
             <FilterTrigger
               ref={filterMenuRef}
               isOpen={isFilterMenuOpen}

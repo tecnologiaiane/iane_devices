@@ -33,7 +33,7 @@ import { Button } from '../components/button';
 import { Badge } from '../components/badge';
 import { FilterDropdown, FilterField, FilterMultiSelect, FilterTrigger } from '../components/FilterDropdown';
 import { DataTable, type DataTableColumn } from '../components/DataTable';
-import { DownloadMenu } from '../components/DownloadMenu';
+import { DownloadMenu, type ExportColumn } from '../components/DownloadMenu';
 import { useToast } from '../components/ToastProvider';
 
 interface DevicesViewProps {
@@ -376,6 +376,18 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
     },
   ];
 
+  /** Mapeamento exclusivo da exportação: um valor por coluna, sem concatenação. */
+  const exportColumns: ExportColumn<Device>[] = [
+    { header: 'Tag do Ativo', value: (device) => device.assetTag },
+    { header: 'Modelo', value: (device) => device.model },
+    { header: 'Departamento', value: (device) => organizationForDevice(device).department },
+    { header: 'Setor', value: (device) => organizationForDevice(device).sector },
+    { header: 'IMEI', value: (device) => formatImei(device.imei1) },
+    { header: 'Status Operacional', value: (device) => device.status },
+    { header: 'Responsável', value: (device) => device.currentCollaboratorName || '' },
+    { header: 'Linha Associada', value: (device) => device.associatedPhoneNumber || '' },
+  ];
+
   return (
     <div className="space-y-5">
       <div className="radius-lg border border-border-subtle bg-surface-card shadow-sm p-4 space-y-3">
@@ -409,7 +421,7 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center justify-end gap-3">
-            <DownloadMenu fileName="dispositivos" data={filteredDevices} columns={columns} />
+            <DownloadMenu fileName="dispositivos" data={filteredDevices} exportColumns={exportColumns} />
             <FilterTrigger
               ref={filterMenuRef}
               isOpen={isFilterMenuOpen}

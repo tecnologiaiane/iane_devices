@@ -1,52 +1,41 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
 import { ChevronDown, Download, FileSpreadsheet, FileText } from 'lucide-react';
-import type { DataTableColumn } from './DataTable';
 import { downloadCsv } from '../utils/formatters';
 import { todayISO } from '../utils/dates';
 import { cn } from '../lib/utils';
 
 type ExportFormat = 'csv' | 'xlsx';
 
+/** Coluna exportável: cada campo tem seu próprio header e seu próprio valor. */
+export interface ExportColumn<T> {
+	header: string;
+	value: (row: T) => string | number;
+}
+
 interface DownloadMenuProps<T> {
 	/** Nome base do arquivo, sem extensão e sem data (ex.: "dispositivos"). */
 	fileName: string;
 	/** Registros já filtrados pela tela, na ordem em que devem ser exportados. */
 	data: T[];
-	/** Mesmas colunas usadas pela DataTable da tela; a coluna de ações é ignorada. */
-	columns: DataTableColumn<T>[];
+	/** Mapeamento explícito, usado tanto no CSV quanto no Excel. */
+	exportColumns: ExportColumn<T>[];
 }
 
-function nodeToText(node: React.ReactNode): string {
-	if (node === null || node === undefined || typeof node === 'boolean') return '';
-	if (typeof node === 'string' || typeof node === 'number') return String(node);
-	if (Array.isArray(node)) return node.map(nodeToText).filter(Boolean).join(' ');
-	if (React.isValidElement(node)) {
-		return nodeToText((node.props as { children?: React.ReactNode }).children);
-	}
-	return '';
-}
-
-function cellText(value: React.ReactNode): string {
-	return nodeToText(value).replace(/\s+/g, ' ').trim();
-}
-
-/**
- * Exporta exatamente o conteúdo visível das colunas da tabela (sem a coluna
- * de ações). Como o texto vem do próprio `render` usado pela DataTable,
- * máscaras de LGPD aplicadas na tela são preservadas no arquivo.
- */
-function buildExportRows<T>(data: T[], columns: DataTableColumn<T>[]): (string | number)[][] {
-	const exportColumns = columns.filter((column) => !['actions', 'action', 'acoes'].includes(column.key));
-	const headers = exportColumns.map((column) => cellText(column.header));
-	const rows = data.map((row, index) =>
-		exportColumns.map((column) => cellText(column.render(row, index)))
+/** Monta as linhas a partir das colunas explícitas, sem derivar do render da tabela. */
+function buildExportRows<T>(data: T[], exportColumns: ExportColumn<T>[]): (string | number)[][] {
+	const headers = exportColumns.map((column) => column.header);
+	const rows = data.map((row) =>
+		exportColumns.map((column) => {
+			const value = column.value(row);
+			return value === null || value === undefined ? '' : String(value);
+		})
 	);
 	return [headers, ...rows];
 }
 
 /** Botão reutilizável de exportação CSV/Excel das telas de listagem. */
-export function DownloadMenu<T>({ fileName, data, columns }: DownloadMenuProps<T>) {
+export function DownloadMenu<T>({ fileName, data, exportColumns }: DownloadMenuProps<T>) {
 	const [isOpen, setIsOpen] = useState(false);
 	const menuRef = useRef<HTMLDivElement>(null);
 
@@ -67,7 +56,7 @@ export function DownloadMenu<T>({ fileName, data, columns }: DownloadMenuProps<T
 	}, [isOpen]);
 
 	const handleExport = (format: ExportFormat) => {
-		const rows = buildExportRows(data, columns);
+		const rows = buildExportRows(data, exportColumns);
 		const baseName = `${fileName}_${todayISO()}`;
 
 		if (format === 'csv') {

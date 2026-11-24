@@ -24,7 +24,7 @@ import { Button } from '../components/button';
 import { Badge } from '../components/badge';
 import { FilterDropdown, FilterField, FilterMultiSelect, FilterTrigger } from '../components/FilterDropdown';
 import { DataTable, type DataTableColumn } from '../components/DataTable';
-import { DownloadMenu } from '../components/DownloadMenu';
+import { DownloadMenu, type ExportColumn } from '../components/DownloadMenu';
 import { useToast } from '../components/ToastProvider';
 
 interface LinesViewProps {
@@ -282,6 +282,19 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
     },
   ];
 
+  /** A linha não tem setor próprio: obtemos o setor do colaborador vinculado. */
+  const exportColumns: ExportColumn<PhoneLine>[] = [
+    { header: 'Número da Linha', value: (line) => formatPhone(line.phoneNumber) },
+    { header: 'Operadora', value: (line) => line.carrier },
+    { header: 'Plano Contratado', value: (line) => line.planName || '' },
+    { header: 'Custo Mensal', value: (line) => formatCurrency(line.monthlyCost) },
+    { header: 'Status da Linha', value: (line) => line.status },
+    { header: 'Aparelho Associado', value: (line) => line.associatedDeviceTag || '' },
+    { header: 'Colaborador', value: (line) => line.currentCollaboratorName || '' },
+    { header: 'Departamento', value: (line) => organizationForLine(line).department },
+    { header: 'Setor', value: (line) => organizationForLine(line).sector },
+  ];
+
   return (
     <div className="space-y-5">
       <div className="radius-lg border border-border-subtle bg-surface-card shadow-sm p-4 space-y-3">
@@ -315,7 +328,7 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
           </div>
 
           <div className="flex flex-wrap items-center justify-end gap-3">
-            <DownloadMenu fileName="linhas" data={filteredLines} columns={columns} />
+            <DownloadMenu fileName="linhas" data={filteredLines} exportColumns={exportColumns} />
             <FilterTrigger
               ref={filterMenuRef}
               isOpen={isFilterMenuOpen}

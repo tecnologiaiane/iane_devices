@@ -1,5 +1,6 @@
-import React, { ReactNode } from 'react';
-import { Check, Filter as FilterIcon, X } from 'lucide-react';
+import React, { ReactNode, useState } from 'react';
+import * as Popover from '@radix-ui/react-popover';
+import { Filter as FilterIcon, X } from 'lucide-react';
 import { Badge } from './badge';
 import { Button } from './button';
 import { cn } from '../lib/utils';
@@ -135,61 +136,107 @@ interface FilterMultiSelectProps {
   options: { label: string; value: string }[];
 }
 
-/** Multisseleção usada dentro do mesmo painel FilterDropdown, com a mesma linguagem visual de FilterField. */
+/**
+ * Dropdown fechado com multisseleção: usa o mesmo campo dos demais filtros
+ * (`field`, h-9, text-xs) e abre um painel com checkboxes ao clique. Fecha com
+ * clique fora ou Esc (comportamento padrão do Popover).
+ */
 export const FilterMultiSelect: React.FC<FilterMultiSelectProps> = ({
   label,
   values,
   onChange,
   options,
 }) => {
+  const [open, setOpen] = useState(false);
+  const allSelected = values.length === 0;
+  const summary = allSelected
+    ? 'Todos'
+    : values.length === 1
+      ? (options.find((opt) => opt.value === values[0])?.label ?? values[0])
+      : `${values.length} setores`;
+
   const toggle = (value: string) => {
     onChange(values.includes(value) ? values.filter((item) => item !== value) : [...values, value]);
   };
+  const itemClass = (selected: boolean) =>
+    cn(
+      'flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-xs text-text-primary transition-colors hover:bg-surface-subtle focus-within:bg-surface-subtle',
+      selected && 'bg-surface-subtle font-semibold',
+    );
+  const checkboxClass =
+    'h-3.5 w-3.5 shrink-0 radius-base border border-border-subtle accent-brand-blue-action';
 
   return (
     <div className="space-y-1">
-      <div className="flex items-center justify-between gap-2">
-        <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted">
-          {label}
-        </label>
-        {values.length > 0 && (
-          <button
-            type="button"
-            onClick={() => onChange([])}
-            className="text-[10px] font-medium text-brand-blue-action hover:underline"
+      <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+        {label}
+      </label>
+      <Popover.Root open={open} onOpenChange={setOpen}>
+        <Popover.Trigger asChild>
+          <select
+            aria-label={label}
+            value="current"
+            onChange={() => {}}
+            onMouseDown={(event) => event.preventDefault()}
+            className="w-full h-9 text-xs field px-2.5 py-1.5"
           >
-            Limpar
-          </button>
-        )}
-      </div>
-      <div
-        role="listbox"
-        aria-multiselectable="true"
-        className="max-h-52 overflow-y-auto radius-base border border-border-subtle bg-surface-card py-1"
-      >
-        {options.length === 0 ? (
-          <p className="px-3 py-2 text-center text-[11px] text-text-muted">Nenhuma opção encontrada.</p>
-        ) : (
-          options.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              role="option"
-              aria-selected={values.includes(opt.value)}
-              onClick={() => toggle(opt.value)}
-              className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs text-text-primary transition-colors hover:bg-surface-subtle focus-visible:bg-surface-subtle focus-visible:outline-none"
+            <option value="current">{summary}</option>
+          </select>
+        </Popover.Trigger>
+        <Popover.Portal>
+          <Popover.Content
+            side="bottom"
+            align="start"
+            sideOffset={4}
+            avoidCollisions={false}
+            style={{ width: 'var(--radix-popover-trigger-width)' }}
+            onMouseDown={(event) => event.stopPropagation()}
+            className="z-[60] overflow-hidden radius-lg border border-border-subtle bg-surface-card shadow-md outline-none"
+          >
+            <div
+              role="listbox"
+              aria-multiselectable="true"
+              style={{ maxHeight: 'min(280px, calc(var(--radix-popper-available-height) - 4px))' }}
+              className="overflow-y-auto py-1"
             >
-              <span className="truncate">{opt.label}</span>
-              {values.includes(opt.value) && (
-                <Check className="h-3.5 w-3.5 shrink-0 text-brand-blue-action" aria-hidden="true" />
+              <label role="option" aria-selected={allSelected} className={itemClass(allSelected)}>
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={() => onChange([])}
+                  className={checkboxClass}
+                />
+                <span className="truncate">Todos</span>
+              </label>
+              {options.length === 0 ? (
+                <p className="px-3 py-2 text-center text-[11px] text-text-muted">
+                  Nenhuma opção encontrada.
+                </p>
+              ) : (
+                options.map((opt) => {
+                  const selected = values.includes(opt.value);
+                  return (
+                    <label
+                      key={opt.value}
+                      role="option"
+                      aria-selected={selected}
+                      className={itemClass(selected)}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        onChange={() => toggle(opt.value)}
+                        className={checkboxClass}
+                      />
+                      <span className="truncate">{opt.label}</span>
+                    </label>
+                  );
+                })
               )}
-            </button>
-          ))
-        )}
-      </div>
-      <p className="text-[10px] text-text-muted">
-        {values.length > 0 ? `${values.length} selecionado(s)` : 'Todos'}
-      </p>
+            </div>
+          </Popover.Content>
+        </Popover.Portal>
+      </Popover.Root>
     </div>
   );
 };

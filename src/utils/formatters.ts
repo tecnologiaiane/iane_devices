@@ -94,7 +94,8 @@ export function downloadCsv(filename: string, rows: (string | number)[][]) {
     for (let j = 0; j < row.length; j++) {
       let innerValue = row[j] === null || row[j] === undefined ? '' : row[j].toString();
       let result = innerValue.replace(/"/g, '""');
-      if (result.search(/("|,|\n)/g) >= 0) {
+      // O separador é ";"; também é preciso citar quebras (CR/LF) e aspas.
+      if (/[";\r\n]/.test(result)) {
         result = '"' + result + '"';
       }
       if (j > 0) finalVal += ';'; // Ponto e vírgula é o padrão para Excel em PT-BR
