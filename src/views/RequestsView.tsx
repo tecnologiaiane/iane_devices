@@ -4,8 +4,8 @@ import { dataService } from '../services/dataStorage';
 import { Modal } from '../components/Modal';
 import { StatusBadge } from '../components/StatusBadge';
 import { Button } from '../components/button';
-import { Badge } from '../components/badge';
 import { DataTable, type DataTableColumn } from '../components/DataTable';
+import { FilterDropdown, FilterField, FilterTrigger } from '../components/FilterDropdown';
 import { formatDate, formatDateTime, formatPhone, matchesPhoneSearch } from '../utils/formatters';
 import { toDateInputValue } from '../utils/dates';
 import {
@@ -18,7 +18,6 @@ import {
   ChevronLeft,
   ChevronRight,
   ClipboardList,
-  Filter,
   Info,
   Package,
   Plus,
@@ -197,9 +196,10 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ currentUser }) => {
   const [loadError, setLoadError] = useState('');
   const [selectedRequest, setSelectedRequest] = useState<RequestRecord | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const filterMenuRef = useRef<HTMLDivElement>(null);
+  const filterMenuRef = useRef<HTMLButtonElement>(null);
 
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
+  const [filterPosition, setFilterPosition] = useState<{ top: number; left: number } | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const pageSizes = [10, 25, 50, 100];
@@ -220,6 +220,15 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ currentUser }) => {
     document.addEventListener('mousedown', closeOnOutsideClick);
     return () => document.removeEventListener('mousedown', closeOnOutsideClick);
   }, [menuOpen]);
+
+  useEffect(() => {
+    if (!isFilterMenuOpen || !filterMenuRef.current) {
+      setFilterPosition(null);
+      return;
+    }
+    const rect = filterMenuRef.current.getBoundingClientRect();
+    setFilterPosition({ top: rect.bottom + 4, left: rect.left });
+  }, [isFilterMenuOpen]);
 
   // Fecha o dropdown de filtros ao clicar fora ou pressionar Esc
   useEffect(() => {
@@ -263,14 +272,6 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ currentUser }) => {
     setRequests((previous) => [request, ...previous.filter((item) => item.id !== request.id)]);
     setSuccessMessage('Solicitação registrada com sucesso.');
     setActiveFlow(null);
-  };
-
-  const resetFilters = () => {
-    setTypeFilter('todos');
-    setStatusFilter('todos');
-    setStartDate('');
-    setEndDate('');
-    setSearch('');
   };
 
   const columns: DataTableColumn<RequestRecord>[] = [
@@ -372,103 +373,6 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ currentUser }) => {
           </div>
         </div>
 
-        <div
-          ref={filterMenuRef}
-          className="relative"
-        >
-          <button
-            type="button"
-            onClick={() => setIsFilterMenuOpen((open) => !open)}
-            aria-expanded={isFilterMenuOpen}
-            aria-haspopup="menu"
-            className="inline-flex items-center gap-2 radius-lg border border-border-subtle bg-surface-card px-2.5 py-1 text-text-muted font-medium focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
-          >
-            <Filter className="w-3 h-3 text-text-muted" />
-            <span>Filtros</span>
-            {(
-              typeFilter !== 'todos' ||
-              statusFilter !== 'todos' ||
-              startDate ||
-              endDate
-            ) && (
-              <Badge variant="info" size="sm" className="text-[10px]">
-                ativos
-              </Badge>
-            )}
-          </button>
-
-          {isFilterMenuOpen && (
-            <div
-              className="absolute z-40 mt-1 w-80 overflow-hidden radius-lg border border-border-subtle bg-surface-card shadow-lg py-2"
-            >
-              <div className="px-3 py-2 space-y-3 border-b border-border-subtle pb-2">
-                <div>
-                  <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-1">Tipo</label>
-                  <select
-                    value={typeFilter}
-                    onChange={(e) => setTypeFilter(e.target.value)}
-                    className="w-full h-9 text-xs field px-2 py-1"
-                  >
-                    <option value="todos">Todos</option>
-                    <option value="Entrega">Entrega</option>
-                    <option value="Devolução">Devolução</option>
-                    <option value="Transferência">Transferência</option>
-                    <option value="Troca">Troca de Aparelho</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-1">Status</label>
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="w-full h-9 text-xs field px-2 py-1"
-                  >
-                    <option value="todos">Todos</option>
-                    <option value="Pendente de aprovação">Pendente de aprovação</option>
-                    <option value="Aprovada">Aprovada</option>
-                    <option value="Recusada">Recusada</option>
-                  </select>
-                </div>
-
-                <div className="flex items-center gap-1 text-text-muted">
-                  <span className="text-[11px]">De:</span>
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="field px-2 py-0.5 font-code"
-                  />
-                </div>
-
-                <div className="flex items-center gap-1 text-text-muted">
-                  <span className="text-[11px]">Até:</span>
-                  <input
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className="field px-2 py-0.5 font-code"
-                  />
-                </div>
-              </div>
-
-              <div className="px-3 py-2 flex justify-end gap-2">
-                <Button variant="ghost" size="sm" onClick={() => setIsFilterMenuOpen(false)}>Fechar</Button>
-                {(typeFilter !== 'todos' || statusFilter !== 'todos' || startDate || endDate) && (
-                  <Button variant="ghost" size="sm" onClick={() => {
-                    setTypeFilter('todos');
-                    setStatusFilter('todos');
-                    setStartDate('');
-                    setEndDate('');
-                  }}>
-                    Limpar filtros
-                  </Button>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-
         <div className="flex items-center justify-between w-full pt-2 border-t border-border-subtle text-xs">
           <div className="flex items-center gap-1 text-text-muted">
             <span className="text-[11px]">Exibindo</span>
@@ -478,20 +382,90 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ currentUser }) => {
             <span className="text-[11px]">solicitações</span>
           </div>
 
-          <div className="flex items-center gap-2">
-            <label className="text-[11px] text-text-muted">Por página:</label>
-            <select
-              value={pageSize}
-              onChange={(e) => {
-                setPageSize(Number(e.target.value));
-                setCurrentPage(1);
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <FilterTrigger
+              ref={filterMenuRef}
+              isOpen={isFilterMenuOpen}
+              activeCount={[
+                typeFilter !== 'todos',
+                statusFilter !== 'todos',
+                Boolean(startDate),
+                Boolean(endDate),
+              ].filter(Boolean).length}
+              onToggle={() => setIsFilterMenuOpen((open) => !open)}
+            />
+            <FilterDropdown
+              isOpen={isFilterMenuOpen}
+              position={filterPosition}
+              activeCount={[
+                typeFilter !== 'todos',
+                statusFilter !== 'todos',
+                Boolean(startDate),
+                Boolean(endDate),
+              ].filter(Boolean).length}
+              onClose={() => setIsFilterMenuOpen(false)}
+              onClear={() => {
+                setTypeFilter('todos');
+                setStatusFilter('todos');
+                setStartDate('');
+                setEndDate('');
               }}
-              className="w-auto h-9 text-[11px] field px-2 py-1 font-medium"
             >
-              {pageSizes.map((size) => (
-                <option key={size} value={size}>{size}</option>
-              ))}
-            </select>
+              <FilterField
+                label="Tipo"
+                value={typeFilter}
+                onChange={setTypeFilter}
+                options={[
+                  { label: 'Entrega', value: 'Entrega' },
+                  { label: 'Devolução', value: 'Devolução' },
+                  { label: 'Transferência', value: 'Transferência' },
+                  { label: 'Troca de Aparelho', value: 'Troca' },
+                ]}
+              />
+              <FilterField
+                label="Status"
+                value={statusFilter}
+                onChange={setStatusFilter}
+                options={[
+                  { label: 'Pendente de aprovação', value: 'Pendente de aprovação' },
+                  { label: 'Aprovada', value: 'Aprovada' },
+                  { label: 'Recusada', value: 'Recusada' },
+                ]}
+              />
+              <div className="space-y-1">
+                <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted">De</label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full h-9 text-xs field px-2.5 py-1.5 font-code"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted">Até</label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full h-9 text-xs field px-2.5 py-1.5 font-code"
+                />
+              </div>
+            </FilterDropdown>
+            <div className="flex items-center gap-2">
+              <label className="text-[11px] text-text-muted">Por página:</label>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="w-auto h-9 text-[11px] field px-2 py-1 font-medium"
+              >
+                {pageSizes.map((size) => (
+                  <option key={size} value={size}>{size}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
       </div>

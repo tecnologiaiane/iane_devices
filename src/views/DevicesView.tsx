@@ -31,8 +31,9 @@ import {
 } from 'lucide-react';
 import { Button } from '../components/button';
 import { Badge } from '../components/badge';
-import { FilterDropdown, FilterField, FilterTrigger } from '../components/FilterDropdown';
+import { FilterDropdown, FilterField, FilterMultiSelect, FilterTrigger } from '../components/FilterDropdown';
 import { DataTable, type DataTableColumn } from '../components/DataTable';
+import { DownloadMenu } from '../components/DownloadMenu';
 
 interface DevicesViewProps {
   onOpenDeviceModal: (device?: Device) => void;
@@ -53,6 +54,7 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
   const [statusFilter, setStatusFilter] = useState<string>('todos');
   const [stockFilter, setStockFilter] = useState<'todos' | 'em_estoque' | 'com_colaborador'>('todos');
   const [departmentFilter, setDepartmentFilter] = useState<string>('todos');
+  const [sectorFilter, setSectorFilter] = useState<string[]>([]);
   const [brandFilter, setBrandFilter] = useState<string>('todos');
 
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
@@ -164,6 +166,23 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
     }
   };
 
+  /**
+   * Departamento/setor exibidos no aparelho: quando o cadastro do aparelho não
+   * preencheu o campo próprio, usamos o colaborador atual vinculado. Essa
+   * derivação é somente de apresentação/filtro — o registro não é alterado.
+   */
+  const organizationForDevice = (device: Device) => {
+    const collaborators = dataService.getCollaborators();
+    const collaborator = (device.currentCollaboratorId
+      ? collaborators.find((item) => item.id === device.currentCollaboratorId)
+      : undefined) || collaborators.find((item) => item.fullName === device.currentCollaboratorName);
+
+    return {
+      department: device.currentDepartment || collaborator?.department || '',
+      sector: device.sector || collaborator?.sector || '',
+    };
+  };
+
   const filteredDevices = devices.filter((d) => {
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -182,7 +201,9 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
     }
 
     if (statusFilter !== 'todos' && d.status !== statusFilter) return false;
-    if (departmentFilter !== 'todos' && d.currentDepartment !== departmentFilter) return false;
+    const organization = organizationForDevice(d);
+    if (departmentFilter !== 'todos' && organization.department !== departmentFilter) return false;
+    if (sectorFilter.length > 0 && !sectorFilter.includes(organization.sector)) return false;
     if (brandFilter !== 'todos' && d.brand !== brandFilter) return false;
 
     if (stockFilter === 'em_estoque' && d.status === inUseStatus) return false;
@@ -191,7 +212,8 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
     return true;
   });
 
-  const uniqueDepartments = Array.from(new Set(devices.map(d => d.currentDepartment).filter(Boolean))) as string[];
+  const uniqueDepartments = Array.from(new Set(devices.map((d) => organizationForDevice(d).department).filter(Boolean))) as string[];
+  const uniqueSectors = Array.from(new Set(catalogs.sectors.map((item) => item.name)));
   const uniqueBrands = Array.from(new Set(devices.map(d => d.brand)));
 
   const totalPages = Math.ceil(filteredDevices.length / pageSize) || 1;
@@ -250,15 +272,21 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
     },
     {
       key: 'model',
-      header: 'Marca & Modelo',
+      header: 'Modelo',
       cellClassName: 'font-medium text-text-primary',
-      render: (device) => (
-        <>
-          <div>{device.model}</div>
-          <span className="text-[11px] text-text-muted font-code">S/N: {device.serialNumber}</span>
-          <span className="block text-[11px] text-text-muted">Setor: {device.sector || 'Não informado'}</span>
-        </>
-      ),
+      render: (device) => device.model,
+    },
+    {
+      key: 'department',
+      header: 'Departamento',
+      cellClassName: 'font-medium text-text-muted',
+      render: (device) => organizationForDevice(device).department || 'Não informado',
+    },
+    {
+      key: 'sector',
+      header: 'Setor',
+      cellClassName: 'font-medium text-text-muted',
+      render: (device) => organizationForDevice(device).sector || 'Não informado',
     },
     {
       key: 'imei',
@@ -278,8 +306,8 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
         device.status === inUseStatus && device.currentCollaboratorName ? (
           <div>
             <span className="font-semibold text-text-primary">{device.currentCollaboratorName}</span>
-            {device.currentDepartment && (
-              <span className="block text-[11px] text-text-muted">{device.currentDepartment}</span>
+            {organizationForDevice(device).department && (
+              <span className="block text-[11px] text-text-muted">{organizationForDevice(device).department}</span>
             )}
           </div>
         ) : (
@@ -378,7 +406,8 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
             <span className="text-[11px]">aparelhos</span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <DownloadMenu fileName="dispositivos" data={filteredDevices} columns={columns} />
             <FilterTrigger
               ref={filterMenuRef}
               isOpen={isFilterMenuOpen}
@@ -386,6 +415,7 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
                 stockFilter !== 'todos',
                 statusFilter !== 'todos',
                 departmentFilter !== 'todos',
+                sectorFilter.length > 0,
                 brandFilter !== 'todos',
               ].filter(Boolean).length}
               onToggle={() => setIsFilterMenuOpen((open) => !open)}
@@ -397,6 +427,7 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
                 stockFilter !== 'todos',
                 statusFilter !== 'todos',
                 departmentFilter !== 'todos',
+                sectorFilter.length > 0,
                 brandFilter !== 'todos',
               ].filter(Boolean).length}
               onClose={() => setIsFilterMenuOpen(false)}
@@ -404,6 +435,7 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
                 setStockFilter('todos');
                 setStatusFilter('todos');
                 setDepartmentFilter('todos');
+                setSectorFilter([]);
                 setBrandFilter('todos');
               }}
             >
@@ -427,6 +459,12 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
                 value={departmentFilter}
                 onChange={setDepartmentFilter}
                 options={uniqueDepartments.map((dept) => ({ label: dept, value: dept }))}
+              />
+              <FilterMultiSelect
+                label="Setor"
+                values={sectorFilter}
+                onChange={setSectorFilter}
+                options={uniqueSectors.map((sector) => ({ label: sector, value: sector }))}
               />
               <FilterField
                 label="Marca"

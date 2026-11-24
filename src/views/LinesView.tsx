@@ -25,6 +25,7 @@ import { Button } from '../components/button';
 import { Badge } from '../components/badge';
 import { FilterDropdown, FilterField, FilterTrigger } from '../components/FilterDropdown';
 import { DataTable, type DataTableColumn } from '../components/DataTable';
+import { DownloadMenu } from '../components/DownloadMenu';
 
 interface LinesViewProps {
   onOpenLineModal: (line?: PhoneLine) => void;
@@ -37,6 +38,8 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('todos');
   const [carrierFilter, setCarrierFilter] = useState<string>('todos');
+  const [departmentFilter, setDepartmentFilter] = useState<string>('todos');
+  const [sectorFilter, setSectorFilter] = useState<string>('todos');
   const [associationFilter, setAssociationFilter] = useState<'todos' | 'com_aparelho' | 'sem_aparelho'>('todos');
 
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
@@ -69,6 +72,30 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
     }
   };
 
+  /**
+   * A linha não possui campo de setor no cadastro. Para filtrar, derivamos o
+   * setor do colaborador vinculado à linha ou, na ausência dele, do colaborador
+   * do aparelho associado. O departamento usa o campo da linha com o mesmo
+   * fallback. Nada é gravado nos registros.
+   */
+  const organizationForLine = (line: PhoneLine) => {
+    const collaborators = dataService.getCollaborators();
+    let collaborator = line.currentCollaboratorId
+      ? collaborators.find((item) => item.id === line.currentCollaboratorId)
+      : undefined;
+    if (!collaborator && line.associatedDeviceId) {
+      const device = dataService.getDeviceById(line.associatedDeviceId);
+      collaborator = device?.currentCollaboratorId
+        ? collaborators.find((item) => item.id === device.currentCollaboratorId)
+        : undefined;
+    }
+
+    return {
+      department: line.department || collaborator?.department || '',
+      sector: collaborator?.sector || '',
+    };
+  };
+
   const filteredLines = lines.filter((l) => {
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -82,12 +109,24 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
 
     if (statusFilter !== 'todos' && l.status !== statusFilter) return false;
     if (carrierFilter !== 'todos' && l.carrier !== carrierFilter) return false;
+    const organization = organizationForLine(l);
+    if (departmentFilter !== 'todos' && organization.department !== departmentFilter) return false;
+    if (sectorFilter !== 'todos' && organization.sector !== sectorFilter) return false;
 
     if (associationFilter === 'com_aparelho' && !l.associatedDeviceId) return false;
     if (associationFilter === 'sem_aparelho' && l.associatedDeviceId) return false;
 
     return true;
   });
+
+  const departmentOptions = Array.from(new Set([
+    ...catalogs.departments.map((item) => item.name),
+    ...lines.map((line) => organizationForLine(line).department).filter(Boolean),
+  ]));
+  const sectorOptions = Array.from(new Set([
+    ...catalogs.sectors.map((item) => item.name),
+    ...lines.map((line) => organizationForLine(line).sector).filter(Boolean),
+  ]));
 
   const totalPages = Math.ceil(filteredLines.length / pageSize) || 1;
   const paginatedLines = filteredLines.slice((currentPage - 1) * pageSize, currentPage * pageSize);
@@ -274,13 +313,16 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
             <span className="text-[11px]">linhas</span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <DownloadMenu fileName="linhas" data={filteredLines} columns={columns} />
             <FilterTrigger
               ref={filterMenuRef}
               isOpen={isFilterMenuOpen}
               activeCount={[
                 statusFilter !== 'todos',
                 carrierFilter !== 'todos',
+                departmentFilter !== 'todos',
+                sectorFilter !== 'todos',
                 associationFilter !== 'todos',
               ].filter(Boolean).length}
               onToggle={() => setIsFilterMenuOpen((open) => !open)}
@@ -291,12 +333,16 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
               activeCount={[
                 statusFilter !== 'todos',
                 carrierFilter !== 'todos',
+                departmentFilter !== 'todos',
+                sectorFilter !== 'todos',
                 associationFilter !== 'todos',
               ].filter(Boolean).length}
               onClose={() => setIsFilterMenuOpen(false)}
               onClear={() => {
                 setStatusFilter('todos');
                 setCarrierFilter('todos');
+                setDepartmentFilter('todos');
+                setSectorFilter('todos');
                 setAssociationFilter('todos');
               }}
             >
@@ -315,6 +361,18 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
                   { label: 'Claro', value: 'Claro' },
                   { label: 'TIM', value: 'TIM' },
                 ]}
+              />
+              <FilterField
+                label="Departamento"
+                value={departmentFilter}
+                onChange={setDepartmentFilter}
+                options={departmentOptions.map((department) => ({ label: department, value: department }))}
+              />
+              <FilterField
+                label="Setor"
+                value={sectorFilter}
+                onChange={setSectorFilter}
+                options={sectorOptions.map((sector) => ({ label: sector, value: sector }))}
               />
               <FilterField
                 label="Vínculo"

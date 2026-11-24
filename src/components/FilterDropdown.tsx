@@ -127,3 +127,63 @@ export const FilterField: React.FC<FilterFieldProps> = ({
     </div>
   );
 };
+
+interface FilterMultiSelectProps {
+  label: string;
+  values: string[];
+  onChange: (values: string[]) => void;
+  options: { label: string; value: string }[];
+}
+
+/** Multisseleção usada dentro do mesmo painel FilterDropdown, com a mesma linguagem visual de FilterField. */
+export const FilterMultiSelect: React.FC<FilterMultiSelectProps> = ({
+  label,
+  values,
+  onChange,
+  options,
+}) => {
+  const toggle = (value: string, checked: boolean) => {
+    onChange(checked ? [...values, value] : values.filter((item) => item !== value));
+  };
+
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between gap-2">
+        <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+          {label}
+        </label>
+        {values.length > 0 && (
+          <button
+            type="button"
+            onClick={() => onChange([])}
+            className="text-[10px] font-medium text-brand-blue-action hover:underline"
+          >
+            Limpar
+          </button>
+        )}
+      </div>
+      <div className="max-h-32 overflow-y-auto radius-base border border-border-subtle bg-surface-card px-2.5 py-1.5">
+        {options.length === 0 ? (
+          <p className="text-[11px] text-text-muted">Nenhuma opção encontrada.</p>
+        ) : (
+          <div className="space-y-1">
+            {options.map((opt) => (
+              <label key={opt.value} className="flex cursor-pointer items-center gap-2 text-xs text-text-primary">
+                <input
+                  type="checkbox"
+                  checked={values.includes(opt.value)}
+                  onChange={(event) => toggle(opt.value, event.target.checked)}
+                  className="h-3.5 w-3.5 accent-[var(--color-brand-blue-action)]"
+                />
+                <span>{opt.label}</span>
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
+      <p className="text-[10px] text-text-muted">
+        {values.length > 0 ? `${values.length} selecionado(s)` : 'Todos'}
+      </p>
+    </div>
+  );
+};

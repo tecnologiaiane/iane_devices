@@ -15,10 +15,10 @@ import { Modal } from '../components/Modal';
 import { Button } from '../components/button';
 import { Badge } from '../components/badge';
 import { DataTable, type DataTableColumn } from '../components/DataTable';
+import { FilterDropdown, FilterField, FilterTrigger } from '../components/FilterDropdown';
 import {
   FileText,
   Search,
-  Filter,
   Eye,
   Clock,
   Upload,
@@ -43,7 +43,8 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm, onPrintTerm })
   const [typeFilter, setTypeFilter] = useState<string>('todos');
 
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
-  const filterMenuRef = useRef<HTMLDivElement>(null);
+  const filterMenuRef = useRef<HTMLButtonElement>(null);
+  const [filterPosition, setFilterPosition] = useState<{ top: number; left: number } | null>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -68,6 +69,15 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm, onPrintTerm })
   const refreshData = () => {
     setTerms(dataService.getTerms());
   };
+
+  useEffect(() => {
+    if (!isFilterMenuOpen || !filterMenuRef.current) {
+      setFilterPosition(null);
+      return;
+    }
+    const rect = filterMenuRef.current.getBoundingClientRect();
+    setFilterPosition({ top: rect.bottom + 4, left: rect.left });
+  }, [isFilterMenuOpen]);
 
   // Fecha o dropdown de filtros ao clicar fora ou pressionar Esc
   useEffect(() => {
@@ -406,78 +416,6 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm, onPrintTerm })
           </div>
         </div>
 
-        <div
-          ref={filterMenuRef}
-          className="relative"
-        >
-          <button
-            type="button"
-            onClick={() => setIsFilterMenuOpen((open) => !open)}
-            aria-expanded={isFilterMenuOpen}
-            aria-haspopup="menu"
-            className="inline-flex items-center gap-2 radius-lg border border-border-subtle bg-surface-card px-2.5 py-1 text-text-muted font-medium focus:outline-none focus:border-brand-blue-action focus:ring-2 focus:ring-brand-blue-action/15"
-          >
-            <Filter className="w-3 h-3 text-text-muted" />
-            <span>Filtros</span>
-            {(
-              statusFilter !== 'todos' ||
-              typeFilter !== 'todos'
-            ) && (
-              <Badge variant="info" size="sm" className="text-[10px]">
-                ativos
-              </Badge>
-            )}
-          </button>
-
-          {isFilterMenuOpen && (
-            <div
-              className="absolute z-40 mt-1 w-72 overflow-hidden radius-lg border border-border-subtle bg-surface-card shadow-lg py-2"
-            >
-              <div className="px-3 py-2 space-y-3 border-b border-border-subtle pb-2">
-                <div>
-                  <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-1">Status</label>
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="w-full h-9 text-xs field px-2 py-1"
-                  >
-                    <option value="todos">Todos</option>
-                    <option value="Assinado">Assinado</option>
-                    <option value="Pendente de Assinatura">Pendente de Assinatura</option>
-                    <option value="Arquivado">Arquivado</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-1">Tipo de documento</label>
-                  <select
-                    value={typeFilter}
-                    onChange={(e) => setTypeFilter(e.target.value)}
-                    className="w-full h-9 text-xs field px-2 py-1"
-                  >
-                    <option value="todos">Todos</option>
-                    <option value="Termo de Entrega">Termo de Entrega</option>
-                    <option value="Termo de Devolução">Termo de Devolução</option>
-                    <option value="Termo de Transferência">Termo de Transferência</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="px-3 py-2 flex justify-end gap-2">
-                <Button variant="ghost" size="sm" onClick={() => setIsFilterMenuOpen(false)}>Fechar</Button>
-                {(statusFilter !== 'todos' || typeFilter !== 'todos') && (
-                  <Button variant="ghost" size="sm" onClick={() => {
-                    setStatusFilter('todos');
-                    setTypeFilter('todos');
-                  }}>
-                    Limpar filtros
-                  </Button>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-
         <div className="flex items-center justify-between w-full pt-2 border-t border-border-subtle text-xs">
           <div className="flex items-center gap-1 text-text-muted">
             <span className="text-[11px]">Exibindo</span>
@@ -487,20 +425,59 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm, onPrintTerm })
             <span className="text-[11px]">documentos</span>
           </div>
 
-          <div className="flex items-center gap-2">
-            <label className="text-[11px] text-text-muted">Por página:</label>
-            <select
-              value={pageSize}
-              onChange={(e) => {
-                setPageSize(Number(e.target.value));
-                setCurrentPage(1);
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <FilterTrigger
+              ref={filterMenuRef}
+              isOpen={isFilterMenuOpen}
+              activeCount={[statusFilter !== 'todos', typeFilter !== 'todos'].filter(Boolean).length}
+              onToggle={() => setIsFilterMenuOpen((open) => !open)}
+            />
+            <FilterDropdown
+              isOpen={isFilterMenuOpen}
+              position={filterPosition}
+              activeCount={[statusFilter !== 'todos', typeFilter !== 'todos'].filter(Boolean).length}
+              onClose={() => setIsFilterMenuOpen(false)}
+              onClear={() => {
+                setStatusFilter('todos');
+                setTypeFilter('todos');
               }}
-              className="w-auto h-9 text-[11px] field px-2 py-1 font-medium"
             >
-              {pageSizes.map((size) => (
-                <option key={size} value={size}>{size}</option>
-              ))}
-            </select>
+              <FilterField
+                label="Status"
+                value={statusFilter}
+                onChange={setStatusFilter}
+                options={[
+                  { label: 'Assinado', value: 'Assinado' },
+                  { label: 'Pendente de Assinatura', value: 'Pendente de Assinatura' },
+                  { label: 'Arquivado', value: 'Arquivado' },
+                ]}
+              />
+              <FilterField
+                label="Tipo de documento"
+                value={typeFilter}
+                onChange={setTypeFilter}
+                options={[
+                  { label: 'Termo de Entrega', value: 'Termo de Entrega' },
+                  { label: 'Termo de Devolução', value: 'Termo de Devolução' },
+                  { label: 'Termo de Transferência', value: 'Termo de Transferência' },
+                ]}
+              />
+            </FilterDropdown>
+            <div className="flex items-center gap-2">
+              <label className="text-[11px] text-text-muted">Por página:</label>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="w-auto h-9 text-[11px] field px-2 py-1 font-medium"
+              >
+                {pageSizes.map((size) => (
+                  <option key={size} value={size}>{size}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
       </div>

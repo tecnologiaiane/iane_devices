@@ -7,6 +7,7 @@ import { Button } from '../components/button';
 import { Badge } from '../components/badge';
 import { FilterDropdown, FilterField, FilterTrigger } from '../components/FilterDropdown';
 import { DataTable, type DataTableColumn } from '../components/DataTable';
+import { DownloadMenu } from '../components/DownloadMenu';
 import {
   Users,
   Search,
@@ -227,7 +228,8 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
             <span className="text-[11px]">colaboradores</span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <DownloadMenu fileName="colaboradores" data={filteredCollabs} columns={columns} />
             <FilterTrigger
               ref={filterMenuRef}
               isOpen={isFilterMenuOpen}
