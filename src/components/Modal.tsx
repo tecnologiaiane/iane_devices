@@ -56,7 +56,7 @@ export const Modal: React.FC<ModalProps> = ({
 		>
 			<Dialog.Portal>
 				{/* Backdrop — véu translúcido navy */}
-				<Dialog.Overlay className="fixed inset-0 z-50 bg-[#0A1F3C]/50 backdrop-blur-[2px] transition-opacity" />
+				<Dialog.Overlay className="fixed inset-0 z-50 bg-sidebar-overlay/50 backdrop-blur-[2px] transition-opacity" />
 
 				<div
 					data-slot="modal-root"

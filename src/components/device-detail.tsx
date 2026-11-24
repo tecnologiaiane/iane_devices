@@ -193,7 +193,7 @@ export function DeviceDetail({
 		>
 			<div
 				data-slot="device-detail-backdrop"
-				className="absolute inset-0 bg-[#0A1F3C]/50 backdrop-blur-[2px]"
+				className="absolute inset-0 bg-sidebar-overlay/50 backdrop-blur-[2px]"
 				onClick={onClose}
 				aria-hidden="true"
 			/>

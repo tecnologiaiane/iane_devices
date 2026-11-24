@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useId, useLayoutEffect, useRef, useState } from 'react'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { cn } from '../lib/utils'
 
@@ -23,6 +23,10 @@ export const Accordion: React.FC<AccordionProps> = ({
 }) => {
 	const [internalOpen, setInternalOpen] = useState(defaultOpen)
 	const isOpen = controlledIsOpen ?? internalOpen
+	const instanceId = useId().replace(/:/g, '')
+	const headerId = `${instanceId}-header`
+	const contentId = `${instanceId}-content`
+	const panelRef = useRef<HTMLDivElement>(null)
 
 	// Estado exclusivo desta instância: nenhum valor é compartilhado entre accordions.
 	const handleToggle = () => {
@@ -30,12 +34,44 @@ export const Accordion: React.FC<AccordionProps> = ({
 		onToggle?.()
 	}
 
+	// Anima a altura real do conteúdo sem valor máximo fixo (que cortaria itens).
+	// A transição de grid-template-rows 0fr -> 1fr não funciona no Chromium atual.
+	useLayoutEffect(() => {
+		const panel = panelRef.current
+		const content = panel?.firstElementChild as HTMLElement | null
+		if (!panel || !content) return
+
+		if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+			panel.style.transition = 'none'
+			panel.style.maxHeight = isOpen ? 'none' : '0px'
+			return
+		}
+
+		panel.style.transition = ''
+		if (isOpen) {
+			panel.style.maxHeight = `${content.scrollHeight}px`
+			const handleTransitionEnd = (event: TransitionEvent) => {
+				if (event.propertyName === 'max-height') panel.style.maxHeight = 'none'
+			}
+			panel.addEventListener('transitionend', handleTransitionEnd)
+			return () => panel.removeEventListener('transitionend', handleTransitionEnd)
+		}
+
+		if (panel.style.maxHeight === 'none') {
+			panel.style.maxHeight = `${panel.scrollHeight}px`
+			void panel.offsetHeight
+		}
+		panel.style.maxHeight = '0px'
+	}, [isOpen])
+
 	return (
 		<div className="radius-lg border border-border-subtle bg-surface-card shadow-sm overflow-hidden">
 			<h2 className="border-b border-border-subtle">
 				<button
 					type="button"
+					id={headerId}
 					aria-expanded={isOpen}
+					aria-controls={contentId}
 					onClick={(event) => {
 						event.stopPropagation()
 						handleToggle()
@@ -56,8 +92,20 @@ export const Accordion: React.FC<AccordionProps> = ({
 					)}
 				</button>
 			</h2>
-			<div role="region" aria-label={title} hidden={!isOpen} className="p-4">
-				{children}
+			<div
+				ref={panelRef}
+				className="max-h-0 overflow-hidden transition-[max-height] duration-200 ease-out motion-reduce:transition-none"
+			>
+				<div
+					id={contentId}
+					role="region"
+					aria-label={title}
+					aria-hidden={!isOpen}
+					inert={!isOpen}
+					className="p-4"
+				>
+					{children}
+				</div>
 			</div>
 		</div>
 	)

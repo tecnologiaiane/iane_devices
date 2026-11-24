@@ -15,6 +15,28 @@
   --color-brand-sun: #FFD60A;
   --color-brand-sun-hover: #EFC700;
 
+  /* --- Escala neutra do modo escuro (sem matiz azul) --- */
+  --color-neutral-dark-950: #0a0a0b;
+  --color-neutral-dark-900: #0f0f10;
+  --color-neutral-dark-850: #161618;
+  --color-neutral-dark-800: #1c1c1f;
+  --color-neutral-dark-750: #232326;
+  --color-neutral-dark-700: #27272a;
+  --color-neutral-dark-650: #2a2a2e;
+  --color-neutral-dark-600: #3f3f46;
+  --color-neutral-dark-500: #71717a;
+  --color-neutral-dark-400: #a1a1aa;
+  --color-neutral-dark-300: #d4d4d8;
+  --color-neutral-dark-200: #e4e4e7;
+  --color-neutral-dark-50: #f4f4f5;
+  --color-neutral-dark-black: #000000;
+
+  /* --- Acentos discretos usados no modo escuro --- */
+  --color-dark-accent-success: #34d399;
+  --color-dark-accent-warning: #fbbf24;
+  --color-dark-accent-danger: #f87171;
+  --color-dark-accent-info: #60a5fa;
+
   /* --- Superfícies (canvas/cards) --- */
   --color-surface-canvas: #F6F9FC;
   --color-surface-card: #FFFFFF;
@@ -27,6 +49,7 @@
   /* --- Textos --- */
   --color-text-primary: #0A2540;
   --color-text-muted: #64748B;
+  --color-text-subtle: #64748B;
 
   /* --- Sidebar (claro = navy atual; escuro = neutro). Fonte: tokens acima --- */
   --color-sidebar-bg: var(--color-brand-navy-dark);
@@ -65,6 +88,12 @@
   --color-status-info-bg: #EFF8FF;
   --color-status-info-fg: #175CD3;
   --color-status-info-border: #B2DDFF;
+
+  /* --- Indicadores e gráfico (claro = valores atuais) --- */
+  --color-kpi-success-bg: var(--color-status-success-bg);
+  --color-kpi-success-icon-bg: var(--color-status-success-bg);
+  --color-chart-in-use: var(--color-brand-blue-action);
+  --color-chart-segment-opacity: 1;
 
   /* --- Marca legada (mantida para retrocompatibilidade) --- */
   --color-iane-50: #EFF6FF;
@@ -126,37 +155,58 @@
 /* Modo escuro: apenas remapeia os tokens existentes — nenhuma cor nova é introduzida. */
 [data-theme='dark'] {
   color-scheme: dark;
-  --color-surface-canvas: var(--color-brand-navy-dark);
-  --color-surface-card: var(--color-navy-900);
-  --color-surface-subtle: var(--color-navy-800);
-  --color-border-subtle: var(--color-navy-700);
-  --color-border-strong: var(--color-ink-500);
-  --color-text-primary: var(--color-ink-50);
-  --color-text-muted: var(--color-ink-300);
+  --color-surface-canvas: var(--color-neutral-dark-950);
+  --color-surface-card: var(--color-neutral-dark-850);
+  --color-surface-subtle: var(--color-neutral-dark-750);
+  --color-border-subtle: var(--color-neutral-dark-700);
+  --color-border-strong: var(--color-neutral-dark-600);
+  --color-text-primary: var(--color-neutral-dark-50);
+  --color-text-muted: var(--color-neutral-dark-400);
+  --color-text-subtle: var(--color-neutral-dark-500);
 
-  /* Sidebar: escala zinc neutra, sem matiz azul. */
-  --color-sidebar-bg: #111113;
-  --color-sidebar-surface: #18181b;
-  --color-sidebar-subtle: #232326;
-  --color-sidebar-border: #27272a;
-  --color-sidebar-control-border: #3f3f46;
-  --color-sidebar-hover: #27272a;
-  --color-sidebar-active: #27272a;
-  --color-sidebar-focus: #a1a1aa;
-  --color-sidebar-text: #a1a1aa;
-  --color-sidebar-text-strong: #f4f4f5;
-  --color-sidebar-title: #71717a;
-  --color-sidebar-icon: #a1a1aa;
-  --color-sidebar-icon-accent: #e4e4e7;
-  --color-sidebar-indicator: #f4f4f5;
-  --color-sidebar-badge-bg: #3f3f46;
-  --color-sidebar-badge-text: #f4f4f5;
-  --color-sidebar-avatar-bg: #27272a;
-  --color-sidebar-avatar-border: #3f3f46;
-  --color-sidebar-avatar-text: #d4d4d8;
-  --color-sidebar-danger-text: #f4f4f5;
-  --color-sidebar-danger-bg: #3f3f46;
-  --color-sidebar-overlay: #000000;
+  /* Status: fundo neutro com acento sutil, sem bloco claro. */
+  --color-status-success-bg: color-mix(in srgb, var(--color-dark-accent-success) 10%, var(--color-surface-card));
+  --color-status-success-fg: var(--color-dark-accent-success);
+  --color-status-success-border: color-mix(in srgb, var(--color-dark-accent-success) 30%, var(--color-border-subtle));
+  --color-status-warning-bg: color-mix(in srgb, var(--color-dark-accent-warning) 10%, var(--color-surface-card));
+  --color-status-warning-fg: var(--color-dark-accent-warning);
+  --color-status-warning-border: color-mix(in srgb, var(--color-dark-accent-warning) 30%, var(--color-border-subtle));
+  --color-status-danger-bg: color-mix(in srgb, var(--color-dark-accent-danger) 10%, var(--color-surface-card));
+  --color-status-danger-fg: var(--color-dark-accent-danger);
+  --color-status-danger-border: color-mix(in srgb, var(--color-dark-accent-danger) 30%, var(--color-border-subtle));
+  --color-status-info-bg: color-mix(in srgb, var(--color-dark-accent-info) 10%, var(--color-surface-card));
+  --color-status-info-fg: var(--color-dark-accent-info);
+  --color-status-info-border: color-mix(in srgb, var(--color-dark-accent-info) 30%, var(--color-border-subtle));
+
+  /* Indicadores: fundo neutro igual aos demais cards; cor só no acento. */
+  --color-kpi-success-bg: var(--color-surface-card);
+  --color-kpi-success-icon-bg: color-mix(in srgb, var(--color-dark-accent-success) 10%, var(--color-surface-subtle));
+  --color-chart-in-use: var(--color-dark-accent-info);
+  --color-chart-segment-opacity: 0.85;
+
+  /* Sidebar: mesma escala neutra do conteúdo, diferenciada só pela borda. */
+  --color-sidebar-bg: var(--color-surface-canvas);
+  --color-sidebar-surface: var(--color-surface-card);
+  --color-sidebar-subtle: var(--color-surface-subtle);
+  --color-sidebar-border: var(--color-border-subtle);
+  --color-sidebar-control-border: var(--color-neutral-dark-600);
+  --color-sidebar-hover: var(--color-neutral-dark-750);
+  --color-sidebar-active: var(--color-neutral-dark-650);
+  --color-sidebar-focus: var(--color-neutral-dark-400);
+  --color-sidebar-text: var(--color-neutral-dark-400);
+  --color-sidebar-text-strong: var(--color-neutral-dark-50);
+  --color-sidebar-title: var(--color-neutral-dark-500);
+  --color-sidebar-icon: var(--color-neutral-dark-400);
+  --color-sidebar-icon-accent: var(--color-neutral-dark-200);
+  --color-sidebar-indicator: var(--color-neutral-dark-50);
+  --color-sidebar-badge-bg: var(--color-neutral-dark-600);
+  --color-sidebar-badge-text: var(--color-neutral-dark-50);
+  --color-sidebar-avatar-bg: var(--color-neutral-dark-700);
+  --color-sidebar-avatar-border: var(--color-neutral-dark-600);
+  --color-sidebar-avatar-text: var(--color-neutral-dark-300);
+  --color-sidebar-danger-text: var(--color-neutral-dark-50);
+  --color-sidebar-danger-bg: var(--color-neutral-dark-600);
+  --color-sidebar-overlay: var(--color-neutral-dark-black);
 }
 
 @layer base {
@@ -200,6 +250,11 @@
   }
   .radius-full {
     border-radius: var(--radius-full);
+  }
+
+  /* Segmentos do donut: opacidade controlada por tema. */
+  .donut-segment {
+    stroke-opacity: var(--color-chart-segment-opacity);
   }
 
   /* Campo base único (input/select/textarea) — acabamento v3.6 */

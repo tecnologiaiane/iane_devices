@@ -67,7 +67,7 @@ function KpiCard({
   variant?: 'success'
 }) {
   const borderClass = variant === 'success'
-    ? 'border border-status-success-border border-t-4 border-t-status-success-fg bg-status-success-bg'
+    ? 'border border-status-success-border border-t-4 border-t-status-success-fg bg-kpi-success-bg'
     : 'border border-border-subtle bg-surface-card shadow-sm border-t-4';
   const iconClass = variant === 'success' ? 'text-status-success-fg' : iconColor;
   const valueClass = variant === 'success' ? 'text-status-success-fg' : valueColor;
@@ -76,12 +76,12 @@ function KpiCard({
     <div className={`p-4 radius-lg ${borderClass} flex flex-col`}>
       <div className="flex items-center justify-between mb-2">
         <span className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">{label}</span>
-        <div className={`w-7 h-7 radius-base flex items-center justify-center shrink-0 ${iconClass} bg-${variant === 'success' ? 'status-success-bg' : 'surface-subtle'}`}>
+        <div className={`w-7 h-7 radius-base flex items-center justify-center shrink-0 ${iconClass} ${variant === 'success' ? 'bg-kpi-success-icon-bg' : 'bg-surface-subtle'}`}>
           {icon}
         </div>
       </div>
       <div className={`text-2xl font-bold font-code tabular-nums ${valueClass} mb-1`}>{value}</div>
-      <div className="text-[11px] text-text-muted">{sublabel}</div>
+      <div className="text-[11px] text-text-subtle">{sublabel}</div>
     </div>
   )
 }
@@ -111,8 +111,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
   const archivedTerms = terms.filter((t) => t.status === 'Arquivado');
 
   const [isPendingTermsModalOpen, setIsPendingTermsModalOpen] = useState(false);
-  const [isAttentionAccordionOpen, setIsAttentionAccordionOpen] = useState(false);
-  const [isMovementsAccordionOpen, setIsMovementsAccordionOpen] = useState(false);
 
   useEffect(() => {
     if (!isAdmin || pendingTerms.length === 0) return;
@@ -134,7 +132,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
   };
 
   const statusSegments = [
-    { label: 'Em uso', count: metrics.inUseDevices, color: 'var(--color-brand-blue-action)' },
+    { label: 'Em uso', count: metrics.inUseDevices, color: 'var(--color-chart-in-use)' },
     { label: 'Disponíveis', count: metrics.stockAvailable, color: 'var(--color-status-success-fg)' },
     { label: 'Aguardando avaliação', count: metrics.stockAwaitingEvaluation, color: 'var(--color-status-warning-fg)' },
     { label: 'Em manutenção', count: metrics.stockMaintenance, color: 'var(--color-status-danger-fg)' },
@@ -313,6 +311,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
                     cx="70"
                     cy="70"
                     r={DONUT_RADIUS}
+                    className="donut-segment"
                     fill="none"
                     stroke={arc.color}
                     strokeWidth="16"
@@ -536,7 +535,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
       </div>
 
       {/* Aparelhos por setor e listas operacionais */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         <div className="radius-lg border border-border-subtle bg-surface-card shadow-sm flex flex-col">
           <div className="px-5 pt-5 pb-3 flex items-start justify-between">
             <div>
@@ -575,8 +574,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
         <Accordion
           title="Atenção necessária"
           icon={<AlertTriangle className="w-4 h-4 text-status-warning-fg" />}
-          isOpen={isAttentionAccordionOpen}
-          onToggle={() => setIsAttentionAccordionOpen((open) => !open)}
         >
           <div className="space-y-2.5">
             {attentionDevices.slice(0, 6).map((device) => (
@@ -633,8 +630,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, curren
         <Accordion
           title="Últimas movimentações"
           icon={<Clock className="w-4 h-4 text-text-muted" />}
-          isOpen={isMovementsAccordionOpen}
-          onToggle={() => setIsMovementsAccordionOpen((open) => !open)}
         >
           <div className="divide-y divide-border-subtle">
             {movements.slice(0, 6).map((movement) => (

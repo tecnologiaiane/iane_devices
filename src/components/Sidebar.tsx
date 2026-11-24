@@ -247,7 +247,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 						title={isExpanded ? 'Recolher menu lateral' : 'Expandir menu lateral'}
 						aria-label={isExpanded ? 'Recolher menu lateral' : 'Expandir menu lateral'}
 						aria-expanded={isExpanded}
-						className="absolute -right-3 top-20 z-50 hidden h-8 w-8 rounded-full border-sidebar-control-border bg-sidebar-surface p-0 text-sidebar-text-strong shadow-sm hover:bg-sidebar-active hover:text-sidebar-text-strong md:inline-flex"
+						className="absolute -right-3 top-20 z-50 hidden h-8 w-8 rounded-full border-sidebar-control-border bg-sidebar-surface p-0 text-text-primary shadow-sm hover:bg-sidebar-active hover:text-sidebar-text-strong md:inline-flex"
 					>
 						{isExpanded ? (
 							<ChevronLeft className="w-3.5 h-3.5" />
