@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../components/button';
 import { Badge } from '../components/badge';
-import { FilterDropdown, FilterField, FilterTrigger } from '../components/FilterDropdown';
+import { FilterDropdown, FilterField, FilterMultiSelect, FilterTrigger } from '../components/FilterDropdown';
 import { DataTable, type DataTableColumn } from '../components/DataTable';
 import { DownloadMenu } from '../components/DownloadMenu';
 
@@ -39,7 +39,7 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
   const [statusFilter, setStatusFilter] = useState<string>('todos');
   const [carrierFilter, setCarrierFilter] = useState<string>('todos');
   const [departmentFilter, setDepartmentFilter] = useState<string>('todos');
-  const [sectorFilter, setSectorFilter] = useState<string>('todos');
+  const [sectorFilter, setSectorFilter] = useState<string[]>([]);
   const [associationFilter, setAssociationFilter] = useState<'todos' | 'com_aparelho' | 'sem_aparelho'>('todos');
 
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
@@ -111,7 +111,7 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
     if (carrierFilter !== 'todos' && l.carrier !== carrierFilter) return false;
     const organization = organizationForLine(l);
     if (departmentFilter !== 'todos' && organization.department !== departmentFilter) return false;
-    if (sectorFilter !== 'todos' && organization.sector !== sectorFilter) return false;
+    if (sectorFilter.length > 0 && !sectorFilter.includes(organization.sector)) return false;
 
     if (associationFilter === 'com_aparelho' && !l.associatedDeviceId) return false;
     if (associationFilter === 'sem_aparelho' && l.associatedDeviceId) return false;
@@ -322,7 +322,7 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
                 statusFilter !== 'todos',
                 carrierFilter !== 'todos',
                 departmentFilter !== 'todos',
-                sectorFilter !== 'todos',
+                sectorFilter.length > 0,
                 associationFilter !== 'todos',
               ].filter(Boolean).length}
               onToggle={() => setIsFilterMenuOpen((open) => !open)}
@@ -334,7 +334,7 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
                 statusFilter !== 'todos',
                 carrierFilter !== 'todos',
                 departmentFilter !== 'todos',
-                sectorFilter !== 'todos',
+                sectorFilter.length > 0,
                 associationFilter !== 'todos',
               ].filter(Boolean).length}
               onClose={() => setIsFilterMenuOpen(false)}
@@ -342,7 +342,7 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
                 setStatusFilter('todos');
                 setCarrierFilter('todos');
                 setDepartmentFilter('todos');
-                setSectorFilter('todos');
+                setSectorFilter([]);
                 setAssociationFilter('todos');
               }}
             >
@@ -368,9 +368,9 @@ export const LinesView: React.FC<LinesViewProps> = ({ onOpenLineModal }) => {
                 onChange={setDepartmentFilter}
                 options={departmentOptions.map((department) => ({ label: department, value: department }))}
               />
-              <FilterField
+              <FilterMultiSelect
                 label="Setor"
-                value={sectorFilter}
+                values={sectorFilter}
                 onChange={setSectorFilter}
                 options={sectorOptions.map((sector) => ({ label: sector, value: sector }))}
               />

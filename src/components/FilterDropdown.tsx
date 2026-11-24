@@ -1,5 +1,5 @@
 import React, { ReactNode } from 'react';
-import { Filter as FilterIcon, X } from 'lucide-react';
+import { Check, Filter as FilterIcon, X } from 'lucide-react';
 import { Badge } from './badge';
 import { Button } from './button';
 import { cn } from '../lib/utils';
@@ -142,8 +142,8 @@ export const FilterMultiSelect: React.FC<FilterMultiSelectProps> = ({
   onChange,
   options,
 }) => {
-  const toggle = (value: string, checked: boolean) => {
-    onChange(checked ? [...values, value] : values.filter((item) => item !== value));
+  const toggle = (value: string) => {
+    onChange(values.includes(value) ? values.filter((item) => item !== value) : [...values, value]);
   };
 
   return (
@@ -162,23 +162,29 @@ export const FilterMultiSelect: React.FC<FilterMultiSelectProps> = ({
           </button>
         )}
       </div>
-      <div className="max-h-32 overflow-y-auto radius-base border border-border-subtle bg-surface-card px-2.5 py-1.5">
+      <div
+        role="listbox"
+        aria-multiselectable="true"
+        className="max-h-52 overflow-y-auto radius-base border border-border-subtle bg-surface-card py-1"
+      >
         {options.length === 0 ? (
-          <p className="text-[11px] text-text-muted">Nenhuma opção encontrada.</p>
+          <p className="px-3 py-2 text-center text-[11px] text-text-muted">Nenhuma opção encontrada.</p>
         ) : (
-          <div className="space-y-1">
-            {options.map((opt) => (
-              <label key={opt.value} className="flex cursor-pointer items-center gap-2 text-xs text-text-primary">
-                <input
-                  type="checkbox"
-                  checked={values.includes(opt.value)}
-                  onChange={(event) => toggle(opt.value, event.target.checked)}
-                  className="h-3.5 w-3.5 accent-[var(--color-brand-blue-action)]"
-                />
-                <span>{opt.label}</span>
-              </label>
-            ))}
-          </div>
+          options.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              role="option"
+              aria-selected={values.includes(opt.value)}
+              onClick={() => toggle(opt.value)}
+              className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs text-text-primary transition-colors hover:bg-surface-subtle focus-visible:bg-surface-subtle focus-visible:outline-none"
+            >
+              <span className="truncate">{opt.label}</span>
+              {values.includes(opt.value) && (
+                <Check className="h-3.5 w-3.5 shrink-0 text-brand-blue-action" aria-hidden="true" />
+              )}
+            </button>
+          ))
         )}
       </div>
       <p className="text-[10px] text-text-muted">

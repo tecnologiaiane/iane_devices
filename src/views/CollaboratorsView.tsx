@@ -5,7 +5,7 @@ import { formatDate } from '../utils/formatters';
 import { StatusBadge } from '../components/StatusBadge';
 import { Button } from '../components/button';
 import { Badge } from '../components/badge';
-import { FilterDropdown, FilterField, FilterTrigger } from '../components/FilterDropdown';
+import { FilterDropdown, FilterField, FilterMultiSelect, FilterTrigger } from '../components/FilterDropdown';
 import { DataTable, type DataTableColumn } from '../components/DataTable';
 import { DownloadMenu } from '../components/DownloadMenu';
 import {
@@ -41,7 +41,7 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
   useEffect(() => { void dataService.fetchCatalogs().then(setCatalogs); }, []);
   const [searchQuery, setSearchQuery] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('todos');
-  const [sectorFilter, setSectorFilter] = useState('todos');
+  const [sectorFilter, setSectorFilter] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState('todos');
 
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
@@ -82,7 +82,7 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
     }
 
     if (departmentFilter !== 'todos' && c.department !== departmentFilter) return false;
-    if (sectorFilter !== 'todos' && c.sector !== sectorFilter) return false;
+    if (sectorFilter.length > 0 && (!c.sector || !sectorFilter.includes(c.sector))) return false;
     if (statusFilter !== 'todos' && c.status !== statusFilter) return false;
 
     return true;
@@ -243,7 +243,7 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
               isOpen={isFilterMenuOpen}
               activeCount={[
                 departmentFilter !== 'todos',
-                sectorFilter !== 'todos',
+                sectorFilter.length > 0,
                 statusFilter !== 'todos',
               ].filter(Boolean).length}
               onToggle={() => setIsFilterMenuOpen((open) => !open)}
@@ -253,13 +253,13 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
               position={filterPosition}
               activeCount={[
                 departmentFilter !== 'todos',
-                sectorFilter !== 'todos',
+                sectorFilter.length > 0,
                 statusFilter !== 'todos',
               ].filter(Boolean).length}
               onClose={() => setIsFilterMenuOpen(false)}
               onClear={() => {
                 setDepartmentFilter('todos');
-                setSectorFilter('todos');
+                setSectorFilter([]);
                 setStatusFilter('todos');
               }}
             >
@@ -269,9 +269,9 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
                 onChange={setDepartmentFilter}
                 options={uniqueDepartments.map((dept) => ({ label: dept, value: dept }))}
               />
-              <FilterField
+              <FilterMultiSelect
                 label="Setor"
-                value={sectorFilter}
+                values={sectorFilter}
                 onChange={setSectorFilter}
                 options={uniqueSectors.map((sector) => ({ label: sector, value: sector }))}
               />
