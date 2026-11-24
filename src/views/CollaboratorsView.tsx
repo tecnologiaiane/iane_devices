@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Collaborator, Device, PhoneLine, Movement, DocumentTerm } from '../types';
+import { Catalogs, Collaborator, Device, PhoneLine, Movement, DocumentTerm } from '../types';
 import { dataService } from '../services/dataStorage';
 import { formatDate } from '../utils/formatters';
 import { StatusBadge } from '../components/StatusBadge';
@@ -37,8 +37,11 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
   onOpenMovementWithCollaborator,
 }) => {
   const [collaborators, setCollaborators] = useState<Collaborator[]>(dataService.getCollaborators());
+  const [catalogs, setCatalogs] = useState<Catalogs>(() => dataService.getCatalogs());
+  useEffect(() => { void dataService.fetchCatalogs().then(setCatalogs); }, []);
   const [searchQuery, setSearchQuery] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('todos');
+  const [sectorFilter, setSectorFilter] = useState('todos');
   const [statusFilter, setStatusFilter] = useState('todos');
 
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
@@ -79,12 +82,17 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
     }
 
     if (departmentFilter !== 'todos' && c.department !== departmentFilter) return false;
+    if (sectorFilter !== 'todos' && c.sector !== sectorFilter) return false;
     if (statusFilter !== 'todos' && c.status !== statusFilter) return false;
 
     return true;
   });
 
   const uniqueDepartments = Array.from(new Set(collaborators.map(c => c.department)));
+  const uniqueSectors = Array.from(new Set([
+    ...catalogs.sectors.map((item) => item.name),
+    ...collaborators.map((c) => c.sector).filter((sector): sector is string => Boolean(sector)),
+  ]));
 
   const totalPages = Math.ceil(filteredCollabs.length / pageSize) || 1;
   const paginatedCollabs = filteredCollabs.slice((currentPage - 1) * pageSize, currentPage * pageSize);
@@ -235,6 +243,7 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
               isOpen={isFilterMenuOpen}
               activeCount={[
                 departmentFilter !== 'todos',
+                sectorFilter !== 'todos',
                 statusFilter !== 'todos',
               ].filter(Boolean).length}
               onToggle={() => setIsFilterMenuOpen((open) => !open)}
@@ -244,11 +253,13 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
               position={filterPosition}
               activeCount={[
                 departmentFilter !== 'todos',
+                sectorFilter !== 'todos',
                 statusFilter !== 'todos',
               ].filter(Boolean).length}
               onClose={() => setIsFilterMenuOpen(false)}
               onClear={() => {
                 setDepartmentFilter('todos');
+                setSectorFilter('todos');
                 setStatusFilter('todos');
               }}
             >
@@ -257,6 +268,12 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({
                 value={departmentFilter}
                 onChange={setDepartmentFilter}
                 options={uniqueDepartments.map((dept) => ({ label: dept, value: dept }))}
+              />
+              <FilterField
+                label="Setor"
+                value={sectorFilter}
+                onChange={setSectorFilter}
+                options={uniqueSectors.map((sector) => ({ label: sector, value: sector }))}
               />
               <FilterField
                 label="Status"

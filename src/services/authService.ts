@@ -5,7 +5,7 @@ const AUTH_USER_KEY = 'iane_auth_current_user_v2';
 const AUTH_TOKEN_KEY = 'iane_auth_token_v2';
 
 // Chaves de preferência visual que NÃO devem ser apagadas no logout (apenas dados pessoais/sessão).
-const VISUAL_PREF_KEYS = ['iane_sidebar_collapsed_v1'];
+const VISUAL_PREF_KEYS = ['iane_sidebar_collapsed_v1', 'iane_theme_v1'];
 
 /** Remove do localStorage toda chave iane_* exceto preferências visuais. */
 function clearIaneStorageExceptVisual(): void {

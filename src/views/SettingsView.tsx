@@ -783,7 +783,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 											{filtered.map((item) => {
 												const editingThis = editingCatalogItem?.type === catalogType && editingCatalogItem.id === item.id;
 												return (
-													<div key={item.id} className="flex items-center gap-1 text-[11px] p-1.5 radius-base hover:bg-white">
+													<div key={item.id} className="flex items-center gap-1 text-[11px] p-1.5 radius-base hover:bg-surface-card">
 														{editingThis ? (
 															<>
 																<input

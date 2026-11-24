@@ -28,6 +28,30 @@
   --color-text-primary: #0A2540;
   --color-text-muted: #64748B;
 
+  /* --- Sidebar (claro = navy atual; escuro = neutro). Fonte: tokens acima --- */
+  --color-sidebar-bg: var(--color-brand-navy-dark);
+  --color-sidebar-surface: var(--color-surface-card);
+  --color-sidebar-subtle: var(--color-surface-subtle);
+  --color-sidebar-border: var(--color-brand-navy-base);
+  --color-sidebar-control-border: var(--color-border-subtle);
+  --color-sidebar-hover: var(--color-navy-700);
+  --color-sidebar-active: var(--color-brand-blue-action);
+  --color-sidebar-focus: var(--color-brand-blue-action);
+  --color-sidebar-text: var(--color-text-muted);
+  --color-sidebar-text-strong: var(--color-surface-card);
+  --color-sidebar-title: var(--color-text-muted);
+  --color-sidebar-icon: var(--color-text-muted);
+  --color-sidebar-icon-accent: var(--color-brand-sky-glow);
+  --color-sidebar-indicator: var(--color-brand-sun);
+  --color-sidebar-badge-bg: var(--color-brand-sun);
+  --color-sidebar-badge-text: var(--color-brand-navy-base);
+  --color-sidebar-avatar-bg: var(--color-brand-navy-base);
+  --color-sidebar-avatar-border: var(--color-brand-blue-action);
+  --color-sidebar-avatar-text: var(--color-brand-blue-action);
+  --color-sidebar-danger-text: var(--color-status-danger-fg);
+  --color-sidebar-danger-bg: var(--color-status-danger-bg);
+  --color-sidebar-overlay: var(--color-brand-navy-dark);
+
   /* --- Semântica de status --- */
   --color-status-success-bg: #ECFDF3;
   --color-status-success-fg: #027A48;
@@ -97,6 +121,42 @@
   --shadow-md: 0 4px 8px -2px rgb(16 24 40 / 0.08), 0 2px 4px -2px rgb(16 24 40 / 0.04);
   --shadow-lg: 0 12px 16px -4px rgb(16 24 40 / 0.08), 0 4px 6px -2px rgb(16 24 40 / 0.03);
   --shadow-xl: 0 20px 24px -4px rgb(16 24 40 / 0.10), 0 8px 8px -4px rgb(16 24 40 / 0.04);
+}
+
+/* Modo escuro: apenas remapeia os tokens existentes — nenhuma cor nova é introduzida. */
+[data-theme='dark'] {
+  color-scheme: dark;
+  --color-surface-canvas: var(--color-brand-navy-dark);
+  --color-surface-card: var(--color-navy-900);
+  --color-surface-subtle: var(--color-navy-800);
+  --color-border-subtle: var(--color-navy-700);
+  --color-border-strong: var(--color-ink-500);
+  --color-text-primary: var(--color-ink-50);
+  --color-text-muted: var(--color-ink-300);
+
+  /* Sidebar: escala zinc neutra, sem matiz azul. */
+  --color-sidebar-bg: #111113;
+  --color-sidebar-surface: #18181b;
+  --color-sidebar-subtle: #232326;
+  --color-sidebar-border: #27272a;
+  --color-sidebar-control-border: #3f3f46;
+  --color-sidebar-hover: #27272a;
+  --color-sidebar-active: #27272a;
+  --color-sidebar-focus: #a1a1aa;
+  --color-sidebar-text: #a1a1aa;
+  --color-sidebar-text-strong: #f4f4f5;
+  --color-sidebar-title: #71717a;
+  --color-sidebar-icon: #a1a1aa;
+  --color-sidebar-icon-accent: #e4e4e7;
+  --color-sidebar-indicator: #f4f4f5;
+  --color-sidebar-badge-bg: #3f3f46;
+  --color-sidebar-badge-text: #f4f4f5;
+  --color-sidebar-avatar-bg: #27272a;
+  --color-sidebar-avatar-border: #3f3f46;
+  --color-sidebar-avatar-text: #d4d4d8;
+  --color-sidebar-danger-text: #f4f4f5;
+  --color-sidebar-danger-bg: #3f3f46;
+  --color-sidebar-overlay: #000000;
 }
 
 @layer base {

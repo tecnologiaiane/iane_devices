@@ -297,7 +297,7 @@ class DataStorageService {
     try {
       for (let i = 0; i < ls.length; i++) {
         const key = ls.key(i);
-        if (key && key.startsWith('iane_') && key !== 'iane_sidebar_collapsed_v1') {
+        if (key && key.startsWith('iane_') && key !== 'iane_sidebar_collapsed_v1' && key !== 'iane_theme_v1') {
           keys.push(key);
         }
       }

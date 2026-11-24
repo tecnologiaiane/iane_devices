@@ -576,7 +576,7 @@ export const TermsView: React.FC<TermsViewProps> = ({ onViewTerm, onPrintTerm })
               </div>
             ) : (
               <div className="flex items-center gap-3 p-3 radius-lg border border-brand-blue-action/20 bg-brand-blue-action/10">
-                <div className="w-9 h-9 radius-base bg-white border border-brand-blue-action flex items-center justify-center shrink-0">
+                <div className="w-9 h-9 radius-base bg-surface-card border border-brand-blue-action flex items-center justify-center shrink-0">
                   <FileText className="w-5 h-5 text-brand-blue-action" />
                 </div>
                 <div className="min-w-0 flex-1">

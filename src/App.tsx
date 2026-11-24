@@ -7,7 +7,7 @@ import { authService } from './services/authService';
 import { apiClient, ApiNotification } from './services/apiClient';
 import { LoginView } from './views/LoginView';
 import { canAccessRequests } from './config/requestAccess';
-import { AlertTriangle, CheckCircle2, Info, X, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Info, Menu, X, XCircle } from 'lucide-react';
 
 // Views e modais são carregados sob demanda (React.lazy): o bundle inicial fica
 // pequeno e cada tela baixa seu próprio chunk somente quando é aberta.
@@ -123,6 +123,9 @@ const pathToTab: Record<string, NavTab> = {
 };
 
 const SIDEBAR_COLLAPSED_KEY = 'iane_sidebar_collapsed_v1';
+const THEME_KEY = 'iane_theme_v1';
+
+type Theme = 'light' | 'dark';
 
 const readSidebarCollapsed = (): boolean => {
   try {
@@ -135,6 +138,17 @@ const readSidebarCollapsed = (): boolean => {
   return typeof window !== 'undefined' && window.innerWidth < 1024;
 };
 
+const readTheme = (): Theme => {
+  try {
+    const stored = localStorage.getItem(THEME_KEY);
+    if (stored === 'light' || stored === 'dark') return stored;
+  } catch {
+    // Armazenamento indisponível: usa o padrão claro
+  }
+  // Padrão do produto continua sendo o fundo claro, independente do sistema.
+  return 'light';
+};
+
 export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -145,6 +159,11 @@ export default function App() {
     navigate(tabToPath[tab]);
   };
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(readSidebarCollapsed);
+  const [theme, setTheme] = useState<Theme>(readTheme);
+  const [isMobileViewport, setIsMobileViewport] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth < 768
+  );
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [apiNotifications, setApiNotifications] = useState<ApiNotification[]>([]);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -161,16 +180,41 @@ export default function App() {
     });
   };
 
-  // Em telas muito estreitas o menu compacto evita espremer o conteúdo.
-  // Reage apenas a redimensionamentos: se o usuário expandir manualmente, continua expandido.
+  const handleToggleTheme = () => {
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  };
+
+  const handleCloseMobileNav = () => setIsMobileNavOpen(false);
+
+  // Tema e largura do menu são preferências de interface controladas aqui.
+  React.useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    try {
+      localStorage.setItem(THEME_KEY, theme);
+    } catch {
+      // Armazenamento indisponível: o tema continua válido nesta sessão
+    }
+  }, [theme]);
+
   React.useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth < 768) setIsSidebarCollapsed(true);
+      const isMobile = window.innerWidth < 768;
+      setIsMobileViewport(isMobile);
+      if (!isMobile) setIsMobileNavOpen(false);
     };
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  React.useEffect(() => {
+    if (!isMobileNavOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsMobileNavOpen(false);
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isMobileNavOpen]);
 
   // Mantém o estado da aplicação sincronizado com alterações de sessão/perfil
   // (login, logout e edição do próprio nome de usuário).
@@ -388,7 +432,19 @@ export default function App() {
   const metrics = dataService.getDashboardMetrics();
 
   return (
-    <div className="min-h-screen bg-ink-50 text-ink-900 flex">
+    <div
+      className="min-h-screen bg-surface-canvas text-text-primary flex"
+      style={{ '--sidebar-width': isSidebarCollapsed ? '76px' : '256px' } as React.CSSProperties}
+    >
+      {isMobileNavOpen && (
+        <button
+          type="button"
+          aria-label="Fechar menu lateral"
+          onClick={handleCloseMobileNav}
+          className="fixed inset-0 z-40 bg-sidebar-overlay/60 backdrop-blur-sm md:hidden cursor-pointer"
+        />
+      )}
+
       {/* Sidebar Navigation */}
       <Sidebar
         activeTab={activeTab}
@@ -399,18 +455,30 @@ export default function App() {
         onLogout={handleLogout}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={handleToggleSidebarCollapse}
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
+        isMobileViewport={isMobileViewport}
+        isMobileOpen={isMobileNavOpen}
+        onCloseMobile={handleCloseMobileNav}
       />
 
       {/* Main Content Area */}
-      <div
-        className={`flex-1 flex flex-col min-w-0 transition-[padding] duration-200 ${
-          isSidebarCollapsed ? 'pl-[76px]' : 'pl-64'
-        }`}
-      >
+      <div className="flex-1 flex flex-col min-w-0 transition-[padding] duration-200 md:pl-[var(--sidebar-width)]">
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
-          <h1 className="text-xl sm:text-2xl font-semibold text-text-primary tracking-[-0.01em] mb-5">
-            {PAGE_TITLES[activeTab]}
-          </h1>
+          <div className="mb-5 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setIsMobileNavOpen(true)}
+              aria-label="Abrir menu lateral"
+              aria-expanded={isMobileNavOpen}
+              className="md:hidden shrink-0 h-9 w-9 inline-flex items-center justify-center radius-base border border-border-subtle bg-surface-card text-text-primary hover:bg-surface-subtle cursor-pointer"
+            >
+              <Menu className="w-4 h-4" />
+            </button>
+            <h1 className="text-xl sm:text-2xl font-semibold text-text-primary tracking-[-0.01em]">
+              {PAGE_TITLES[activeTab]}
+            </h1>
+          </div>
           <React.Suspense fallback={<ViewFallback />}>
           {activeTab === 'dashboard' && (
             <DashboardView
@@ -581,24 +649,24 @@ export default function App() {
       {/* Modal de confirmação de logout */}
       {showLogoutConfirm && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center" role="dialog" aria-modal="true" aria-label="Confirmar saída">
-          <div className="absolute inset-0 bg-black/60 transition-opacity backdrop-blur-sm" onClick={() => setShowLogoutConfirm(false)} />
-          <div className="relative bg-white rounded-lg p-6 shadow-2xl max-w-sm w-full mx-4 border border-ink-100">
-            <h3 className="text-lg font-semibold text-ink-900 mb-2">Tem certeza que deseja sair?</h3>
-            <p className="text-ink-600 text-sm mb-6">
+          <div className="absolute inset-0 bg-brand-navy-dark/60 transition-opacity backdrop-blur-sm" onClick={() => setShowLogoutConfirm(false)} />
+          <div className="relative bg-surface-card rounded-lg p-6 shadow-2xl max-w-sm w-full mx-4 border border-border-subtle">
+            <h3 className="text-lg font-semibold text-text-primary mb-2">Tem certeza que deseja sair?</h3>
+            <p className="text-text-muted text-sm mb-6">
               Sua sessão será encerrada e você será redirecionado para a tela de login.
             </p>
             <div className="flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setShowLogoutConfirm(false)}
-                className="px-4 py-2 text-sm font-medium text-ink-700 bg-ink-100 hover:bg-ink-200 rounded-lg transition-colors"
+                className="px-4 py-2 text-sm font-medium text-text-primary bg-surface-subtle hover:bg-surface-subtle/80 rounded-lg transition-colors"
               >
                 Cancelar
               </button>
               <button
                 type="button"
                 onClick={confirmLogout}
-                className="px-4 py-2 text-sm font-medium text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition-colors"
+                className="px-4 py-2 text-sm font-medium text-white bg-brand-blue-action hover:bg-brand-blue-action-hover rounded-lg transition-colors"
               >
                 Sair
               </button>
