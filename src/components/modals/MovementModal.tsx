@@ -25,6 +25,7 @@ import { formatPhone } from '../../utils/formatters'
 import { MAX_PDF_BYTES, formatFileSize, readFileAsBase64, validatePdfFile } from '../../utils/pdfUpload'
 import { Button } from '../button'
 import { StatusBadge } from '../StatusBadge'
+import { useToast } from '../ToastProvider'
 
 export type OfficialFlowType = 
 	| 'entrega' 
@@ -58,6 +59,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
 	defaultFlow = 'entrega',
 	approvalRequest,
 }) => {
+	const toast = useToast();
 	const [activeFlow, setActiveFlow] = useState<OfficialFlowType>(defaultFlow);
 	const [date, setDate] = useState<string>(todayISO());
 	const [showSummary, setShowSummary] = useState(false);
@@ -420,32 +422,50 @@ export const MovementModal: React.FC<MovementModalProps> = ({
 			} finally {
 				setIsApprovalSubmitting(false);
 			}
-			if (!result.success) return setErrorMessage(result.message);
+			if (!result.success) {
+				toast.error(result.message || 'Não foi possível salvar. Tente novamente.');
+				return;
+			}
 			completedMovementId = result.movements?.find((movement) => movement.type.includes('Entrega'))?.id || result.movements?.[0]?.id;
 			completedBatchId = result.movements?.[0]?.batchOperationId;
 		} else if (activeFlow === 'entrega') {
 			const result = dataService.executeDelivery({ ...(params as any), registeredBy: 'Gestor de Telefonia' });
-			if (!result.success) return setErrorMessage(result.message);
+			if (!result.success) {
+				toast.error(result.message || 'Não foi possível salvar. Tente novamente.');
+				return;
+			}
 			completedMovementId = result.movement?.id;
 			completedBatchId = result.movement?.batchOperationId;
 		} else if (activeFlow === 'devolucao') {
 			const result = dataService.executeReturn({ ...(params as any), registeredBy: 'Gestor de Telefonia' });
-			if (!result.success) return setErrorMessage(result.message);
+			if (!result.success) {
+				toast.error(result.message || 'Não foi possível salvar. Tente novamente.');
+				return;
+			}
 			completedMovementId = result.movement?.id;
 			completedBatchId = result.movement?.batchOperationId;
 		} else if (activeFlow === 'transferencia') {
 			const result = dataService.executeTransfer({ ...(params as any), registeredBy: 'Gestor de Telefonia' });
-			if (!result.success) return setErrorMessage(result.message);
+			if (!result.success) {
+				toast.error(result.message || 'Não foi possível salvar. Tente novamente.');
+				return;
+			}
 			completedBatchId = result.batchOperationId;
 		} else {
 			const result = dataService.executeSwap({ ...(params as any), registeredBy: 'Gestor de Telefonia' });
-			if (!result.success) return setErrorMessage(result.message);
+			if (!result.success) {
+				toast.error(result.message || 'Não foi possível salvar. Tente novamente.');
+				return;
+			}
 			completedBatchId = result.batchOperationId;
 		}
 
 		if (selectedTermIds.length) {
 			const linked = dataService.linkTermsToMovement(completedMovementId, completedBatchId, selectedTermIds);
-			if (!linked.success) return setErrorMessage(linked.message);
+			if (!linked.success) {
+				toast.error(linked.message || 'Não foi possível salvar. Tente novamente.');
+				return;
+			}
 		}
 
 		if (termPdfFile) {
@@ -529,6 +549,11 @@ export const MovementModal: React.FC<MovementModalProps> = ({
 			}
 		}
 
+		if (approvalRequest) {
+			toast.success(`Solicitação de ${approvalRequest.requesterName} aprovada com sucesso.`);
+		} else {
+			toast.success(`Movimentação de ${FLOW_LABELS[activeFlow]} registrada com sucesso.`);
+		}
 		onSuccess();
 		onClose();
 	};

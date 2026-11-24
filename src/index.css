@@ -226,6 +226,20 @@
   background: #94A3B8;
 }
 
+/* Toasts: entrada discreta, desativada quando o usuário pede menos movimento. */
+@keyframes toast-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.toast-enter {
+  animation: toast-enter 180ms ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .toast-enter {
+    animation: none;
+  }
+}
+
 @media print {
   .no-print {
     display: none !important;

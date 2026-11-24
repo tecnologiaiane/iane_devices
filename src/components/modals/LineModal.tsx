@@ -6,6 +6,7 @@ import { todayISO } from '../../utils/dates'
 import { SearchableOption, SearchableSelect } from '../SearchableSelect'
 import { AlertTriangle, PhoneCall } from 'lucide-react'
 import { Button } from '../button'
+import { useToast } from '../ToastProvider'
 
 const CARRIERS: Carrier[] = ['Vivo', 'Claro', 'TIM', 'Outra']
 
@@ -22,6 +23,7 @@ export const LineModal: React.FC<LineModalProps> = ({
 	onSuccess,
 	lineToEdit,
 }) => {
+	const toast = useToast()
 	const [phoneNumber, setPhoneNumber] = useState('')
 	const [carrier, setCarrier] = useState<Carrier>('Vivo')
 	const [planName, setPlanName] = useState('')
@@ -109,10 +111,11 @@ export const LineModal: React.FC<LineModalProps> = ({
 
 		const res = dataService.saveLine(payload)
 		if (!res.success) {
-			setErrorMessage(res.message)
+			toast.error(res.message || 'Não foi possível salvar. Tente novamente.')
 			return
 		}
 
+		toast.success(`Linha ${payload.phoneNumber} ${lineToEdit ? 'atualizada' : 'criada'}.`)
 		onSuccess()
 		onClose()
 	}

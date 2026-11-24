@@ -17,6 +17,7 @@ import {
 import { dataService } from '../../services/dataStorage'
 import { Button } from '../button'
 import { Badge } from '../badge'
+import { useToast } from '../ToastProvider'
 
 interface TermViewerModalProps {
 	isOpen: boolean
@@ -33,6 +34,7 @@ export const TermViewerModal: React.FC<TermViewerModalProps> = ({
 	onTermUpdated,
 	autoPrint = false,
 }) => {
+	const toast = useToast()
 	const [pdfUrl, setPdfUrl] = useState<string | null>(null)
 	const [isLoadingPdf, setIsLoadingPdf] = useState(false)
 	const [pdfError, setPdfError] = useState('')
@@ -125,8 +127,12 @@ export const TermViewerModal: React.FC<TermViewerModalProps> = ({
 
 	const handleToggleSign = () => {
 		const nextStatus = currentStatus === 'Assinado' ? 'Pendente de Assinatura' : 'Assinado'
+		if (!dataService.updateTermStatus(term.id, nextStatus)) {
+			toast.error('Não foi possível alterar o status do termo. Tente novamente.')
+			return
+		}
 		setCurrentStatus(nextStatus)
-		dataService.updateTermStatus(term.id, nextStatus)
+		toast.success(`Termo ${term.code} alterado para ${nextStatus}.`)
 		if (onTermUpdated) onTermUpdated()
 	}
 

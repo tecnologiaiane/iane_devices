@@ -5,6 +5,7 @@ import { dataService } from '../../services/dataStorage'
 import { SearchableOption, SearchableSelect } from '../SearchableSelect'
 import { AlertTriangle, UserPlus } from 'lucide-react'
 import { Button } from '../button'
+import { useToast } from '../ToastProvider'
 
 interface CollaboratorModalProps {
 	isOpen: boolean
@@ -19,6 +20,7 @@ export const CollaboratorModal: React.FC<CollaboratorModalProps> = ({
 	onSuccess,
 	collaboratorToEdit,
 }) => {
+	const toast = useToast()
 	const [fullName, setFullName] = useState('')
 	const [registrationNumber, setRegistrationNumber] = useState('')
 	const [department, setDepartment] = useState(dataService.getCatalogs().departments[0]?.name || '')
@@ -105,10 +107,11 @@ export const CollaboratorModal: React.FC<CollaboratorModalProps> = ({
 
 		const res = dataService.saveCollaborator(payload)
 		if (!res.success) {
-			setErrorMessage(res.message)
+			toast.error(res.message || 'Não foi possível salvar. Tente novamente.')
 			return
 		}
 
+		toast.success(`Colaborador ${payload.fullName} ${collaboratorToEdit ? 'atualizado' : 'criado'}.`)
 		onSuccess()
 		onClose()
 	}

@@ -8,12 +8,12 @@ import { DataTable, type DataTableColumn } from '../components/DataTable';
 import { FilterDropdown, FilterField, FilterTrigger } from '../components/FilterDropdown';
 import { formatDate, formatDateTime, formatPhone, matchesPhoneSearch } from '../utils/formatters';
 import { toDateInputValue } from '../utils/dates';
+import { useToast } from '../components/ToastProvider';
 import {
   AlertTriangle,
   ArrowDownLeft,
   ArrowLeftRight,
   ArrowUpRight,
-  CheckCircle2,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -25,7 +25,6 @@ import {
   Smartphone,
   UserRound,
   Eye,
-  X,
 } from 'lucide-react';
 
 type RequestFlow = 'entrega' | 'devolucao' | 'transferencia' | 'troca';
@@ -184,6 +183,7 @@ function getRequestDetails(request: RequestRecord): string[] {
 }
 
 export const RequestsView: React.FC<RequestsViewProps> = ({ currentUser }) => {
+  const toast = useToast();
   const [requests, setRequests] = useState<RequestRecord[]>(() => dataService.getRequests());
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('todos');
@@ -192,7 +192,6 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ currentUser }) => {
   const [endDate, setEndDate] = useState('');
   const [activeFlow, setActiveFlow] = useState<RequestFlow | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
   const [loadError, setLoadError] = useState('');
   const [selectedRequest, setSelectedRequest] = useState<RequestRecord | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -270,7 +269,7 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ currentUser }) => {
 
   const handleCreated = (request: RequestRecord) => {
     setRequests((previous) => [request, ...previous.filter((item) => item.id !== request.id)]);
-    setSuccessMessage('Solicitação registrada com sucesso.');
+    toast.success(`Solicitação ${request.id} registrada com sucesso.`);
     setActiveFlow(null);
   };
 
@@ -329,14 +328,6 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ currentUser }) => {
 
   return (
     <div className="space-y-5">
-      {successMessage && (
-        <div role="status" className="flex items-center justify-between gap-3 radius-lg border border-status-success-border bg-status-success-bg p-3 text-xs text-status-success-fg">
-          <span className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4" />{successMessage}</span>
-          <button type="button" onClick={() => setSuccessMessage('')} aria-label="Fechar mensagem" className="radius-base p-1 text-status-success-fg hover:bg-surface-subtle transition-colors">
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      )}
       {loadError && <p role="alert" className="rounded-lg border border-status-danger-border bg-status-danger-bg p-3 text-xs text-status-danger-fg">{loadError}</p>}
 
       <div className="radius-lg border border-border-subtle bg-surface-card shadow-sm p-4 space-y-3">

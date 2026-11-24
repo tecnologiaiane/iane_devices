@@ -34,6 +34,7 @@ import { Badge } from '../components/badge';
 import { FilterDropdown, FilterField, FilterMultiSelect, FilterTrigger } from '../components/FilterDropdown';
 import { DataTable, type DataTableColumn } from '../components/DataTable';
 import { DownloadMenu } from '../components/DownloadMenu';
+import { useToast } from '../components/ToastProvider';
 
 interface DevicesViewProps {
   onOpenDeviceModal: (device?: Device) => void;
@@ -46,6 +47,7 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
   onViewTerm,
   currentUser,
 }) => {
+  const toast = useToast();
   const canRemoveDevice = currentUser?.role === 'admin';
   const [devices, setDevices] = useState<Device[]>(dataService.getDevices());
   const [catalogs, setCatalogs] = useState<Catalogs>(() => dataService.getCatalogs());
@@ -231,9 +233,9 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
     if (window.confirm(`Tem certeza de que deseja excluir o cadastro do aparelho ${tag}? Esta ação não pode ser desfeita.`)) {
       const res = dataService.deleteDevice(id);
       if (!res.success) {
-        apiClient.notify({ type: 'error', title: 'Não foi possível remover o aparelho', message: res.message });
+        toast.error(res.message || 'Não foi possível salvar. Tente novamente.');
       } else {
-        apiClient.notify({ type: 'success', title: 'Aparelho removido', message: res.message });
+        toast.success(`Dispositivo ${tag} removido com sucesso.`);
         refreshData();
       }
     }
@@ -247,11 +249,11 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
       notes: releaseNotes,
     });
     if (res.success) {
-      apiClient.notify({ type: 'success', title: 'Aparelho devolvido ao estoque', message: res.message });
+      toast.success(`Dispositivo ${releasingDevice.assetTag} devolvido ao estoque.`);
       setReleasingDevice(null);
       refreshData();
     } else {
-      apiClient.notify({ type: 'error', title: 'Não foi possível devolver o aparelho', message: res.message });
+      toast.error(res.message || 'Não foi possível salvar. Tente novamente.');
     }
   };
 

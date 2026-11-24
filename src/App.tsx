@@ -4,10 +4,10 @@ import { Sidebar, NavTab } from './components/Sidebar';
 import { Device, PhoneLine, Collaborator, DocumentTerm, MovementType, RequestRecord, User } from './types';
 import { dataService } from './services/dataStorage';
 import { authService } from './services/authService';
-import { apiClient, ApiNotification } from './services/apiClient';
+import { apiClient } from './services/apiClient';
 import { LoginView } from './views/LoginView';
 import { canAccessRequests } from './config/requestAccess';
-import { AlertTriangle, CheckCircle2, Info, Menu, X, XCircle } from 'lucide-react';
+import { Menu } from 'lucide-react';
 
 // Views e modais são carregados sob demanda (React.lazy): o bundle inicial fica
 // pequeno e cada tela baixa seu próprio chunk somente quando é aberta.
@@ -76,13 +76,6 @@ const ViewFallback: React.FC = () => (
     <span className="sr-only">Carregando…</span>
   </div>
 );
-
-const notificationVariants = {
-  success: { icon: CheckCircle2, className: 'border-status-success-border bg-status-success-bg text-status-success-fg' },
-  error: { icon: XCircle, className: 'border-status-danger-border bg-status-danger-bg text-status-danger-fg' },
-  warning: { icon: AlertTriangle, className: 'border-status-warning-border bg-status-warning-bg text-status-warning-fg' },
-  info: { icon: Info, className: 'border-status-info-border bg-status-info-bg text-status-info-fg' },
-} as const;
 
 const tabToPath: Record<NavTab, string> = {
   dashboard: '/dashboard',
@@ -165,7 +158,6 @@ export default function App() {
   );
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [apiNotifications, setApiNotifications] = useState<ApiNotification[]>([]);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const handleToggleSidebarCollapse = () => {
@@ -222,31 +214,24 @@ export default function App() {
     return authService.subscribe((user) => setCurrentUser(user));
   }, []);
 
-  // Notificações globais de erros HTTP e indisponibilidade do backend
+  // Token inválido/expirado: encerra a sessão para o usuário autenticar novamente.
+  // A exibição dos toasts ficou no ToastProvider; este efeito preserva apenas a lógica de 401.
   React.useEffect(() => {
     return apiClient.subscribeError((notif) => {
-      // Token inválido/expirado: encerra a sessão para o usuário autenticar novamente
-      if (notif.status === 401 && authService.getCurrentUser()) {
-        if (dataService.getPendingSyncCount() > 0) {
-          if (
-            !window.confirm(
-              `Existem ${dataService.getPendingSyncCount()} gravação(ões) pendente(s) que ainda não foi(ram) confirmada(s) no servidor. ` +
-                'Ao sair, elas serão descartadas. Deseja continuar?'
-            )
-          ) {
-            return;
-          }
-          dataService.clearOutbox();
+      if (notif.status !== 401 || !authService.getCurrentUser()) return;
+      if (dataService.getPendingSyncCount() > 0) {
+        if (
+          !window.confirm(
+            `Existem ${dataService.getPendingSyncCount()} gravação(ões) pendente(s) que ainda não foi(ram) confirmada(s) no servidor. ` +
+              'Ao sair, elas serão descartadas. Deseja continuar?'
+          )
+        ) {
+          return;
         }
-        authService.logout({ revoke: false });
-        setCurrentUser(null);
-        return;
+        dataService.clearOutbox();
       }
-      setApiNotifications((prev) => [notif, ...prev.slice(0, 2)]);
-      const duration = notif.type === 'error' || notif.type === 'warning' ? 7000 : 5000;
-      setTimeout(() => {
-        setApiNotifications((prev) => prev.filter((n) => n.id !== notif.id));
-      }, duration);
+      authService.logout({ revoke: false });
+      setCurrentUser(null);
     });
   }, []);
 
@@ -606,45 +591,6 @@ export default function App() {
           />
         )}
       </React.Suspense>
-
-      {/* Toasts globais: erros HTTP e confirmações de operações (delete, edição, etc.) */}
-      <aside aria-label="Notificações do Sistema" className="fixed bottom-5 right-5 z-50 flex flex-col gap-2.5 max-w-sm w-full pointer-events-none">
-        {apiNotifications.map((notif) => {
-          const variant = notificationVariants[notif.type];
-          const Icon = variant.icon;
-          return (
-            <div
-              key={notif.id}
-              role={notif.type === 'error' || notif.type === 'warning' ? 'alert' : 'status'}
-              className={`pointer-events-auto radius-lg border p-3.5 shadow-lg flex items-start justify-between gap-3 ${variant.className}`}
-            >
-              <div className="flex items-start gap-2.5">
-                <Icon className="w-4 h-4 shrink-0 mt-0.5" />
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <p className="text-xs font-bold leading-tight">{notif.title}</p>
-                    {notif.status ? (
-                      <span className="text-[10px] font-mono px-1.5 py-0.5 radius-base bg-surface-card/70">
-                        HTTP {notif.status}
-                      </span>
-                    ) : null}
-                  </div>
-                  <p className="text-[11px] opacity-90 mt-1 leading-snug">{notif.message}</p>
-                  <span className="text-[9px] opacity-60 block mt-1">{notif.timestamp}</span>
-                </div>
-              </div>
-              <button
-                onClick={() => setApiNotifications((prev) => prev.filter((n) => n.id !== notif.id))}
-                className="shrink-0 cursor-pointer p-1 radius-base hover:bg-surface-card/70"
-                title="Fechar notificação"
-                aria-label="Fechar notificação"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          );
-        })}
-      </aside>
 
       {/* Modal de confirmação de logout */}
       {showLogoutConfirm && (

@@ -7,6 +7,7 @@ import { SearchableOption, SearchableSelect } from '../SearchableSelect'
 import { AlertTriangle } from 'lucide-react'
 import { Button } from '../button'
 import { Badge } from '../badge'
+import { useToast } from '../ToastProvider'
 
 interface DeviceModalProps {
 	isOpen: boolean
@@ -21,6 +22,7 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
 	onSuccess,
 	deviceToEdit,
 }) => {
+	const toast = useToast()
 	const [assetTag, setAssetTag] = useState('')
 	const [brand, setBrand] = useState('')
 	const [model, setModel] = useState('')
@@ -130,10 +132,11 @@ export const DeviceModal: React.FC<DeviceModalProps> = ({
 
 		const res = dataService.saveDevice(payload)
 		if (!res.success) {
-			setErrorMessage(res.message)
+			toast.error(res.message || 'Não foi possível salvar. Tente novamente.')
 			return
 		}
 
+		toast.success(`Dispositivo ${payload.assetTag} ${deviceToEdit ? 'atualizado' : 'criado'}.`)
 		onSuccess()
 		onClose()
 	}

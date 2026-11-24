@@ -29,6 +29,7 @@ import { Badge } from '../components/badge';
 import { DataTable, type DataTableColumn } from '../components/DataTable';
 import { FilterDropdown, FilterField, FilterTrigger } from '../components/FilterDropdown';
 import { RequestDetailsModal } from './RequestsView';
+import { useToast } from '../components/ToastProvider';
 
 const MOVEMENT_FLOWS: { flow: OfficialFlowType; label: string }[] = [
   { flow: 'entrega', label: 'Entrega' },
@@ -50,6 +51,7 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
   currentUser,
   onApproveRequest,
 }) => {
+  const toast = useToast();
   const [movements, setMovements] = useState<Movement[]>(dataService.getMovements());
   const [devices] = useState(() => dataService.getDevices());
   const deviceModelById = new Map(devices.map((device) => [device.id, device.model]));
@@ -125,9 +127,10 @@ export const MovementsView: React.FC<MovementsViewProps> = ({
     const result = await dataService.rejectRequest(requestToReject.id, rejectionReason);
     setIsRejecting(false);
     if (!result.success) {
-      setRequestError(result.message);
+      toast.error(result.message || 'Não foi possível salvar. Tente novamente.');
       return;
     }
+    toast.success(`Solicitação de ${requestToReject.requesterName} recusada.`);
     setPendingRequests((requests) => requests.filter((request) => request.id !== requestToReject.id));
     setRequestToReject(null);
     setRejectionReason('');
